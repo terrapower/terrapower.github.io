@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.reactor.grids &mdash; ARMI 0.1 documentation</title>
+  <title>armi.reactor.grids &mdash; ARMI 0.1.1-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1
+                0.1.1-dev
               </div>
             
           
@@ -177,7 +177,6 @@
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
-
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">This contains structured meshes in multiple geometries and spatial locators (i.e. locations).</span>
 
@@ -231,14 +230,19 @@
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span>
+<span class="kn">import</span> <span class="nn">collections</span>
 
 <span class="kn">import</span> <span class="nn">numpy.linalg</span>
 
 <span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="k">import</span> <span class="n">ASCII_LETTER_A</span><span class="p">,</span> <span class="n">ASCII_ZERO</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">hexagon</span>
 
-
+<span class="c1"># data structure for database-serialization of grids</span>
+<span class="n">GridParameters</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">namedtuple</span><span class="p">(</span>
+    <span class="s2">&quot;GridParameters&quot;</span><span class="p">,</span>
+    <span class="p">(</span><span class="s2">&quot;unitSteps&quot;</span><span class="p">,</span> <span class="s2">&quot;bounds&quot;</span><span class="p">,</span> <span class="s2">&quot;unitStepLimits&quot;</span><span class="p">,</span> <span class="s2">&quot;offset&quot;</span><span class="p">,</span> <span class="s2">&quot;geomType&quot;</span><span class="p">,</span> <span class="s2">&quot;symmetry&quot;</span><span class="p">,),</span>
+<span class="p">)</span>
 <span class="n">TAU</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="mf">2.0</span>
 <span class="n">BOUNDARY_0_DEGREES</span> <span class="o">=</span> <span class="mi">1</span>
 <span class="n">BOUNDARY_60_DEGREES</span> <span class="o">=</span> <span class="mi">2</span>
@@ -532,6 +536,49 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getCompleteIndices</span><span class="p">())</span></div></div>
 
 
+<div class="viewcode-block" id="MultiIndexLocation"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.grids.html#armi.reactor.grids.MultiIndexLocation">[docs]</a><span class="k">class</span> <span class="nc">MultiIndexLocation</span><span class="p">(</span><span class="n">IndexLocation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A collection of index locations that can be used as a spatialLocator.</span>
+
+<span class="sd">    This allows components with multiplicity&gt;1 to have location information</span>
+<span class="sd">    within a parent grid. The implication is that there are multiple</span>
+<span class="sd">    discrete components, each one residing in one of the actual locators</span>
+<span class="sd">    underlying this collection.</span>
+
+<span class="sd">    This class contains an implementation that allows a multi-index</span>
+<span class="sd">    location to be used in the ARMI data model similar to a</span>
+<span class="sd">    individual IndexLocation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+        <span class="n">IndexLocation</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_locations</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_locations</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_locations</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_locations</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_locations</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MultiIndexLocation.getCompleteIndices"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.grids.html#armi.reactor.grids.MultiIndexLocation.getCompleteIndices">[docs]</a>    <span class="k">def</span> <span class="nf">getCompleteIndices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Multi locations cannot do this yet.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MultiIndexLocation.append"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.grids.html#armi.reactor.grids.MultiIndexLocation.append">[docs]</a>    <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">:</span> <span class="n">IndexLocation</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_locations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">location</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MultiIndexLocation.extend"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.grids.html#armi.reactor.grids.MultiIndexLocation.extend">[docs]</a>    <span class="k">def</span> <span class="nf">extend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">locations</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">IndexLocation</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_locations</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">locations</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MultiIndexLocation.pop"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.grids.html#armi.reactor.grids.MultiIndexLocation.pop">[docs]</a>    <span class="k">def</span> <span class="nf">pop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">:</span> <span class="n">IndexLocation</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_locations</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">location</span><span class="p">)</span></div></div>
+
+
 <div class="viewcode-block" id="CoordinateLocation"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.grids.html#armi.reactor.grids.CoordinateLocation">[docs]</a><span class="k">class</span> <span class="nc">CoordinateLocation</span><span class="p">(</span><span class="n">IndexLocation</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A triple representing a point in space.</span>
@@ -669,6 +716,8 @@
         <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
         <span class="n">unitStepLimits</span><span class="o">=</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span>
         <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">geomType</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="n">symmetry</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
         <span class="n">armiObject</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="c1"># these lists contain the indices representing which dimensions for which steps</span>
@@ -704,6 +753,11 @@
         <span class="c1"># True if only contains k-cells.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">isAxialOnly</span> <span class="o">=</span> <span class="n">iLen</span> <span class="o">==</span> <span class="n">jLen</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">kLen</span> <span class="o">&gt;</span> <span class="mi">1</span>
 
+        <span class="c1"># geometric metadata encapsulated here because it&#39;s related to the grid.</span>
+        <span class="c1"># They do not impact the grid object itself.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">geomType</span> <span class="o">=</span> <span class="n">geomType</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span> <span class="o">=</span> <span class="n">symmetry</span>
+
 <div class="viewcode-block" id="Grid.reduce"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.grids.html#armi.reactor.grids.Grid.reduce">[docs]</a>    <span class="k">def</span> <span class="nf">reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the set of arguments used to create this Grid.</span>
@@ -738,7 +792,14 @@
                 <span class="n">unitSteps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
         <span class="n">unitSteps</span> <span class="o">=</span> <span class="n">_tuplify</span><span class="p">(</span><span class="n">unitSteps</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="p">(</span><span class="n">unitSteps</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unitStepLimits</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">GridParameters</span><span class="p">(</span>
+            <span class="n">unitSteps</span><span class="p">,</span>
+            <span class="n">bounds</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_unitStepLimits</span><span class="p">,</span>
+            <span class="n">offset</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">geomType</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
@@ -986,7 +1047,19 @@
         <span class="p">]</span>
         <span class="n">newOffsetX</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_offset</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">xw</span> <span class="o">/</span> <span class="n">xwOld</span>
         <span class="n">newOffsetY</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_offset</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">yw</span> <span class="o">/</span> <span class="n">ywOld</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_offset</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">newOffsetX</span><span class="p">,</span> <span class="n">newOffsetY</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_offset</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">newOffsetX</span><span class="p">,</span> <span class="n">newOffsetY</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">pitch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The pitch of the grid.</span>
+<span class="sd">        </span>
+<span class="sd">        Assumes 2-d unit-step defined (works for cartesian)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pitch</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unitSteps</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unitSteps</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">pitch</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Grid </span><span class="si">{self}</span><span class="s2"> does not have a defined pitch.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pitch</span></div>
 
 
 <div class="viewcode-block" id="HexGrid"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.grids.html#armi.reactor.grids.HexGrid">[docs]</a><span class="k">class</span> <span class="nc">HexGrid</span><span class="p">(</span><span class="n">Grid</span><span class="p">):</span>
@@ -1492,7 +1565,7 @@
     <p>
         &copy; Copyright 2009-2019, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-05.
+        Last updated on 2019-11-15.
       </span>
 
     </p>

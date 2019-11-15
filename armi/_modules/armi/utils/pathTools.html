@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.utils.pathTools &mdash; ARMI 0.1 documentation</title>
+  <title>armi.utils.pathTools &mdash; ARMI 0.1.1-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1
+                0.1.1-dev
               </div>
             
           
@@ -186,6 +186,8 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.context</span> <span class="k">import</span> <span class="n">ROOT</span>
@@ -325,6 +327,106 @@
             <span class="k">return</span> <span class="kc">False</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="getModAndClassFromPath"><a class="viewcode-back" href="../../../.apidocs/armi.utils.pathTools.html#armi.utils.pathTools.getModAndClassFromPath">[docs]</a><span class="k">def</span> <span class="nf">getModAndClassFromPath</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the path to the module specified and the name of the class in the module.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError:</span>
+<span class="sd">        If the path does not exist or</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="separateModuleAndAttribute"><a class="viewcode-back" href="../../../.apidocs/armi.utils.pathTools.html#armi.utils.pathTools.separateModuleAndAttribute">[docs]</a><span class="k">def</span> <span class="nf">separateModuleAndAttribute</span><span class="p">(</span><span class="n">pathAttr</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return True of the specified python module, and attribute of the module exist.</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pathAttr : str</span>
+<span class="sd">        Path to a python module followed by the desired attribute.</span>
+<span class="sd">        e.g.: `/path/to/my/thing.py:MyClass`</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The attribute of the module could be a class, function, variable, etc.</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError:</span>
+<span class="sd">        If there is no `:` separating the path and attr.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># rindex gives last index.</span>
+    <span class="c1"># The last is needed because the first colon index could be mapped drives in windows.</span>
+    <span class="n">lastColonIndex</span> <span class="o">=</span> <span class="n">pathAttr</span><span class="o">.</span><span class="n">rindex</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>  <span class="c1"># this raises a valueError</span>
+    <span class="c1"># there should be at least 1 colon. 2 is possible due to mapped drives in windows.</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">pathAttr</span><span class="p">[:</span><span class="n">lastColonIndex</span><span class="p">]),</span> <span class="n">pathAttr</span><span class="p">[</span><span class="n">lastColonIndex</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:]</span></div>
+
+
+<div class="viewcode-block" id="importCustomPyModule"><a class="viewcode-back" href="../../../.apidocs/armi.utils.pathTools.html#armi.utils.pathTools.importCustomPyModule">[docs]</a><span class="k">def</span> <span class="nf">importCustomPyModule</span><span class="p">(</span><span class="n">modulePath</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Dynamically import a custom module.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    modulePath : str</span>
+<span class="sd">        Path to a python module.</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    userSpecifiedModule : module</span>
+<span class="sd">        The imported python module.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_dir</span><span class="p">,</span> <span class="n">moduleName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">modulePath</span><span class="p">)</span>
+    <span class="n">moduleName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">moduleName</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># take off the extension</span>
+    <span class="n">spec</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">spec_from_file_location</span><span class="p">(</span><span class="n">moduleName</span><span class="p">,</span> <span class="n">modulePath</span><span class="p">)</span>
+    <span class="n">userSpecifiedModule</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">module_from_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
+    <span class="n">spec</span><span class="o">.</span><span class="n">loader</span><span class="o">.</span><span class="n">exec_module</span><span class="p">(</span><span class="n">userSpecifiedModule</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">userSpecifiedModule</span></div>
+
+
+<div class="viewcode-block" id="moduleAndAttributeExist"><a class="viewcode-back" href="../../../.apidocs/armi.utils.pathTools.html#armi.utils.pathTools.moduleAndAttributeExist">[docs]</a><span class="k">def</span> <span class="nf">moduleAndAttributeExist</span><span class="p">(</span><span class="n">pathAttr</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return True if the specified python module, and attribute of the module exist.</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pathAttr : str</span>
+<span class="sd">        Path to a python module followed by the desired attribute.</span>
+<span class="sd">        e.g.: `/path/to/my/thing.py:MyClass`</span>
+<span class="sd">        </span>
+<span class="sd">    Returns </span>
+<span class="sd">    -------</span>
+<span class="sd">    bool </span>
+<span class="sd">        True if the specified python module, and attribute of the module exist.</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The attribute of the module could be a class, function, variable, etc.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">modulePath</span><span class="p">,</span> <span class="n">moduleAttributeName</span> <span class="o">=</span> <span class="n">separateModuleAndAttribute</span><span class="p">(</span><span class="n">pathAttr</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="n">modulePath</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">modulePath</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">modulePath</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">userSpecifiedModule</span> <span class="o">=</span> <span class="n">importCustomPyModule</span><span class="p">(</span><span class="n">modulePath</span><span class="p">)</span>
+    <span class="c1"># Blanket except is okay since we are checking to see if a custom import will work.</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="n">moduleAttributeName</span> <span class="ow">in</span> <span class="n">userSpecifiedModule</span><span class="o">.</span><span class="vm">__dict__</span></div>
 </pre></div>
 
            </div>
@@ -339,7 +441,7 @@
     <p>
         &copy; Copyright 2009-2019, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-05.
+        Last updated on 2019-11-15.
       </span>
 
     </p>

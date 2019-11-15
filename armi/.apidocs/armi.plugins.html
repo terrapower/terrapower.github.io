@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.plugins module &mdash; ARMI 0.1 documentation</title>
+  <title>armi.plugins module &mdash; ARMI 0.1.1-dev documentation</title>
   
 
   
@@ -69,7 +69,7 @@
             
             
               <div class="version">
-                0.1
+                0.1.1-dev
               </div>
             
           
@@ -213,7 +213,7 @@
 <span id="armi-plugins-module"></span><h1>armi.plugins module<a class="headerlink" href="#module-armi.plugins" title="Permalink to this headline">¶</a></h1>
 <p>Plugins allow various built-in or external functionality to be brought into the ARMI ecosystem.</p>
 <p>This module defines the hooks that may be defined within plugins. Plugins are ultimately
-incoporated into a <code class="docutils literal notranslate"><span class="pre">PluginManager</span></code>, which live inside of a <a class="reference internal" href="armi.apps.html#armi.apps.App" title="armi.apps.App"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.apps.App</span></code></a>
+incorporated into a <code class="docutils literal notranslate"><span class="pre">PluginManager</span></code>, which live inside of a <a class="reference internal" href="armi.apps.html#armi.apps.App" title="armi.apps.App"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.apps.App</span></code></a>
 object.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">PluginManager</span></code> is a class provided by the <code class="docutils literal notranslate"><span class="pre">pluggy</span></code> package, which provides a
 registry of known plugins. Rather than create one directly, we use the
@@ -233,6 +233,9 @@ be registered as soon as possible.</p>
 </div>
 <p>Don’t forget to use the keyword argument form for all arguments to hooks; <code class="docutils literal notranslate"><span class="pre">pluggy</span></code>
 requires them to enforce hook specifications.</p>
+<p>The <a class="reference internal" href="armi.apps.html#armi.apps.App" title="armi.apps.App"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.apps.App</span></code></a> class serves as the primary storage location of the
+PluginManager, and also provides some methods to get data out of the plugins more
+ergonomically than through the hooks themselves.</p>
 <p>Some things you may want to bring in via a plugin includes:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="armi.settings.html#module-armi.settings" title="armi.settings"><code class="xref py py-mod docutils literal notranslate"><span class="pre">armi.settings</span></code></a> and their validators</p></li>
@@ -248,9 +251,9 @@ new codes</p></li>
 </ul>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>The plugin system was developed to support improved collaboration.
-It is new and should be considered under development. The API is
-subject to change as the version of the ARMI framework approaches 1.0.</p>
+<p>The plugin system was developed to support improved collaboration.  It is new and should
+be considered under development. The API is subject to change as the version of the ARMI
+framework approaches 1.0.</p>
 </div>
 <div class="admonition-notes admonition">
 <p class="admonition-title">Notes</p>
@@ -271,6 +274,13 @@ much of the class’s behavior through metaclassing. Therefore, we need to be ab
 to import all plugins <em>before</em> importing blueprints.</p></li>
 </ul>
 </div></blockquote>
+<p>Plugins are stateless. They do not have <code class="docutils literal notranslate"><span class="pre">__init__()</span></code> methods, and when they are
+registered with the PluginMagager, the PluginManager gets the Plugin’s class object
+rather than an instance of that class. Also notice that all of the hooks are
+<a href="#id1"><span class="problematic" id="id2">``</span></a>&#64;staticmethod``s. As a result, they can be called directly off of the class object,
+and only have access to the state passed into them to perform their function. This is a
+deliberate design choice to keep the plugin system simple and to preclude a large class
+of potential bugs. At some point it may make sense to revisit this.</p>
 </div>
 <dl class="class">
 <dt id="armi.plugins.ArmiPlugin">
@@ -429,14 +439,14 @@ sections.</p>
 <dd class="field-odd"><p><p>(name, section, resolutionMethod) tuples, where:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>name : The name of the attribute to add to the Blueprints class; this should
-be a valid Python identifier.</p></li>
+<li><p>name : The name of the attribute to add to the Blueprints class; this
+should be a valid Python identifier.</p></li>
 <li><p>section : An instance of <code class="docutils literal notranslate"><span class="pre">yaml.Attribute</span></code> defining the data that is
 described by the Blueprints section.</p></li>
 <li><p>resolutionMethod : A callable that takes a Blueprints object and case
-settings as arguments. This will be called like an unbound instance method on
-the passed Blueprints object to initialize the state of the new Blueprints
-section.</p></li>
+settings as arguments. This will be called like an unbound instance
+method on the passed Blueprints object to initialize the state of the new
+Blueprints section.</p></li>
 </ul>
 </div></blockquote>
 </p>
@@ -477,15 +487,28 @@ serve as a command in the command-line interface.</p>
 <dt id="armi.plugins.ArmiPlugin.defineSettings">
 <em class="property">static </em><code class="sig-name descname">defineSettings</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/plugins.html#ArmiPlugin.defineSettings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.plugins.ArmiPlugin.defineSettings" title="Permalink to this definition">¶</a></dt>
 <dd><p>Define configuration settings for this plugin.</p>
-<p>This hook allows plugins to provide their own configuration settings.</p>
+<p>This hook allows plugins to provide their own configuration settings, which can
+participate in the <code class="xref py py-class docutils literal notranslate"><span class="pre">armi.settings.caseSettings.CaseSettings</span></code>. Plugins
+may provide entirely new settings to what are already provided by ARMI, as well
+as new options or default values for existing settings. For instance, the
+framework provides a <code class="docutils literal notranslate"><span class="pre">neutronicsKernel</span></code> setting for selecting which global
+physics solver to use. Since we wish to enforce that the user specify a valid
+kernel, the settings validator will check to make sure that the user’s requested
+kernel is among the available options. If a plugin were to provide a new
+neutronics kernel (let’s say MCNP), it should also define a new option to tell
+the settings system that <code class="docutils literal notranslate"><span class="pre">&quot;MCNP&quot;</span></code> is a valid option.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>Setting objects associated with this plugin</p>
+<dd class="field-odd"><p>A list of Settings, Options, or Defaults to be registered.</p>
 </dd>
 <dt class="field-even">Return type</dt>
 <dd class="field-even"><p>list</p>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="armi.physics.neutronics.html#armi.physics.neutronics.NeutronicsPlugin.defineSettings" title="armi.physics.neutronics.NeutronicsPlugin.defineSettings"><code class="xref py py-meth docutils literal notranslate"><span class="pre">armi.physics.neutronics.NeutronicsPlugin.defineSettings()</span></code></a>, <a class="reference internal" href="armi.settings.setting2.html#armi.settings.setting2.Setting" title="armi.settings.setting2.Setting"><code class="xref py py-meth docutils literal notranslate"><span class="pre">armi.settings.setting2.Setting()</span></code></a>, <a class="reference internal" href="armi.settings.setting2.html#armi.settings.setting2.Option" title="armi.settings.setting2.Option"><code class="xref py py-meth docutils literal notranslate"><span class="pre">armi.settings.setting2.Option()</span></code></a>, <a class="reference internal" href="armi.settings.setting2.html#armi.settings.setting2.Default" title="armi.settings.setting2.Default"><code class="xref py py-meth docutils literal notranslate"><span class="pre">armi.settings.setting2.Default()</span></code></a></p>
+</div>
 </dd></dl>
 
 <dl class="method">
@@ -596,6 +619,50 @@ list of setting names</p>
 <dd><p>Return an Operator subclass if the runType is recognized by this plugin.</p>
 </dd></dl>
 
+<dl class="method">
+<dt id="armi.plugins.ArmiPlugin.defineParameterRenames">
+<em class="property">static </em><code class="sig-name descname">defineParameterRenames</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/plugins.html#ArmiPlugin.defineParameterRenames"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.plugins.ArmiPlugin.defineParameterRenames" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a mapping from old parameter names to new parameter names.</p>
+<p>Occasionally, it may become necessary to alter the name of an existing
+parameter. This can lead to frustration when attempting to load from old
+database files that use the previous name. This hook allows a plugin to define
+mappings from the old name to the new name, allowing the old database to be read
+in and translated to the new parameter name.</p>
+<p>The following rules are followed when applying these renames:</p>
+<ul class="simple">
+<li><p>When state is loaded from a database, if the parameter name in the database
+file is found in the rename dictionary, it will be mapped to that renamed
+parameter.</p></li>
+<li><p>If the renamed parameter is found in the renames, then it will be mapped again
+to new parameter name. This process is repeated until there are no more
+renames left. This allows for parameters to be renamed multiple times, and for
+a database from several generations prior to still be readable, so long as the
+history of renames is intact.</p></li>
+<li><p>If at the end of the above process, the parameter name is not a defined
+parameter for the appropriate <code class="docutils literal notranslate"><span class="pre">ArmiObject</span></code> type, an exception is raised.</p></li>
+<li><p>If any of the <code class="docutils literal notranslate"><span class="pre">renames</span></code> keys match any currently-defined parameters, an
+exception is raised.</p></li>
+<li><p>If any of the <code class="docutils literal notranslate"><span class="pre">renames</span></code> collide with another plugin’s <code class="docutils literal notranslate"><span class="pre">renames</span></code>, an
+exception is raised.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>renames</strong> – Keys should be an old parameter name, where the corresponding values are
+the new parameter name.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<p>The following would allow databases with values for either <code class="docutils literal notranslate"><span class="pre">superOldParam</span></code> or
+<code class="docutils literal notranslate"><span class="pre">oldParam</span></code> to be read into <code class="docutils literal notranslate"><span class="pre">currentParam</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">return</span> <span class="p">{</span><span class="s2">&quot;superOldParam&quot;</span><span class="p">:</span> <span class="s2">&quot;oldParam&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;oldParam&quot;</span><span class="p">:</span> <span class="s2">&quot;currentParam&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="function">
@@ -654,7 +721,7 @@ the same Blueprints section)</p></li>
     <p>
         &copy; Copyright 2009-2019, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-05.
+        Last updated on 2019-11-15.
       </span>
 
     </p>

@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.plugins &mdash; ARMI 0.1 documentation</title>
+  <title>armi.plugins &mdash; ARMI 0.1.1-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1
+                0.1.1-dev
               </div>
             
           
@@ -180,7 +180,7 @@
 <span class="sd">Plugins allow various built-in or external functionality to be brought into the ARMI ecosystem.</span>
 
 <span class="sd">This module defines the hooks that may be defined within plugins. Plugins are ultimately</span>
-<span class="sd">incoporated into a ``PluginManager``, which live inside of a :py:class:`armi.apps.App`</span>
+<span class="sd">incorporated into a ``PluginManager``, which live inside of a :py:class:`armi.apps.App`</span>
 <span class="sd">object.</span>
 
 <span class="sd">The ``PluginManager`` is a class provided by the ``pluggy`` package, which provides a</span>
@@ -204,7 +204,9 @@
 <span class="sd">Don&#39;t forget to use the keyword argument form for all arguments to hooks; ``pluggy``</span>
 <span class="sd">requires them to enforce hook specifications.</span>
 
-
+<span class="sd">The :py:class:`armi.apps.App` class serves as the primary storage location of the</span>
+<span class="sd">PluginManager, and also provides some methods to get data out of the plugins more</span>
+<span class="sd">ergonomically than through the hooks themselves.</span>
 
 <span class="sd">Some things you may want to bring in via a plugin includes:</span>
 
@@ -221,9 +223,10 @@
 
 <span class="sd">Warning</span>
 <span class="sd">-------</span>
-<span class="sd">The plugin system was developed to support improved collaboration.</span>
-<span class="sd">It is new and should be considered under development. The API is</span>
-<span class="sd">subject to change as the version of the ARMI framework approaches 1.0.</span>
+
+<span class="sd">The plugin system was developed to support improved collaboration.  It is new and should</span>
+<span class="sd">be considered under development. The API is subject to change as the version of the ARMI</span>
+<span class="sd">framework approaches 1.0.</span>
 
 <span class="sd">Notes</span>
 <span class="sd">-----</span>
@@ -243,6 +246,13 @@
 <span class="sd">    much of the class&#39;s behavior through metaclassing. Therefore, we need to be able</span>
 <span class="sd">    to import all plugins *before* importing blueprints.</span>
 
+<span class="sd">Plugins are stateless. They do not have ``__init__()`` methods, and when they are</span>
+<span class="sd">registered with the PluginMagager, the PluginManager gets the Plugin&#39;s class object</span>
+<span class="sd">rather than an instance of that class. Also notice that all of the hooks are</span>
+<span class="sd">``@staticmethod``s. As a result, they can be called directly off of the class object,</span>
+<span class="sd">and only have access to the state passed into them to perform their function. This is a</span>
+<span class="sd">deliberate design choice to keep the plugin system simple and to preclude a large class</span>
+<span class="sd">of potential bugs. At some point it may make sense to revisit this.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Union</span>
 
@@ -415,14 +425,16 @@
 <span class="sd">        list</span>
 <span class="sd">            (name, section, resolutionMethod) tuples, where:</span>
 
-<span class="sd">             - name : The name of the attribute to add to the Blueprints class; this should</span>
-<span class="sd">               be a valid Python identifier.</span>
+<span class="sd">             - name : The name of the attribute to add to the Blueprints class; this</span>
+<span class="sd">               should be a valid Python identifier.</span>
+
 <span class="sd">             - section : An instance of ``yaml.Attribute`` defining the data that is</span>
 <span class="sd">               described by the Blueprints section.</span>
+
 <span class="sd">             - resolutionMethod : A callable that takes a Blueprints object and case</span>
-<span class="sd">               settings as arguments. This will be called like an unbound instance method on</span>
-<span class="sd">               the passed Blueprints object to initialize the state of the new Blueprints</span>
-<span class="sd">               section.</span>
+<span class="sd">               settings as arguments. This will be called like an unbound instance</span>
+<span class="sd">               method on the passed Blueprints object to initialize the state of the new</span>
+<span class="sd">               Blueprints section.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -456,12 +468,28 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Define configuration settings for this plugin.</span>
 
-<span class="sd">        This hook allows plugins to provide their own configuration settings.</span>
+<span class="sd">        This hook allows plugins to provide their own configuration settings, which can</span>
+<span class="sd">        participate in the :py:class:`armi.settings.caseSettings.CaseSettings`. Plugins</span>
+<span class="sd">        may provide entirely new settings to what are already provided by ARMI, as well</span>
+<span class="sd">        as new options or default values for existing settings. For instance, the</span>
+<span class="sd">        framework provides a ``neutronicsKernel`` setting for selecting which global</span>
+<span class="sd">        physics solver to use. Since we wish to enforce that the user specify a valid</span>
+<span class="sd">        kernel, the settings validator will check to make sure that the user&#39;s requested</span>
+<span class="sd">        kernel is among the available options. If a plugin were to provide a new</span>
+<span class="sd">        neutronics kernel (let&#39;s say MCNP), it should also define a new option to tell</span>
+<span class="sd">        the settings system that ``&quot;MCNP&quot;`` is a valid option.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        list</span>
-<span class="sd">            Setting objects associated with this plugin</span>
+<span class="sd">            A list of Settings, Options, or Defaults to be registered.</span>
+
+<span class="sd">        See also</span>
+<span class="sd">        --------</span>
+<span class="sd">        armi.physics.neutronics.NeutronicsPlugin.defineSettings</span>
+<span class="sd">        armi.settings.setting2.Setting</span>
+<span class="sd">        armi.settings.setting2.Option</span>
+<span class="sd">        armi.settings.setting2.Default</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[]</span></div>
@@ -564,7 +592,51 @@
 <div class="viewcode-block" id="ArmiPlugin.getOperatorClassFromRunType"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.ArmiPlugin.getOperatorClassFromRunType">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="nd">@HOOKSPEC</span>
     <span class="k">def</span> <span class="nf">getOperatorClassFromRunType</span><span class="p">(</span><span class="n">runType</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return an Operator subclass if the runType is recognized by this plugin.&quot;&quot;&quot;</span></div></div>
+        <span class="sd">&quot;&quot;&quot;Return an Operator subclass if the runType is recognized by this plugin.&quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="ArmiPlugin.defineParameterRenames"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.ArmiPlugin.defineParameterRenames">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@HOOKSPEC</span>
+    <span class="k">def</span> <span class="nf">defineParameterRenames</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a mapping from old parameter names to new parameter names.</span>
+
+<span class="sd">        Occasionally, it may become necessary to alter the name of an existing</span>
+<span class="sd">        parameter. This can lead to frustration when attempting to load from old</span>
+<span class="sd">        database files that use the previous name. This hook allows a plugin to define</span>
+<span class="sd">        mappings from the old name to the new name, allowing the old database to be read</span>
+<span class="sd">        in and translated to the new parameter name.</span>
+
+<span class="sd">        The following rules are followed when applying these renames:</span>
+
+<span class="sd">        * When state is loaded from a database, if the parameter name in the database</span>
+<span class="sd">          file is found in the rename dictionary, it will be mapped to that renamed</span>
+<span class="sd">          parameter.</span>
+<span class="sd">        * If the renamed parameter is found in the renames, then it will be mapped again</span>
+<span class="sd">          to new parameter name. This process is repeated until there are no more</span>
+<span class="sd">          renames left. This allows for parameters to be renamed multiple times, and for</span>
+<span class="sd">          a database from several generations prior to still be readable, so long as the</span>
+<span class="sd">          history of renames is intact.</span>
+<span class="sd">        * If at the end of the above process, the parameter name is not a defined</span>
+<span class="sd">          parameter for the appropriate ``ArmiObject`` type, an exception is raised.</span>
+<span class="sd">        * If any of the ``renames`` keys match any currently-defined parameters, an</span>
+<span class="sd">          exception is raised.</span>
+<span class="sd">        * If any of the ``renames`` collide with another plugin&#39;s ``renames``, an</span>
+<span class="sd">          exception is raised.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        renames : dict</span>
+<span class="sd">            Keys should be an old parameter name, where the corresponding values are</span>
+<span class="sd">            the new parameter name.</span>
+
+<span class="sd">        Example</span>
+<span class="sd">        -------</span>
+<span class="sd">        The following would allow databases with values for either ``superOldParam`` or</span>
+<span class="sd">        ``oldParam`` to be read into ``currentParam``::</span>
+
+<span class="sd">            return {&quot;superOldParam&quot;: &quot;oldParam&quot;,</span>
+<span class="sd">                    &quot;oldParam&quot;: &quot;currentParam&quot;}</span>
+<span class="sd">        &quot;&quot;&quot;</span></div></div>
 
 
 <div class="viewcode-block" id="getNewPluginManager"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.getNewPluginManager">[docs]</a><span class="k">def</span> <span class="nf">getNewPluginManager</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">pluggy</span><span class="o">.</span><span class="n">PluginManager</span><span class="p">:</span>
@@ -625,7 +697,7 @@
     <p>
         &copy; Copyright 2009-2019, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-05.
+        Last updated on 2019-11-15.
       </span>
 
     </p>

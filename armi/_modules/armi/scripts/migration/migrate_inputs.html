@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.scripts.migration.migrate_inputs &mdash; ARMI 0.1 documentation</title>
+  <title>armi.scripts.migration.migrate_inputs &mdash; ARMI 0.1.1-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1
+                0.1.1-dev
               </div>
             
           
@@ -185,7 +185,6 @@
 
 <span class="kn">import</span> <span class="nn">armi</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">geometry</span>
 <span class="kn">from</span> <span class="nn">armi.settings</span> <span class="k">import</span> <span class="n">caseSettings</span>
 
 <span class="c1"># Order required to populate the parameters.DEFINITIONS</span>
@@ -194,8 +193,6 @@
     <span class="n">blockParameters</span><span class="p">,</span>
     <span class="n">assemblyParameters</span><span class="p">,</span>
 <span class="p">)</span>  <span class="c1"># pylint: disable=unused-import</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">reactors</span><span class="p">,</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">assemblies</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">parameters</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">utils</span>
 
 <span class="n">VALID_PARAMETERS_BY_GROUP</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span>
@@ -236,163 +233,6 @@
         <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;runType&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Snapshots&quot;</span>
 
 
-<div class="viewcode-block" id="migrate_database"><a class="viewcode-back" href="../../../../.apidocs/armi.scripts.migration.migrate_inputs.html#armi.scripts.migration.migrate_inputs.migrate_database">[docs]</a><span class="k">def</span> <span class="nf">migrate_database</span><span class="p">(</span><span class="n">database_path</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Migrate the database to be compatible with the latest ARMI code base.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">database_path</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Database file </span><span class="si">{}</span><span class="s2"> does not exist&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">database_path</span><span class="p">))</span>
-
-    <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Migrating database file: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">database_path</span><span class="p">))</span>
-    <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating SHA-1 hash for original database: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">database_path</span><span class="p">))</span>
-    <span class="n">shaHash</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">getFileSHA1Hash</span><span class="p">(</span><span class="n">database_path</span><span class="p">)</span>
-    <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;    Database: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="s2">&quot;    SHA-1: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">database_path</span><span class="p">,</span> <span class="n">shaHash</span><span class="p">))</span>
-    <span class="n">_remoteFolder</span><span class="p">,</span> <span class="n">remoteDbName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">database_path</span><span class="p">)</span>  <span class="c1"># make new DB locally</span>
-    <span class="n">root</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">remoteDbName</span><span class="p">)</span>
-    <span class="n">newDBName</span> <span class="o">=</span> <span class="n">root</span> <span class="o">+</span> <span class="s2">&quot;_migrated&quot;</span> <span class="o">+</span> <span class="n">ext</span>
-    <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Copying database from </span><span class="si">{}</span><span class="s2"> to </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">database_path</span><span class="p">,</span> <span class="n">newDBName</span><span class="p">))</span>
-    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">newDBName</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">newDB</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">database_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">oldDB</span><span class="p">:</span>
-
-        <span class="n">typeNames</span> <span class="o">=</span> <span class="n">_getTypeNames</span><span class="p">(</span><span class="n">oldDB</span><span class="p">)</span>
-
-        <span class="k">def</span> <span class="nf">closure</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">dataset</span><span class="p">):</span>
-            <span class="n">_copyValidDatasets</span><span class="p">(</span><span class="n">newDB</span><span class="p">,</span> <span class="n">typeNames</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">dataset</span><span class="p">)</span>
-
-        <span class="n">oldDB</span><span class="o">.</span><span class="n">visititems</span><span class="p">(</span><span class="n">closure</span><span class="p">)</span>
-
-        <span class="c1"># Copy all old database attributes to the new database (h5py AttributeManager has no update method)</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">oldDB</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">newDB</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
-
-        <span class="n">newDB</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;original-db-version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">oldDB</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;version&quot;</span><span class="p">]</span>
-        <span class="n">newDB</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;original-db-hash&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">shaHash</span>
-        <span class="n">newDB</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">__version__</span>
-
-        <span class="n">_writeAssemType</span><span class="p">(</span><span class="n">oldDB</span><span class="p">,</span> <span class="n">newDB</span><span class="p">,</span> <span class="n">typeNames</span><span class="p">)</span>
-
-    <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Successfully generated migrated database file: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">newDBName</span><span class="p">))</span></div>
-
-
-<span class="k">def</span> <span class="nf">_copyValidDatasets</span><span class="p">(</span><span class="n">newDB</span><span class="p">,</span> <span class="n">typeNames</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">dataset</span><span class="p">):</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Skipping Group </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dataset</span><span class="p">))</span>
-        <span class="k">return</span>
-
-    <span class="k">elif</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;StringMappings&quot;</span><span class="p">):</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Skipping dataset </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dataset</span><span class="p">))</span>
-        <span class="k">return</span>
-
-    <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Visiting Dataset </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># &#39;0/blocks/nNa&#39; -&gt; _node = &#39;0&#39;, paramType = &#39;blocks&#39;, paramName = &#39;nNa&#39;</span>
-        <span class="n">node</span><span class="p">,</span> <span class="n">paramType</span><span class="p">,</span> <span class="n">paramName</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
-        <span class="n">validParameters</span> <span class="o">=</span> <span class="n">VALID_PARAMETERS_BY_GROUP</span><span class="p">[</span><span class="n">paramType</span><span class="p">]</span>
-
-        <span class="k">if</span> <span class="n">validParameters</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Unexpected entry in database `</span><span class="si">{}</span><span class="s2">` being copied.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-            <span class="p">)</span>
-
-        <span class="k">elif</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">RENAMES</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-                <span class="s2">&quot;Renaming `</span><span class="si">{}</span><span class="s2">` -&gt; `</span><span class="si">{}</span><span class="s2">`.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="n">paramName</span><span class="p">,</span> <span class="n">parameters</span><span class="o">.</span><span class="n">RENAMES</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">paramName</span> <span class="o">=</span> <span class="n">parameters</span><span class="o">.</span><span class="n">RENAMES</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
-
-        <span class="k">elif</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;typeNumBlock&quot;</span><span class="p">}:</span>
-            <span class="n">newName</span> <span class="o">=</span> <span class="s2">&quot;type&quot;</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Renaming `</span><span class="si">{}</span><span class="s2">` -&gt; `</span><span class="si">{}</span><span class="s2">`.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">paramName</span><span class="p">,</span> <span class="n">newName</span><span class="p">))</span>
-            <span class="n">newDB</span><span class="p">[</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">paramType</span><span class="p">,</span> <span class="n">newName</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">typeNames</span><span class="p">[</span><span class="n">paramName</span><span class="p">][</span><span class="n">oldVal</span><span class="p">]</span> <span class="k">for</span> <span class="n">oldVal</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">value</span><span class="p">[:]</span>
-            <span class="p">]</span>
-            <span class="k">return</span>
-
-        <span class="k">elif</span> <span class="n">paramName</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">validParameters</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Invalid Parameter </span><span class="si">{}</span><span class="s2"> in the Database. Deleting Parameter `</span><span class="si">{}</span><span class="s2">` from Dataset `</span><span class="si">{}</span><span class="s2">`&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="n">paramName</span><span class="p">,</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">dataset</span><span class="o">.</span><span class="n">name</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
-            <span class="k">return</span>
-
-        <span class="n">newDB</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">paramType</span><span class="p">,</span> <span class="n">paramName</span><span class="p">))</span>
-    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-        <span class="c1"># Skip checking for an invalid parameter if the structure is not correct (i.e., not length 3)</span>
-        <span class="n">newDB</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">dataset</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-
-
-<span class="k">def</span> <span class="nf">_getTypeNames</span><span class="p">(</span><span class="n">oldDB</span><span class="p">):</span>
-    <span class="k">if</span> <span class="s2">&quot;StringMappings&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">oldDB</span><span class="p">:</span>
-        <span class="k">return</span>
-
-    <span class="n">index</span> <span class="o">=</span> <span class="n">oldDB</span><span class="p">[</span><span class="s2">&quot;StringMappings/Classifier&quot;</span><span class="p">][:]</span>
-    <span class="n">assemIndices</span> <span class="o">=</span> <span class="n">index</span> <span class="o">==</span> <span class="s2">&quot;AN&quot;</span>
-    <span class="n">blockIndices</span> <span class="o">=</span> <span class="n">index</span> <span class="o">==</span> <span class="s2">&quot;BN&quot;</span>
-
-    <span class="n">values</span> <span class="o">=</span> <span class="n">oldDB</span><span class="p">[</span><span class="s2">&quot;StringMappings/Val&quot;</span><span class="p">][:]</span>
-    <span class="n">strings</span> <span class="o">=</span> <span class="n">oldDB</span><span class="p">[</span><span class="s2">&quot;StringMappings/String&quot;</span><span class="p">][:]</span>
-
-    <span class="n">typeNames</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="n">typeNames</span><span class="p">[</span><span class="s2">&quot;typeNumAssem&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">assemIndices</span><span class="p">],</span> <span class="n">strings</span><span class="p">[</span><span class="n">assemIndices</span><span class="p">]))</span>
-    <span class="n">typeNames</span><span class="p">[</span><span class="s2">&quot;typeNumBlock&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">blockIndices</span><span class="p">],</span> <span class="n">strings</span><span class="p">[</span><span class="n">blockIndices</span><span class="p">]))</span>
-
-    <span class="k">return</span> <span class="n">typeNames</span>
-
-
-<span class="k">def</span> <span class="nf">_writeAssemType</span><span class="p">(</span><span class="n">oldDB</span><span class="p">,</span> <span class="n">newDB</span><span class="p">,</span> <span class="n">typeNames</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Write TN/assemblies/type strings and TN/reactors/symmetry.</span>
-
-<span class="sd">    assemblies/assemType was not a thing, need to find the blocks/assemTypeNum and map back to assemblies/type.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="s2">&quot;Materials&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">oldDB</span><span class="p">:</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-            <span class="s2">&quot;oldDB does not have a /Materials group, assuming assembly type set properly&quot;</span>
-        <span class="p">)</span>
-        <span class="k">return</span>
-
-    <span class="n">ringPosToBlockIndex</span> <span class="o">=</span> <span class="p">{}</span>
-
-    <span class="k">for</span> <span class="n">blockIndex</span><span class="p">,</span> <span class="n">locationUniqueInt</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">oldDB</span><span class="p">[</span><span class="s2">&quot;Materials/Material&quot;</span><span class="p">][:]):</span>
-        <span class="c1"># block data is in a constant order, defined by Materials/Material which is an old-style location string</span>
-        <span class="n">uniqueIntAsString</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{:9d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">locationUniqueInt</span><span class="p">)</span>
-        <span class="n">ring</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">uniqueIntAsString</span><span class="p">[:</span><span class="o">-</span><span class="mi">5</span><span class="p">])</span>
-        <span class="n">pos</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">uniqueIntAsString</span><span class="p">[</span><span class="o">-</span><span class="mi">5</span><span class="p">:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
-        <span class="n">axial</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">uniqueIntAsString</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:])</span>
-
-        <span class="k">if</span> <span class="n">axial</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># assume the bottom is grid plate and might have incorrect type</span>
-            <span class="n">ringPosToBlockIndex</span><span class="p">[(</span><span class="n">ring</span><span class="p">,</span> <span class="n">pos</span><span class="p">)]</span> <span class="o">=</span> <span class="n">blockIndex</span>
-
-    <span class="k">for</span> <span class="n">timestep</span> <span class="ow">in</span> <span class="p">(</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">newDB</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^\d+$&quot;</span><span class="p">,</span> <span class="n">k</span><span class="p">)):</span>
-        <span class="n">rings</span> <span class="o">=</span> <span class="n">newDB</span><span class="p">[</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/assemblies/Ring&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">timestep</span><span class="p">)][:]</span>
-        <span class="n">positions</span> <span class="o">=</span> <span class="n">newDB</span><span class="p">[</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/assemblies/Pos&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">timestep</span><span class="p">)][:]</span>
-        <span class="n">assemTypes</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="c1"># so, we could use newDB[&#39;{}/blocks/assemType&#39;], which would be more direct, but computing from the original may</span>
-        <span class="c1"># be more forward compatible in that there may not be a need for blocks to have assemType in the future</span>
-        <span class="n">blockTypeNums</span> <span class="o">=</span> <span class="n">oldDB</span><span class="p">[</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/blocks/typeNumAssem&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">timestep</span><span class="p">)][:]</span>
-        <span class="n">fullCore</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">for</span> <span class="n">ring</span><span class="p">,</span> <span class="n">pos</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">rings</span><span class="p">,</span> <span class="n">positions</span><span class="p">):</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">ring</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
-                <span class="n">fullCore</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="n">assemTypes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="n">typeNames</span><span class="p">[</span><span class="s2">&quot;typeNumAssem&quot;</span><span class="p">][</span><span class="n">blockTypeNums</span><span class="p">[</span><span class="n">ringPosToBlockIndex</span><span class="p">[</span><span class="n">ring</span><span class="p">,</span> <span class="n">pos</span><span class="p">]]]</span>
-            <span class="p">)</span>
-
-        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;writing </span><span class="si">{}</span><span class="s2">/assemblies/type&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">timestep</span><span class="p">))</span>
-        <span class="n">newDB</span><span class="p">[</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/assemblies/type&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">timestep</span><span class="p">)]</span> <span class="o">=</span> <span class="n">assemTypes</span>
-
-        <span class="c1"># dynamically determining the symmetry is a bit awkward, since we have no way to know what the boundary</span>
-        <span class="c1"># condition was without the original inputs (presumably they exist...)</span>
-        <span class="n">symmetry</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">geometry</span><span class="o">.</span><span class="n">FULL_CORE</span> <span class="k">if</span> <span class="n">fullCore</span> <span class="k">else</span> <span class="n">geometry</span><span class="o">.</span><span class="n">THIRD_CORE</span> <span class="o">+</span> <span class="n">geometry</span><span class="o">.</span><span class="n">PERIODIC</span>
-        <span class="p">)</span>
-        <span class="n">newDB</span><span class="p">[</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/reactors/symmetry&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">timestep</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">symmetry</span><span class="p">]</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">&quot;Determined </span><span class="si">{}</span><span class="s2">/reactors/symmetry to be `</span><span class="si">{}</span><span class="s2">`.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">timestep</span><span class="p">,</span> <span class="n">symmetry</span><span class="p">)</span>
-        <span class="p">)</span>
-
-
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
         <span class="s2">&quot;Run migration script through the ARMI migrate input entry point.</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -413,7 +253,7 @@
     <p>
         &copy; Copyright 2009-2019, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-05.
+        Last updated on 2019-11-15.
       </span>
 
     </p>

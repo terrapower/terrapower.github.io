@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.bookkeeping.db.database3 &mdash; ARMI 0.1 documentation</title>
+  <title>armi.bookkeeping.db.database3 &mdash; ARMI 0.1.1-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1
+                0.1.1-dev
               </div>
             
           
@@ -202,6 +202,7 @@
 <span class="sd">Reactor Model to the flat representation in the database.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">io</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">os</span>
@@ -215,11 +216,9 @@
     <span class="n">Dict</span><span class="p">,</span>
     <span class="n">Any</span><span class="p">,</span>
     <span class="n">List</span><span class="p">,</span>
-    <span class="n">Union</span><span class="p">,</span>
     <span class="n">Sequence</span><span class="p">,</span>
     <span class="n">MutableSequence</span><span class="p">,</span>
     <span class="n">Generator</span><span class="p">,</span>
-    <span class="n">Type</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
@@ -237,13 +236,14 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.assemblies</span> <span class="k">import</span> <span class="n">Assembly</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.blocks</span> <span class="k">import</span> <span class="n">Block</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.components</span> <span class="k">import</span> <span class="n">Component</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.composites</span> <span class="k">import</span> <span class="n">ArmiObject</span><span class="p">,</span> <span class="n">Composite</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.composites</span> <span class="k">import</span> <span class="n">ArmiObject</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">grids</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">operators</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.db.types</span> <span class="k">import</span> <span class="n">History</span><span class="p">,</span> <span class="n">Histories</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.db</span> <span class="k">import</span> <span class="n">database</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">geometry</span>
 
 <span class="n">ORDER</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">BOOKKEEPING</span>
+<span class="n">DB_VERSION</span> <span class="o">=</span> <span class="s2">&quot;3.1&quot;</span>
 
 
 <div class="viewcode-block" id="getH5GroupName"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.getH5GroupName">[docs]</a><span class="k">def</span> <span class="nf">getH5GroupName</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">,</span> <span class="n">statePointName</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -296,11 +296,11 @@
 <div class="viewcode-block" id="DatabaseInterface.initDB"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.DatabaseInterface.initDB">[docs]</a>    <span class="k">def</span> <span class="nf">initDB</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Open the underlying database to be written to, and write input files to DB.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        Main Interface calls this so that the database is available as early as </span>
-<span class="sd">        possible in the run. The database interface interacts near the end of the </span>
+<span class="sd">        Main Interface calls this so that the database is available as early as</span>
+<span class="sd">        possible in the run. The database interface interacts near the end of the</span>
 <span class="sd">        interface stack (so that all the parameters have been updated) while the Main</span>
 <span class="sd">        Interface interacts first.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -318,11 +318,14 @@
         <span class="c1"># There&#39;s not always a geomFile; sometimes geom is brought in via systems.</span>
         <span class="c1"># Eventually, we&#39;ll need to store multiple of these (one for each system).</span>
         <span class="c1"># Just do core for now.</span>
-        <span class="n">geomFileName</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">latticeFile</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span><span class="p">),</span> <span class="n">geomFileName</span><span class="p">),</span> <span class="s2">&quot;r&quot;</span>
-        <span class="p">)</span> <span class="k">as</span> <span class="n">fileStream</span><span class="p">:</span>
-            <span class="n">geomString</span> <span class="o">=</span> <span class="n">fileStream</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">geomFileName</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">latticeFile</span>
+        <span class="k">if</span> <span class="n">geomFileName</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span><span class="p">),</span> <span class="n">geomFileName</span><span class="p">),</span> <span class="s2">&quot;r&quot;</span>
+            <span class="p">)</span> <span class="k">as</span> <span class="n">fileStream</span><span class="p">:</span>
+                <span class="n">geomString</span> <span class="o">=</span> <span class="n">fileStream</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">geomString</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">writeInputsToDB</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">geomString</span><span class="o">=</span><span class="n">geomString</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="DatabaseInterface.interactEveryNode"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.DatabaseInterface.interactEveryNode">[docs]</a>    <span class="k">def</span> <span class="nf">interactEveryNode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
@@ -398,7 +401,7 @@
     <span class="k">def</span> <span class="nf">_getLoadDB</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fileName</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the database to load from in order of preference.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        If filename is present only returns one database since specifically instructed</span>
@@ -421,27 +424,25 @@
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Loads a fresh reactor and applies it to the Operator.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        timeStepName is not currently supportred by database load.</span>
 <span class="sd">        Will load preferentially from the `fileName` if passed. Otherwise will load from</span>
 <span class="sd">        existing database in memory or `cs[&quot;reloadDBName&quot;]` in that order.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        RuntimeError</span>
 <span class="sd">            If fileName is specified and that  file does not have the time step.</span>
-<span class="sd">            If fileName is not specified and neither the database in memory, nor the </span>
+<span class="sd">            If fileName is not specified and neither the database in memory, nor the</span>
 <span class="sd">            `cs[&quot;reloadDBName&quot;]` have the time step specified.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">for</span> <span class="n">potentialDatabase</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getLoadDB</span><span class="p">(</span><span class="n">fileName</span><span class="p">):</span>
             <span class="k">with</span> <span class="n">potentialDatabase</span> <span class="k">as</span> <span class="n">loadDB</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">loadDB</span><span class="o">.</span><span class="n">hasTimeStep</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">,</span> <span class="n">statePointName</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
-                    <span class="n">newR</span> <span class="o">=</span> <span class="n">loadDB</span><span class="o">.</span><span class="n">load</span><span class="p">(</span>
-                        <span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">geom</span>
-                    <span class="p">)</span>
+                    <span class="n">newR</span> <span class="o">=</span> <span class="n">loadDB</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="p">)</span>
                     <span class="k">break</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># reactor was never set so fail</span>
@@ -548,7 +549,7 @@
 <span class="sd">    `doc/user/outputs/database` for more details.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">version</span> <span class="o">=</span> <span class="s2">&quot;3&quot;</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="n">DB_VERSION</span>
 
     <span class="n">timeNodeGroupPattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^c(\d\d)n(\d\d)$&quot;</span><span class="p">)</span>
 
@@ -611,7 +612,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filePath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_permission</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;successfulCompletion&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">__version__</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;databaseVersion&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;3&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;databaseVersion&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DB_VERSION</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;user&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">USER</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;armiLocation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">armi</span><span class="o">.</span><span class="n">ROOT</span><span class="p">)</span>
@@ -621,13 +622,6 @@
 <div class="viewcode-block" id="Database3.close"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">completedSuccessfully</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Close the DB and perform cleanups and auto-conversions.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        Visualization tools like XTVIEW are still using DB format 2, so this</span>
-<span class="sd">        will (for now) auto-generate a full XTVIEW-compatible database</span>
-<span class="sd">        upon closing. It does this here because, in remote runs, this is where</span>
-<span class="sd">        the I/O is fastest.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_openCount</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -642,41 +636,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_permission</span> <span class="o">==</span> <span class="s2">&quot;w&quot;</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_autoConvertDBToXTVIEW</span><span class="p">()</span>
-            <span class="k">except</span><span class="p">:</span>  <span class="c1"># pylint: disable=bare-except; never sacrifice the main DB</span>
-                <span class="k">pass</span>
             <span class="c1"># move out of the FAST_PATH and into the working directory</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fullPath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fileName</span><span class="p">)</span></div>
-
-    <span class="k">def</span> <span class="nf">_autoConvertDBToXTVIEW</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Make auto-conversion of DB to visualizable XTVIEW format.</span>
-
-<span class="sd">        This is a non-trivial operation that should be removed</span>
-<span class="sd">        when XTVIEW can read the Version 3 database.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">armi.bookkeeping.db</span> <span class="k">import</span> <span class="n">convertDatabase</span>
-
-        <span class="n">name</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fileName</span><span class="p">)</span>
-        <span class="n">xtname</span> <span class="o">=</span> <span class="n">f</span><span class="s2">&quot;</span><span class="si">{name}</span><span class="s2">-xtview</span><span class="si">{ext}</span><span class="s2">&quot;</span>
-        <span class="n">xtpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">armi</span><span class="o">.</span><span class="n">FAST_PATH</span><span class="p">,</span> <span class="n">xtname</span><span class="p">)</span>
-        <span class="c1"># master cs issues: See T2330.</span>
-        <span class="c1"># Here, the cs becomes invalid if we continue with an operator</span>
-        <span class="c1"># after performing a DB conversion.</span>
-        <span class="n">masterCs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">getMasterCs</span><span class="p">()</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">convertDatabase</span><span class="p">(</span>
-                <span class="n">inputDBName</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_fullPath</span><span class="p">,</span> <span class="n">outputDBName</span><span class="o">=</span><span class="n">xtpath</span><span class="p">,</span> <span class="n">outputVersion</span><span class="o">=</span><span class="s2">&quot;2&quot;</span>
-            <span class="p">)</span>
-            <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">xtpath</span><span class="p">,</span> <span class="n">xtname</span><span class="p">)</span>
-        <span class="k">except</span><span class="p">:</span>
-            <span class="c1"># fail silently on this convenience. Sometimes (in tests)</span>
-            <span class="c1"># the DB isn&#39;t actually written even when it&#39;s opened.</span>
-            <span class="k">pass</span>
-        <span class="k">finally</span><span class="p">:</span>
-            <span class="c1"># Always restore master cs to stay consistent, even in failures</span>
-            <span class="n">settings</span><span class="o">.</span><span class="n">setMasterCs</span><span class="p">(</span><span class="n">masterCs</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Database3.splitDatabase"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.splitDatabase">[docs]</a>    <span class="k">def</span> <span class="nf">splitDatabase</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">keepTimeSteps</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span>
@@ -762,20 +723,18 @@
 
         <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()</span>
         <span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fileName</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">cs</span><span class="o">.</span><span class="n">loadFromString</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/settings&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">cs</span><span class="o">.</span><span class="n">loadFromString</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/settings&quot;</span><span class="p">][()])</span>
         <span class="k">return</span> <span class="n">cs</span></div>
 
 <div class="viewcode-block" id="Database3.loadBlueprints"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.loadBlueprints">[docs]</a>    <span class="k">def</span> <span class="nf">loadBlueprints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">blueprints</span>
 
-        <span class="n">bp</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">bp</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">][()])</span>
         <span class="k">return</span> <span class="n">bp</span></div>
 
 <div class="viewcode-block" id="Database3.loadGeometry"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.loadGeometry">[docs]</a>    <span class="k">def</span> <span class="nf">loadGeometry</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">geometry</span>
-
         <span class="n">geom</span> <span class="o">=</span> <span class="n">geometry</span><span class="o">.</span><span class="n">SystemLayoutInput</span><span class="p">()</span>
-        <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromStream</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/geomFile&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+        <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromStream</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/geomFile&quot;</span><span class="p">][()]))</span>
         <span class="k">return</span> <span class="n">geom</span></div>
 
 <div class="viewcode-block" id="Database3.writeInputsToDB"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.writeInputsToDB">[docs]</a>    <span class="k">def</span> <span class="nf">writeInputsToDB</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">csString</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">geomString</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bpString</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -818,9 +777,9 @@
 
 <div class="viewcode-block" id="Database3.readInputsFromDB"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.readInputsFromDB">[docs]</a>    <span class="k">def</span> <span class="nf">readInputsFromDB</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/settings&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/geomFile&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/settings&quot;</span><span class="p">][()],</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/geomFile&quot;</span><span class="p">][()],</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">][()],</span>
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="Database3.mergeHistory"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.mergeHistory">[docs]</a>    <span class="k">def</span> <span class="nf">mergeHistory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputDB</span><span class="p">,</span> <span class="n">startCycle</span><span class="p">,</span> <span class="n">startNode</span><span class="p">):</span>
@@ -947,7 +906,7 @@
         <span class="k">for</span> <span class="n">comps</span> <span class="ow">in</span> <span class="n">groupedComps</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_writeParams</span><span class="p">(</span><span class="n">h5group</span><span class="p">,</span> <span class="n">comps</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Database3.load"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">geom</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Database3.load"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Load a new reactor from (cycle, node).</span>
 
 <span class="sd">        Case settings, blueprints, and geom can be provided by the client, or read from</span>
@@ -966,8 +925,6 @@
 <span class="sd">            if not provided one is read from the database</span>
 <span class="sd">        bp : armi.reactor.Blueprints (Optional)</span>
 <span class="sd">            if not provided one is read from the database</span>
-<span class="sd">        geom : armi.geometry.Geometry (Optional)</span>
-<span class="sd">            if not provided one is read from the database</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading reactor state for time node (</span><span class="si">{}</span><span class="s2">, </span><span class="si">{}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">))</span>
 
@@ -975,14 +932,11 @@
         <span class="c1"># apply to avoid defaults in getMasterCs calls</span>
         <span class="n">settings</span><span class="o">.</span><span class="n">setMasterCs</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
         <span class="n">bp</span> <span class="o">=</span> <span class="n">bp</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">loadBlueprints</span><span class="p">()</span>
-        <span class="n">geom</span> <span class="o">=</span> <span class="n">geom</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">loadGeometry</span><span class="p">()</span>
 
-        <span class="n">comps</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">groupedComps</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
         <span class="n">h5group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="n">getH5GroupName</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">)]</span>
 
         <span class="n">layout</span> <span class="o">=</span> <span class="n">Layout</span><span class="p">(</span><span class="n">h5group</span><span class="o">=</span><span class="n">h5group</span><span class="p">)</span>
-        <span class="n">comps</span><span class="p">,</span> <span class="n">groupedComps</span> <span class="o">=</span> <span class="n">layout</span><span class="o">.</span><span class="n">_initComps</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">,</span> <span class="n">geom</span><span class="p">)</span>
+        <span class="n">comps</span><span class="p">,</span> <span class="n">groupedComps</span> <span class="o">=</span> <span class="n">layout</span><span class="o">.</span><span class="n">_initComps</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
 
         <span class="c1"># populate data onto initialized components</span>
         <span class="k">for</span> <span class="n">compType</span><span class="p">,</span> <span class="n">compTypeList</span> <span class="ow">in</span> <span class="n">groupedComps</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -1000,8 +954,6 @@
 
         <span class="c1"># stitch together</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_compose</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">comps</span><span class="p">),</span> <span class="n">cs</span><span class="p">)</span>
-
-        <span class="n">rootComponent</span> <span class="o">=</span> <span class="n">comps</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="c1"># also, make sure to update the global serial number so we don&#39;t re-use a number</span>
         <span class="n">parameterCollections</span><span class="o">.</span><span class="n">GLOBAL_SERIAL_NUM</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
@@ -1048,14 +1000,7 @@
             <span class="n">comp</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">spontaneousChild</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="n">Core</span><span class="p">):</span>
-            <span class="c1"># TODO: This is questionable, and an artifact of how we deal with the geom</span>
-            <span class="c1"># objects. There is a &quot;the&quot; geom object for the reactor core, and other</span>
-            <span class="c1"># geoms, which are specified in the blueprints for other Core objects. We</span>
-            <span class="c1"># are only storing the main geom object input in the db, and using that to</span>
-            <span class="c1"># make all Core objects in their __init__() calls. So we need to override</span>
-            <span class="c1"># these, which are derived from the main geom.</span>
-            <span class="n">comp</span><span class="o">.</span><span class="n">_symmetry</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">symmetry</span>
-            <span class="n">comp</span><span class="o">.</span><span class="n">geomType</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">geomType</span>
+            <span class="k">pass</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="n">Assembly</span><span class="p">):</span>
             <span class="c1"># Assemblies force their name to be something based on assemNum. When the</span>
             <span class="c1"># assembly is created it gets a new assemNum, and throws out the correct</span>
@@ -1200,8 +1145,15 @@
     <span class="k">def</span> <span class="nf">_readParams</span><span class="p">(</span><span class="n">h5group</span><span class="p">,</span> <span class="n">compTypeName</span><span class="p">,</span> <span class="n">comps</span><span class="p">):</span>
         <span class="n">g</span> <span class="o">=</span> <span class="n">h5group</span><span class="p">[</span><span class="n">compTypeName</span><span class="p">]</span>
 
+        <span class="n">renames</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">getApp</span><span class="p">()</span><span class="o">.</span><span class="n">getParamRenames</span><span class="p">()</span>
+
         <span class="c1"># this can also be made faster by specializing the method by type</span>
         <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">dataSet</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Honor historical databases where the parameters may have changed names</span>
+            <span class="c1"># since.</span>
+            <span class="k">while</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">renames</span><span class="p">:</span>
+                <span class="n">paramName</span> <span class="o">=</span> <span class="n">renames</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
+
             <span class="n">data</span> <span class="o">=</span> <span class="n">dataSet</span><span class="p">[:]</span>
             <span class="n">attrs</span> <span class="o">=</span> <span class="n">_resolveAttrs</span><span class="p">(</span><span class="n">dataSet</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span> <span class="n">h5group</span><span class="p">)</span>
 
@@ -1219,10 +1171,17 @@
             <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">linkedDim</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">zip_longest</span><span class="p">(</span>
                 <span class="n">comps</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">linkedDims</span><span class="p">,</span> <span class="n">fillvalue</span><span class="o">=</span><span class="s2">&quot;&quot;</span>
             <span class="p">):</span>
-                <span class="k">if</span> <span class="n">linkedDim</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
-                    <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">linkedDim</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">linkedDim</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+                        <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">linkedDim</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="k">except</span> <span class="ne">AssertionError</span> <span class="k">as</span> <span class="n">ae</span><span class="p">:</span>
+                    <span class="c1"># happens when a param was deprecated but being loaded from old DB</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="n">f</span><span class="s2">&quot;{str(ae)}</span><span class="se">\n</span><span class="s2">Skipping load of invalid param `</span><span class="si">{paramName}</span><span class="s2">`&quot;</span>
+                        <span class="s2">&quot; (possibly loading from old DB)</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
 
 <div class="viewcode-block" id="Database3.getHistory"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.getHistory">[docs]</a>    <span class="k">def</span> <span class="nf">getHistory</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1330,6 +1289,7 @@
                 <span class="c1"># differences.</span>
                 <span class="c1"># 1) we are not assigning to p[paramName]</span>
                 <span class="c1"># 2) not using linkedDims at all</span>
+                <span class="c1"># 3) not performing parameter renaming. This may become necessary</span>
                 <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">params</span> <span class="ow">or</span> <span class="n">h5GroupForType</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                     <span class="k">if</span> <span class="n">paramName</span> <span class="o">==</span> <span class="s2">&quot;location&quot;</span><span class="p">:</span>
                         <span class="c1"># cast to a numpy array so that we can use list indices</span>
@@ -1421,7 +1381,7 @@
         <span class="c1"># set of grid parameters that have been seen in _createLayout. For efficient</span>
         <span class="c1"># checks for uniqueness</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_seenGridParams</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="c1"># actual list of grid paramters, with stable order for safe indexing</span>
+        <span class="c1"># actual list of grid parameters, with stable order for safe indexing</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gridParams</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">groupedComps</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
@@ -1524,7 +1484,6 @@
             <span class="p">)</span>
 
             <span class="n">gridGroup</span> <span class="o">=</span> <span class="n">h5group</span><span class="p">[</span><span class="s2">&quot;layout/grids&quot;</span><span class="p">]</span>
-            <span class="n">nGrids</span> <span class="o">=</span> <span class="n">gridGroup</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;nGrids&quot;</span><span class="p">]</span>
             <span class="n">gridTypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">gridGroup</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">][:]]</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">gridParams</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1541,9 +1500,25 @@
                         <span class="n">bounds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
                 <span class="n">unitStepLimits</span> <span class="o">=</span> <span class="n">thisGroup</span><span class="p">[</span><span class="s2">&quot;unitStepLimits&quot;</span><span class="p">][:]</span>
                 <span class="n">offset</span> <span class="o">=</span> <span class="n">thisGroup</span><span class="p">[</span><span class="s2">&quot;offset&quot;</span><span class="p">][:]</span> <span class="k">if</span> <span class="n">thisGroup</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;offset&quot;</span><span class="p">]</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="n">geomType</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">thisGroup</span><span class="p">[</span><span class="s2">&quot;geomType&quot;</span><span class="p">][()]</span> <span class="k">if</span> <span class="s2">&quot;geomType&quot;</span> <span class="ow">in</span> <span class="n">thisGroup</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">)</span>
+                <span class="n">symmetry</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">thisGroup</span><span class="p">[</span><span class="s2">&quot;symmetry&quot;</span><span class="p">][()]</span> <span class="k">if</span> <span class="s2">&quot;symmetry&quot;</span> <span class="ow">in</span> <span class="n">thisGroup</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">)</span>
 
                 <span class="bp">self</span><span class="o">.</span><span class="n">gridParams</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="p">(</span><span class="n">gridType</span><span class="p">,</span> <span class="p">(</span><span class="n">unitSteps</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">unitStepLimits</span><span class="p">,</span> <span class="n">offset</span><span class="p">))</span>
+                    <span class="p">(</span>
+                        <span class="n">gridType</span><span class="p">,</span>
+                        <span class="n">grids</span><span class="o">.</span><span class="n">GridParameters</span><span class="p">(</span>
+                            <span class="n">unitSteps</span><span class="p">,</span>
+                            <span class="n">bounds</span><span class="p">,</span>
+                            <span class="n">unitStepLimits</span><span class="p">,</span>
+                            <span class="n">offset</span><span class="p">,</span>
+                            <span class="n">geomType</span><span class="p">,</span>
+                            <span class="n">symmetry</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
                 <span class="p">)</span>
 
         <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -1552,7 +1527,7 @@
             <span class="p">)</span>
             <span class="k">raise</span> <span class="n">e</span>
 
-    <span class="k">def</span> <span class="nf">_initComps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">,</span> <span class="n">geom</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_initComps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">):</span>
         <span class="n">comps</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">groupedComps</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
 
@@ -1583,7 +1558,7 @@
             <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">Klass</span><span class="p">,</span> <span class="n">Reactor</span><span class="p">):</span>
                 <span class="n">comp</span> <span class="o">=</span> <span class="n">Klass</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
             <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">Klass</span><span class="p">,</span> <span class="n">Core</span><span class="p">):</span>
-                <span class="n">comp</span> <span class="o">=</span> <span class="n">Klass</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">geom</span><span class="p">)</span>
+                <span class="n">comp</span> <span class="o">=</span> <span class="n">Klass</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
             <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">Klass</span><span class="p">,</span> <span class="n">Component</span><span class="p">):</span>
                 <span class="c1"># XXX: initialize all dimensions to 0, they will be loaded and assigned</span>
                 <span class="c1"># after load</span>
@@ -1664,19 +1639,23 @@
 
             <span class="k">for</span> <span class="n">igrid</span><span class="p">,</span> <span class="n">gridParams</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">gp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">gp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridParams</span><span class="p">):</span>
                 <span class="n">thisGroup</span> <span class="o">=</span> <span class="n">gridsGroup</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">igrid</span><span class="p">))</span>
-                <span class="n">thisGroup</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;unitSteps&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">gridParams</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">thisGroup</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;unitSteps&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">gridParams</span><span class="o">.</span><span class="n">unitSteps</span><span class="p">)</span>
 
-                <span class="k">for</span> <span class="n">ibound</span><span class="p">,</span> <span class="n">bound</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">gridParams</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="k">for</span> <span class="n">ibound</span><span class="p">,</span> <span class="n">bound</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">gridParams</span><span class="o">.</span><span class="n">bounds</span><span class="p">):</span>
                     <span class="k">if</span> <span class="n">bound</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                         <span class="n">bound</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">bound</span><span class="p">)</span>
                         <span class="n">thisGroup</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;bounds_</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ibound</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">bound</span><span class="p">)</span>
 
-                <span class="n">thisGroup</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;unitStepLimits&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">gridParams</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+                <span class="n">thisGroup</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
+                    <span class="s2">&quot;unitStepLimits&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">gridParams</span><span class="o">.</span><span class="n">unitStepLimits</span>
+                <span class="p">)</span>
 
-                <span class="n">offset</span> <span class="o">=</span> <span class="n">gridParams</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+                <span class="n">offset</span> <span class="o">=</span> <span class="n">gridParams</span><span class="o">.</span><span class="n">offset</span>
                 <span class="n">thisGroup</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;offset&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
                 <span class="k">if</span> <span class="n">offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">thisGroup</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;offset&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">offset</span><span class="p">)</span>
+                <span class="n">thisGroup</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;geomType&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">gridParams</span><span class="o">.</span><span class="n">geomType</span><span class="p">)</span>
+                <span class="n">thisGroup</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;symmetry&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">gridParams</span><span class="o">.</span><span class="n">symmetry</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to create datasets in: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">h5group</span><span class="p">))</span>
             <span class="k">raise</span></div></div>
@@ -1779,7 +1758,15 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="c1"># Check to make sure that we even need to do this. If the numpy data type is</span>
+    <span class="c1"># not &quot;O&quot;, chances are we have nice, clean data.</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="s2">&quot;O&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="p">{}</span>
+
     <span class="n">attrs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;specialFormatting&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+
+    <span class="c1"># make a copy of the data, so that the original is unchanged</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
     <span class="c1"># find locations of Nones. The below works for ndarrays, whereas `data == None`</span>
     <span class="c1"># gives a single True/False value</span>
@@ -1789,10 +1776,10 @@
         <span class="c1"># Everything is None, so why bother?</span>
         <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">attrs</span>
 
-    <span class="k">if</span> <span class="n">nones</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nones</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;nones&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
 
-    <span class="c1"># XXX: this whole if/iften/elif/else can be optimized by looping once and then</span>
+    <span class="c1"># XXX: this whole if/then/elif/else can be optimized by looping once and then</span>
     <span class="c1">#      determining the correct action</span>
     <span class="c1"># A robust solution would need</span>
     <span class="c1"># to do this on a case-by-case basis, and re-do it any time we want to</span>
@@ -1913,8 +1900,13 @@
 <span class="sd">    --------</span>
 <span class="sd">    packSpecialData</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;specialFormatting&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># The data were not subjected to any special formatting; short circuit.</span>
+        <span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="s2">&quot;O&quot;</span>
+        <span class="k">return</span> <span class="n">data</span>
+
     <span class="n">unpackedData</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nones&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nones&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;jagged&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">replaceNonsenseWithNones</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">paramName</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">data</span>
     <span class="k">if</span> <span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;jagged&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
@@ -1980,7 +1972,7 @@
         <span class="n">isNone</span> <span class="o">=</span> <span class="n">data</span> <span class="o">==</span> <span class="s2">&quot;&lt;!None!&gt;&quot;</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="s2">&quot;Unable to resolve values that should be None for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">paramName</span><span class="p">)</span>
+            <span class="s2">&quot;Unable to resolve values that should be None for `</span><span class="si">{}</span><span class="s2">`&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">paramName</span><span class="p">)</span>
         <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -2183,7 +2175,7 @@
     <p>
         &copy; Copyright 2009-2019, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-05.
+        Last updated on 2019-11-15.
       </span>
 
     </p>

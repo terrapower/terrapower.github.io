@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.reactor.blueprints.blockBlueprint &mdash; ARMI 0.1 documentation</title>
+  <title>armi.reactor.blueprints.blockBlueprint &mdash; ARMI 0.1.1-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1
+                0.1.1-dev
               </div>
             
           
@@ -194,6 +194,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.blueprints</span> <span class="k">import</span> <span class="n">componentBlueprint</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="k">import</span> <span class="n">blockConverters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.locations</span> <span class="k">import</span> <span class="n">AXIAL_CHARS</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">grids</span>
 
 
 <span class="k">def</span> <span class="nf">_configureGeomOptions</span><span class="p">():</span>
@@ -211,8 +212,8 @@
 
     <span class="n">item_type</span> <span class="o">=</span> <span class="n">componentBlueprint</span><span class="o">.</span><span class="n">ComponentBlueprint</span>
     <span class="n">key_attr</span> <span class="o">=</span> <span class="n">componentBlueprint</span><span class="o">.</span><span class="n">ComponentBlueprint</span><span class="o">.</span><span class="n">name</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
-
+    <span class="n">name</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">gridName</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;grid name&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
     <span class="n">_geomOptions</span> <span class="o">=</span> <span class="n">_configureGeomOptions</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_getBlockClass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">outerComponent</span><span class="p">):</span>
@@ -266,11 +267,21 @@
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Constructing block </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
         <span class="n">appliedMatMods</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">components</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
-
-        <span class="k">for</span> <span class="n">cDesign</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
-            <span class="n">c</span><span class="p">,</span> <span class="n">compAppliedMatMods</span> <span class="o">=</span> <span class="n">cDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">blueprint</span><span class="p">,</span> <span class="n">materialInput</span><span class="p">)</span>
+        <span class="c1"># build grid before components so you can load</span>
+        <span class="c1"># the components into the grid.</span>
+        <span class="n">gridDesign</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getGridDesign</span><span class="p">(</span><span class="n">blueprint</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">gridDesign</span><span class="p">:</span>
+            <span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">spatialGrid</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">componentDesign</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="n">c</span><span class="p">,</span> <span class="n">compAppliedMatMods</span> <span class="o">=</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">blueprint</span><span class="p">,</span> <span class="n">materialInput</span><span class="p">)</span>
             <span class="n">components</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span>
             <span class="n">appliedMatMods</span> <span class="o">|=</span> <span class="n">compAppliedMatMods</span>
+            <span class="k">if</span> <span class="n">spatialGrid</span><span class="p">:</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">getMultiLocator</span><span class="p">(</span>
+                    <span class="n">spatialGrid</span><span class="p">,</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">latticeIDs</span>
+                <span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">materialInput</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">appliedMatMods</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -306,8 +317,25 @@
         <span class="n">b</span><span class="o">.</span><span class="n">buildNumberDensityParams</span><span class="p">(</span><span class="n">nucNames</span><span class="o">=</span><span class="n">blueprint</span><span class="o">.</span><span class="n">allNuclidesInProblem</span><span class="p">)</span>
         <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mergeComponents</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
         <span class="n">b</span><span class="o">.</span><span class="n">verifyBlockDims</span><span class="p">()</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">spatialGrid</span>
 
         <span class="k">return</span> <span class="n">b</span></div>
+
+    <span class="k">def</span> <span class="nf">_getGridDesign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the appropriate grid design</span>
+<span class="sd">        </span>
+<span class="sd">        This happens when a lattice input is provided on the block. Otherwise</span>
+<span class="sd">        all components are ambiguously defined in the block. </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridName</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridName</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                    <span class="n">f</span><span class="s2">&quot;Lattice </span><span class="si">{self.gridName}</span><span class="s2"> defined on </span><span class="si">{self}</span><span class="s2"> is not &quot;</span>
+                    <span class="s2">&quot;defined in the blueprints `lattices` section.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">gridName</span><span class="p">]</span>
+        <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="nf">_mergeComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
         <span class="n">solventNamesToMergeInto</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mergeWith</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mergeWith</span><span class="p">)</span>
@@ -395,7 +423,7 @@
     <p>
         &copy; Copyright 2009-2019, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-05.
+        Last updated on 2019-11-15.
       </span>
 
     </p>
