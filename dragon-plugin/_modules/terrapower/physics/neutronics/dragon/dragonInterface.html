@@ -1,0 +1,336 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>terrapower.physics.neutronics.dragon.dragonInterface &mdash; ARMI Dragon Plugin 0.1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../../../index.html" class="icon icon-home"> ARMI Dragon Plugin
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dragon.html">The DRAGON Interface</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../../index.html">ARMI Dragon Plugin</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../../../index.html">Module code</a> &raquo;</li>
+        
+      <li>terrapower.physics.neutronics.dragon.dragonInterface</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for terrapower.physics.neutronics.dragon.dragonInterface</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2019 TerraPower, LLC</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Triggers DRAGON input writing, execution, and output reading during an ARMI run.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">interfaces</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">units</span>
+<span class="kn">from</span> <span class="nn">armi.nuclearDataIO</span> <span class="k">import</span> <span class="n">isotxs</span>
+<span class="kn">from</span> <span class="nn">armi.physics</span> <span class="k">import</span> <span class="n">neutronics</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.latticePhysics</span> <span class="k">import</span> <span class="n">latticePhysicsInterface</span>
+<span class="kn">from</span> <span class="nn">armi.nuclearDataIO</span> <span class="k">import</span> <span class="n">xsLibraries</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">mpiActions</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">dragonWriter</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">dragonExecutor</span>
+
+
+<div class="viewcode-block" id="DragonInterface"><a class="viewcode-back" href="../../../../../source/terrapower.physics.neutronics.dragon.html#terrapower.physics.neutronics.dragon.dragonInterface.DragonInterface">[docs]</a><span class="k">class</span> <span class="nc">DragonInterface</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;&quot;Schedules activities related to DRAGON during ARMI run.&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;dragon&quot;</span>  <span class="c1"># name is required for all interfaces</span>
+    <span class="n">function</span> <span class="o">=</span> <span class="n">latticePhysicsInterface</span><span class="o">.</span><span class="n">LATTICE_PHYSICS</span>
+
+<div class="viewcode-block" id="DragonInterface.interactBOC"><a class="viewcode-back" href="../../../../../source/terrapower.physics.neutronics.dragon.html#terrapower.physics.neutronics.dragon.dragonInterface.DragonInterface.interactBOC">[docs]</a>    <span class="k">def</span> <span class="nf">interactBOC</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Write a DRAGON input and execute it, producing an ISOTXS file.&quot;&quot;&quot;</span>
+        <span class="n">executors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_writeInputs</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_executeDragon</span><span class="p">(</span><span class="n">executors</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mergeISOTXS</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_writeInputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write the inputs for the representative blocks on the xsGroupManager.</span>
+<span class="sd">        </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Writing occurs in serial rather than parallel. This is because writing inputs</span>
+<span class="sd">        depends on the state of the cross section group manager, which only the master</span>
+<span class="sd">        node has access to. Alternatively, if writing in parallel was desired,</span>
+<span class="sd">        the reactor state synchronized with the worker nodes, and they could run</span>
+<span class="sd">        the necessary methods on cross section group manager to get the representative</span>
+<span class="sd">        blocks. Generally writing inputs is fast, so ARMI typically writes them</span>
+<span class="sd">        in serial, and executes them in parallel.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        executors : list DragonExecuter</span>
+<span class="sd">            List of executer actions to run DRAGON in parallel.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">executors</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">xsGroupManager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;xsGroups&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">xsId</span><span class="p">,</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">xsGroupManager</span><span class="o">.</span><span class="n">representativeBlocks</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">fuelTempInK</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getFuelTempInK</span><span class="p">(</span><span class="n">xsId</span><span class="p">)</span>
+            <span class="n">writer</span> <span class="o">=</span> <span class="n">dragonWriter</span><span class="o">.</span><span class="n">DragonWriter</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span>
+                <span class="n">block</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span><span class="p">,</span>
+                <span class="n">xsId</span><span class="p">,</span>
+                <span class="n">fuelTempInK</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">inputPath</span> <span class="o">=</span> <span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">()</span>
+            <span class="n">executors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">dragonExecutor</span><span class="o">.</span><span class="n">DragonExecuter</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">inputPath</span><span class="p">),</span> <span class="n">xsId</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">executors</span>
+
+    <span class="k">def</span> <span class="nf">_getFuelTempInK</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xsId</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the fuel temperature in Kelvin.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        The nuclide temperature of fissile/fissionable material is a good estimate</span>
+<span class="sd">        for fuel temperature.</span>
+<span class="sd">        This will only be used for a 0 D model since only 1 temperature can be</span>
+<span class="sd">        specified when there is 1 mixture in DRAGON.</span>
+<span class="sd">        For heterogeneous models, component temperature should be used.</span>
+<span class="sd">        Component temperature may not work well yet for non BOL cases since the cross </span>
+<span class="sd">        section group manager does not average component temperatures when making a</span>
+<span class="sd">        representative block.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># We are not using fuelComponent.p.temperatureInC here because the</span>
+        <span class="c1"># cross section group manager deepcopies the first block in a group but</span>
+        <span class="c1"># does not update the temperatures on the components. Using this parameter</span>
+        <span class="c1"># would be equivalent to using the temperature of a random blocks component</span>
+        <span class="c1"># with the in cross section group.</span>
+        <span class="n">xsGroupManager</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;xsGroups&quot;</span><span class="p">)</span>
+        <span class="c1"># The cross section group manager groups temperatures by nuclide.</span>
+        <span class="c1"># This order intelligently tries to determine the temperature of the fuel.</span>
+        <span class="c1"># U238 or Th232 might contain a blanket component so these are preferentially</span>
+        <span class="c1"># last. If different behavior is desired consider implementing a</span>
+        <span class="c1"># DragonTemplateHelper.</span>
+        <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;U235&quot;</span><span class="p">,</span> <span class="s2">&quot;PU239&quot;</span><span class="p">,</span> <span class="s2">&quot;U233&quot;</span><span class="p">,</span> <span class="s2">&quot;U238&quot;</span><span class="p">,</span> <span class="s2">&quot;TH232&quot;</span><span class="p">):</span>
+            <span class="n">fuelTempInC</span> <span class="o">=</span> <span class="n">xsGroupManager</span><span class="o">.</span><span class="n">getNucTemperature</span><span class="p">(</span><span class="n">xsId</span><span class="p">,</span> <span class="n">nucName</span><span class="p">)</span>
+
+            <span class="c1"># specify `is not None` rather than `if fuelTempInC`, since 0 degrees C</span>
+            <span class="c1"># is valid for a critical experiment.</span>
+            <span class="k">if</span> <span class="n">fuelTempInC</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">units</span><span class="o">.</span><span class="n">getTk</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="n">fuelTempInC</span><span class="p">)</span>
+
+        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="n">f</span><span class="s2">&quot;Fuel temperature of xsId </span><span class="si">{xsId}</span><span class="s2"> could not be determined. &quot;</span>
+            <span class="s2">&quot;Please make sure it has fissionable material if having &quot;</span>
+            <span class="s2">&quot;access to its fuel temperature is desired.&quot;</span><span class="p">,</span>
+            <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># makes it so this warning appears only once per xsId.</span>
+        <span class="p">)</span>
+
+        <span class="c1"># This will case failure if if the fuel temp ends up being used in the template.</span>
+        <span class="c1"># If it isn&#39;t used, it should be fine, maybe this template has the block driven</span>
+        <span class="c1"># by another blocks composition.</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_executeDragon</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executors</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Execute DRAGON on the inputs provided (in parallel).</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        executors : list of DragonExecuter</span>
+<span class="sd">            DRAGON executors (actions) to execute.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mpiActions</span><span class="o">.</span><span class="n">runActions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">executors</span><span class="p">,</span> <span class="n">numPerNode</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_mergeISOTXS</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Merge all the ISOTXS files together so that can be run for global flux.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Create an empty ISOTXS library to be filled in with XS data</span>
+        <span class="n">lib</span> <span class="o">=</span> <span class="n">xsLibraries</span><span class="o">.</span><span class="n">IsotxsLibrary</span><span class="p">()</span>
+
+        <span class="n">neutronVelocities</span> <span class="o">=</span> <span class="n">xsLibraries</span><span class="o">.</span><span class="n">mergeXSLibrariesInWorkingDirectory</span><span class="p">(</span><span class="n">lib</span><span class="p">)</span>
+        <span class="n">latticePhysicsInterface</span><span class="o">.</span><span class="n">setBlockNeutronVelocities</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="n">neutronVelocities</span><span class="p">)</span>
+
+        <span class="n">isotxs</span><span class="o">.</span><span class="n">writeBinary</span><span class="p">(</span><span class="n">lib</span><span class="p">,</span> <span class="n">neutronics</span><span class="o">.</span><span class="n">ISOTXS</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, TerraPower, LLC
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
