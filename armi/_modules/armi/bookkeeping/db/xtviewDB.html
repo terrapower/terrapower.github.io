@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.bookkeeping.db.xtviewDB &mdash; ARMI 0.1.2-dev documentation</title>
+  <title>armi.bookkeeping.db.xtviewDB &mdash; ARMI 0.1.3-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1.2-dev
+                0.1.3-dev
               </div>
             
           
@@ -195,6 +195,7 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Generator</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
@@ -285,14 +286,23 @@
 <div class="viewcode-block" id="XTViewDatabase.loadBlueprints"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.xtviewDB.html#armi.bookkeeping.db.xtviewDB.XTViewDatabase.loadBlueprints">[docs]</a>    <span class="k">def</span> <span class="nf">loadBlueprints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">blueprints</span>
 
-        <span class="n">bp</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdf_file</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">][()])</span>
+        <span class="n">stream</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdf_file</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">][()])</span>
+        <span class="n">stream</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">migrate</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
+        <span class="n">bp</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="n">bp</span></div>
 
 <div class="viewcode-block" id="XTViewDatabase.loadGeometry"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.xtviewDB.html#armi.bookkeeping.db.xtviewDB.XTViewDatabase.loadGeometry">[docs]</a>    <span class="k">def</span> <span class="nf">loadGeometry</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">geometry</span>
 
         <span class="n">geom</span> <span class="o">=</span> <span class="n">geometry</span><span class="o">.</span><span class="n">SystemLayoutInput</span><span class="p">()</span>
-        <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromStream</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdf_file</span><span class="p">[</span><span class="s2">&quot;inputs/geomFile&quot;</span><span class="p">][()]))</span>
+        <span class="n">geomData</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hdf_file</span><span class="p">[</span><span class="s2">&quot;inputs/geomFile&quot;</span><span class="p">][()]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">geomData</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="c1"># different versions of the code may have outputted these differently,</span>
+            <span class="c1"># possibly when using using python2, or possibly from different versions of</span>
+            <span class="c1"># h5py handling strings differently.</span>
+            <span class="n">geomData</span> <span class="o">=</span> <span class="n">geomData</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+        <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromStream</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">geomData</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">geom</span></div>
 
 <div class="viewcode-block" id="XTViewDatabase.load"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.xtviewDB.html#armi.bookkeeping.db.xtviewDB.XTViewDatabase.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">geom</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -566,7 +576,7 @@
                             <span class="p">)</span>
                         <span class="n">param</span> <span class="o">=</span> <span class="n">newParam</span>
 
-                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">setParameterWithRenaming</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_updateReactorParams</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">,</span> <span class="n">dbTimeStep</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Update reactor-/core-level parameters from the database&quot;&quot;&quot;</span>
@@ -621,7 +631,8 @@
                 <span class="n">ring</span><span class="p">,</span> <span class="n">pos</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()</span>
                 <span class="k">for</span> <span class="n">assemParamName</span> <span class="ow">in</span> <span class="n">assemParams</span><span class="p">:</span>
                     <span class="n">val</span> <span class="o">=</span> <span class="n">assemParamData</span><span class="p">[</span><span class="n">assemParamName</span><span class="p">,</span> <span class="n">ring</span><span class="p">,</span> <span class="n">pos</span><span class="p">]</span>
-                    <span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">assemParamName</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                    <span class="n">setParameterWithRenaming</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">assemParamName</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+
                     <span class="k">if</span> <span class="n">assemParamName</span> <span class="o">==</span> <span class="s2">&quot;assemNum&quot;</span> <span class="ow">and</span> <span class="n">val</span><span class="p">:</span>
                         <span class="c1"># update assembly name based on assemNum</span>
                         <span class="n">name</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">makeNameFromAssemNum</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
@@ -729,10 +740,12 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Update block heights and reactor axial mesh based on block param values in database.</span>
 
-<span class="sd">        This must be done before the number densities are read in so the dimensions of the core are consistent.</span>
+<span class="sd">        This must be done before the number densities are read in so the dimensions of</span>
+<span class="sd">        the core are consistent.</span>
 
-<span class="sd">        The refAssem writes the neutronics mesh. This method is necessary  in case the refAssem</span>
-<span class="sd">        has been removed. Assume all fuel assemblies have the same mesh unless there is ``detailedAxialExpansion``.</span>
+<span class="sd">        The refAssem writes the neutronics mesh. This method is necessary  in case the</span>
+<span class="sd">        refAssem has been removed. Assume all fuel assemblies have the same mesh unless</span>
+<span class="sd">        there is ``detailedAxialExpansion``.</span>
 
 <span class="sd">        Mass must be conserved of the fuel, even in the BOL assemblies, especially if</span>
 <span class="sd">        shuffling and depletion is to occur after loading.</span>
@@ -1169,7 +1182,8 @@
 
     <span class="k">def</span> <span class="nf">_getParamNames</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objName</span><span class="p">):</span>
         <span class="c1"># TODO: add a set of names as attributes somewhere so it&#39;s reliably exhaustive?</span>
-        <span class="c1"># using the last TS currently to get all parameters defined, iterating across each entry is way too slow</span>
+        <span class="c1"># using the last TS currently to get all parameters defined, iterating across</span>
+        <span class="c1"># each entry is way too slow</span>
         <span class="c1"># TODO: should allow a specific TS lookup in the case of loadState</span>
         <span class="n">last_ts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAllTimesteps</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdf_file</span><span class="p">[</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">last_ts</span><span class="p">,</span> <span class="n">objName</span><span class="p">)]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
@@ -1186,10 +1200,18 @@
         <span class="c1"># need to try both since Reactor and Core are squashed in the DB.</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="c1"># pylint: disable=protected-access</span>
-            <span class="n">paramDef</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Reactor</span><span class="o">.</span><span class="n">paramCollectionType</span><span class="o">.</span><span class="n">_paramDefs</span><span class="p">[</span><span class="n">param</span><span class="p">]</span>
+            <span class="n">paramDef</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Reactor</span><span class="o">.</span><span class="n">paramCollectionType</span><span class="o">.</span><span class="n">pDefs</span><span class="p">[</span><span class="n">param</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="c1"># pylint: disable=protected-access</span>
-            <span class="n">paramDef</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Core</span><span class="o">.</span><span class="n">paramCollectionType</span><span class="o">.</span><span class="n">_paramDefs</span><span class="p">[</span><span class="n">param</span><span class="p">]</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">paramDef</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Core</span><span class="o">.</span><span class="n">paramCollectionType</span><span class="o">.</span><span class="n">pDefs</span><span class="p">[</span><span class="n">param</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="c1"># Dead parameter?</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Reactor/Core parameter `</span><span class="si">{}</span><span class="s2">` was unrecognized and is being &quot;</span>
+                    <span class="s2">&quot;ignored.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+                <span class="p">)</span>
+
         <span class="n">all_vals</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">timestep</span> <span class="ow">in</span> <span class="n">timesteps</span><span class="p">:</span>
             <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_1d_dataset</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/reactors/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">timestep</span><span class="p">,</span> <span class="n">param</span><span class="p">))</span>
@@ -1265,7 +1287,7 @@
 
     <span class="k">try</span><span class="p">:</span>
         <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-    <span class="k">except</span> <span class="n">parameters</span><span class="o">.</span><span class="n">UnknownParameterError</span><span class="p">:</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">parameters</span><span class="o">.</span><span class="n">UnknownParameterError</span><span class="p">,</span> <span class="ne">AssertionError</span><span class="p">):</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
             <span class="s2">&quot;Incompatible database has unsupported parameter: &quot;</span>
             <span class="s1">&#39;&quot;</span><span class="si">{}</span><span class="s1">&quot;, and will be ignored!&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">parameter</span><span class="p">),</span>
@@ -1351,9 +1373,9 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2009-2019, TerraPower, LLC
+        &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-15.
+        Last updated on 2020-02-04.
       </span>
 
     </p>

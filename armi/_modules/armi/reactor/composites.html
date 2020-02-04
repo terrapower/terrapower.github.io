@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.reactor.composites &mdash; ARMI 0.1.2-dev documentation</title>
+  <title>armi.reactor.composites &mdash; ARMI 0.1.3-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1.2-dev
+                0.1.3-dev
               </div>
             
           
@@ -210,7 +210,7 @@
 <span class="kn">import</span> <span class="nn">armi</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">parameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.parameters</span> <span class="k">import</span> <span class="n">resolveCollections</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="k">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="k">import</span> <span class="n">Flags</span><span class="p">,</span> <span class="n">TypeSpec</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">units</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">densityTools</span>
@@ -224,6 +224,75 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.fissionProductModel</span> <span class="k">import</span> <span class="n">fissionProductModel</span>
 <span class="kn">from</span> <span class="nn">armi.nuclearDataIO</span> <span class="k">import</span> <span class="n">xsCollections</span>
+
+
+<div class="viewcode-block" id="FlagSerializer"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.FlagSerializer">[docs]</a><span class="k">class</span> <span class="nc">FlagSerializer</span><span class="p">(</span><span class="n">parameters</span><span class="o">.</span><span class="n">Serializer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Serializer implementation for Flags.</span>
+
+<span class="sd">    This operates by converting each set of Flags (too large to fit in a uint64) into a</span>
+<span class="sd">    sequence of enough uint8 elements to represent all flags. These constitute a</span>
+<span class="sd">    dimension of a 2-D numpy array containing all Flags for all objects provided to the</span>
+<span class="sd">    ``pack()`` function.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">version</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
+
+<div class="viewcode-block" id="FlagSerializer.pack"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.FlagSerializer.pack">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">pack</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Flags are represented as a 2-D numpy array of uint8 (single-byte, unsigned</span>
+<span class="sd">        integers), where each row contains the bytes representing a single Flags</span>
+<span class="sd">        instance. We also store the list of field names so that we can verify that the</span>
+<span class="sd">        reader and the writer agree on the meaning of each bit.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">npa</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">b</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">data</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">()],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">uint8</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="n">Flags</span><span class="o">.</span><span class="n">width</span><span class="p">()))</span>
+
+        <span class="k">return</span> <span class="n">npa</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;flag_order&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">sortedFields</span><span class="p">()}</span></div>
+
+<div class="viewcode-block" id="FlagSerializer.unpack"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.FlagSerializer.unpack">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">unpack</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">version</span><span class="p">,</span> <span class="n">attrs</span><span class="p">):</span>
+        <span class="n">flagOrderPassed</span> <span class="o">=</span> <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;flag_order&quot;</span><span class="p">]</span>
+        <span class="n">flagOrderNow</span> <span class="o">=</span> <span class="n">Flags</span><span class="o">.</span><span class="n">sortedFields</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">version</span> <span class="o">!=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">version</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The FlagSerializer version used to pack the data (</span><span class="si">{}</span><span class="s2">) does not match &quot;</span>
+                <span class="s2">&quot;the current version (</span><span class="si">{}</span><span class="s2">)! This database either needs to be migrated, &quot;</span>
+                <span class="s2">&quot;or on-the-fly inter-version conversion needs to be implemented.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">version</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">version</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Ensure that the meanings of the Flags bits are the same. We could also</span>
+        <span class="c1"># implement a more expensive operation which attempts to map from one version&#39;s</span>
+        <span class="c1"># meaning to another&#39;s, but possibly YAGNI.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">flagOrderPassed</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">flagOrderNow</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The database contains a different number of Flags than the current &quot;</span>
+                <span class="s2">&quot;ARMI Application!</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;The database has:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;</span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;The current application has:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">flagOrderPassed</span><span class="p">,</span> <span class="n">flagOrderNow</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">j</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">flagOrderPassed</span><span class="p">,</span> <span class="n">flagOrderNow</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The database has Flags with different meanings than the current ARMI&quot;</span>
+                <span class="s2">&quot;Application!</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;The database has:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;</span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;The current application has:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">flagOrderPassed</span><span class="p">,</span> <span class="n">flagOrderNow</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[</span><span class="n">Flags</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">tobytes</span><span class="p">())</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">out</span></div></div>
 
 
 <span class="k">def</span> <span class="nf">_defineBaseParameters</span><span class="p">():</span>
@@ -240,8 +309,8 @@
 <span class="sd">    tracking), while the ``flags`` parameter is more a feature of the composite model.</span>
 
 <span class="sd">    .. important::</span>
-<span class="sd">        Notice that the `flags`` parameter is not written to the database. This is for a</span>
-<span class="sd">        couple of reasons:</span>
+<span class="sd">        Notice that the ``flags`` parameter is not written to the database. This is for</span>
+<span class="sd">        a couple of reasons:</span>
 <span class="sd">        * Flags are derived from an ArmiObject&#39;s name. Since the name is stored on</span>
 <span class="sd">        the DB, it is possible to recover the flags from that.</span>
 <span class="sd">        * Storing flags to the DB may be complicated, since it is easier to imagine a</span>
@@ -260,10 +329,11 @@
             <span class="n">units</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The type specification of this object&quot;</span><span class="p">,</span>
             <span class="n">location</span><span class="o">=</span><span class="n">parameters</span><span class="o">.</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">AVERAGE</span><span class="p">,</span>
-            <span class="n">saveToDB</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">saveToDB</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">default</span><span class="o">=</span><span class="n">Flags</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
             <span class="n">setter</span><span class="o">=</span><span class="n">parameters</span><span class="o">.</span><span class="n">NoDefault</span><span class="p">,</span>
             <span class="n">categories</span><span class="o">=</span><span class="nb">set</span><span class="p">(),</span>
+            <span class="n">serializer</span><span class="o">=</span><span class="n">FlagSerializer</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="p">)</span>
 
@@ -316,6 +386,21 @@
 <span class="sd">    all of its parents. A new ``paramCollectionType`` class attribute will be added to</span>
 <span class="sd">    the ArmiObject subclass to reflect which type of parameter collection should be</span>
 <span class="sd">    used.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name : str</span>
+<span class="sd">        Object name</span>
+<span class="sd">    parent : ArmiObject</span>
+<span class="sd">        The object&#39;s parent in a hierarchical tree</span>
+<span class="sd">    cached : dict</span>
+<span class="sd">        Some cached values for performance</span>
+<span class="sd">    p : ParameterCollection</span>
+<span class="sd">        The state variables</span>
+<span class="sd">    spatialGrid : grids.Grid</span>
+<span class="sd">        The spatial grid that this object contains</span>
+<span class="sd">    spatialLocator : grids.LocationBase</span>
+<span class="sd">        The location of this object in its parent grid, or global space</span>
 
 <span class="sd">    See Also</span>
 <span class="sd">    --------</span>
@@ -510,17 +595,17 @@
         <span class="sd">&quot;&quot;&quot;Return the children of this object.&quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-<div class="viewcode-block" id="ArmiObject.getChildrenWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getChildrenWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">getChildrenWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">exactMatch</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.getChildrenWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getChildrenWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">getChildrenWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span> <span class="n">exactMatch</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get all children that have given flags.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="ne">NotImplementedError</span></div>
 
-<div class="viewcode-block" id="ArmiObject.doChildrenHaveFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.doChildrenHaveFlags">[docs]</a>    <span class="k">def</span> <span class="nf">doChildrenHaveFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.doChildrenHaveFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.doChildrenHaveFlags">[docs]</a>    <span class="k">def</span> <span class="nf">doChildrenHaveFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Generator that yields True if the next child has given flags.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        typeSpec : Flags or list of Flags</span>
+<span class="sd">        typeSpec : TypeSpec</span>
 <span class="sd">            Requested type of the child</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -530,13 +615,13 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">yield</span> <span class="kc">False</span></div>
 
-<div class="viewcode-block" id="ArmiObject.containsAtLeastOneChildWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.containsAtLeastOneChildWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">containsAtLeastOneChildWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.containsAtLeastOneChildWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.containsAtLeastOneChildWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">containsAtLeastOneChildWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return True if any of the children are of a given type.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        typeSpec : Flags or list of Flags</span>
+<span class="sd">        typeSpec : TypeSpec</span>
 <span class="sd">            Requested type of the children</span>
 
 <span class="sd">        See Also</span>
@@ -547,13 +632,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">doChildrenHaveFlags</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="ArmiObject.containsOnlyChildrenWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.containsOnlyChildrenWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">containsOnlyChildrenWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.containsOnlyChildrenWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.containsOnlyChildrenWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">containsOnlyChildrenWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return True if all of the children are of a given type.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        typeSpec : Flags or list of Flags</span>
+<span class="sd">        typeSpec : TypeSpec</span>
 <span class="sd">            Requested type of the children</span>
 
 <span class="sd">        See Also</span>
@@ -629,16 +714,20 @@
 <div class="viewcode-block" id="ArmiObject.setName"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.setName">[docs]</a>    <span class="k">def</span> <span class="nf">setName</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span></div>
 
-<div class="viewcode-block" id="ArmiObject.hasFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.hasFlags">[docs]</a>    <span class="k">def</span> <span class="nf">hasFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeID</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.hasFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.hasFlags">[docs]</a>    <span class="k">def</span> <span class="nf">hasFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeID</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Determine if this object is of a certain type.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        typeID : Flags, list of Flags or None</span>
-<span class="sd">            Flags specifying which types of objects are considered valid. If a list is provided,</span>
-<span class="sd">            return True if any of the flags in the list match. None matches all objects if exact is</span>
-<span class="sd">            false. If exact is true, then None matches no objects.</span>
+<span class="sd">        typeID : TypeSpec</span>
+<span class="sd">            Flags to test the object against, to see if it contains them. If a list is</span>
+<span class="sd">            provided, each element is treated as a &quot;candidate&quot; set of flags. Return True</span>
+<span class="sd">            if any of candidates match. When exact is True, the object must match one of</span>
+<span class="sd">            the candidates exactly. If exact is False, the object must have at least the</span>
+<span class="sd">            flags contained in a candidate for that candidate to be a match; extra flags</span>
+<span class="sd">            on the object are permitted. None matches all objects if exact is False, or</span>
+<span class="sd">            no objects if exact is True.</span>
 
 <span class="sd">        exact : bool, optional</span>
 <span class="sd">            Require the type of the object to fully match the provided typeID(s)</span>
@@ -652,18 +741,18 @@
 <span class="sd">        -----</span>
 <span class="sd">        Type comparisons use bitwise comparisons using valid flags.</span>
 
-<span class="sd">        If you have an &#39;inner control&#39; assembly, then this will evaluate true for the INNER |</span>
-<span class="sd">        CONTROL flag combination. If you just want all FUEL, simply use FUEL with no additional</span>
-<span class="sd">        qualifiers. For more complex comparisons, use bitwise operations.</span>
+<span class="sd">        If you have an &#39;inner control&#39; assembly, then this will evaluate True for the</span>
+<span class="sd">        INNER | CONTROL flag combination. If you just want all FUEL, simply use FUEL</span>
+<span class="sd">        with no additional qualifiers. For more complex comparisons, use bitwise</span>
+<span class="sd">        operations.</span>
 
-
-<span class="sd">        Always returns true if typeID is none and exact is False, allowing for default parameters to</span>
-<span class="sd">        be passed in when the method does not care about the block type. If the typeID is none and</span>
-<span class="sd">        exact is True, this will always return False.</span>
+<span class="sd">        Always returns true if typeID is none and exact is False, allowing for default</span>
+<span class="sd">        parameters to be passed in when the method does not care about the block type.</span>
+<span class="sd">        If the typeID is none and exact is True, this will always return False.</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
-<span class="sd">        If you have &#39;inner driver fuel&#39;, then</span>
+<span class="sd">        If you have an object with the ``INNER``, ``DRIVER``, and ``FUEL`` flags, then</span>
 
 <span class="sd">        &gt;&gt;&gt; obj.getType()</span>
 <span class="sd">        [some integer]</span>
@@ -680,6 +769,13 @@
 <span class="sd">        &gt;&gt;&gt; obj.hasFlags(Flags.INNER | Flags.FUEL)</span>
 <span class="sd">        True</span>
 
+<span class="sd">        &gt;&gt;&gt; obj.hasFlags(Flags.INNER | Flags.FUEL, exact=True)</span>
+<span class="sd">        False</span>
+
+<span class="sd">        &gt;&gt;&gt; obj.hasFlags([Flags.INNER | Flags.DRIVER | Flags.FUEL,</span>
+<span class="sd">        ... Flags.OUTER | Flags.DRIVER | Flags.FUEL], exact=True)</span>
+<span class="sd">        False</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">typeID</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span> <span class="k">if</span> <span class="n">exact</span> <span class="k">else</span> <span class="kc">True</span>
@@ -694,7 +790,8 @@
             <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">typeIDi</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="n">exact</span><span class="p">)</span> <span class="k">for</span> <span class="n">typeIDi</span> <span class="ow">in</span> <span class="n">typeID</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span><span class="p">:</span>
-            <span class="c1"># default still set, or null flag. Do down here so we get proper error handling of invalid typeSpecs</span>
+            <span class="c1"># default still set, or null flag. Do down here so we get proper error</span>
+            <span class="c1"># handling of invalid typeSpecs</span>
             <span class="k">return</span> <span class="kc">False</span>
 
         <span class="k">if</span> <span class="n">exact</span><span class="p">:</span>
@@ -708,9 +805,10 @@
         <span class="sd">&quot;&quot;&quot;Return the object type.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">type</span></div>
 
-<div class="viewcode-block" id="ArmiObject.setType"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.setType">[docs]</a>    <span class="k">def</span> <span class="nf">setType</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.setType"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.setType">[docs]</a>    <span class="k">def</span> <span class="nf">setType</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">newType</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set the object type.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">typeSpec</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="n">Flags</span><span class="o">.</span><span class="n">fromStringIgnoreErrors</span><span class="p">(</span><span class="n">newType</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">newType</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getVolume"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getVolume">[docs]</a>    <span class="k">def</span> <span class="nf">getVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">child</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">)</span></div>
@@ -767,16 +865,16 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Determine the volume of any DerivedShapes (e.g. coolant components).</span>
 
-<span class="sd">        when a coolant component first gets loaded, it has no area.</span>
-<span class="sd">        But after that, it does have area so we must detect purely derived</span>
-<span class="sd">        components by the fact that they have no dimension keys.</span>
-<span class="sd">        Zero area is acceptable (for gaps that will grow, etc.).</span>
-<span class="sd">        </span>
+<span class="sd">        When a coolant component first gets loaded, it has no area.  But after that, it</span>
+<span class="sd">        does have area so we must detect purely derived components by the fact that they</span>
+<span class="sd">        have no dimension keys.  Zero area is acceptable (for gaps that will grow,</span>
+<span class="sd">        etc.).</span>
+
 <span class="sd">        If there are no dimensions but there is still an area, then the user probably</span>
 <span class="sd">        specified the area on a generic component. If they did specify it on the input,</span>
 <span class="sd">        then the area should not update. HOWEVER, if it was specified by a previous</span>
-<span class="sd">        leftover computation, then we should re-compute. That&#39;s why we store</span>
-<span class="sd">        the area on the dims</span>
+<span class="sd">        leftover computation, then we should re-compute. That&#39;s why we store the area on</span>
+<span class="sd">        the dims.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">components</span>  <span class="c1"># avoid circular import</span>
 
@@ -1095,23 +1193,25 @@
             <span class="c1"># note that if these arguments are false, you&#39;ll get ALL nuclides in the material</span>
             <span class="c1"># use material.getNuclides to get only non-zero ones.</span>
             <span class="c1"># use nucDir.getNuclides to get all.</span>
-            <span class="n">constantNuclides</span> <span class="o">=</span> <span class="n">nucDir</span><span class="o">.</span><span class="n">getNuclideNames</span><span class="p">(</span>
-                <span class="n">nucName</span><span class="o">=</span><span class="n">nuclideToHoldConstant</span><span class="p">,</span> <span class="n">elementSymbol</span><span class="o">=</span><span class="n">elementToHoldConstant</span>
-            <span class="p">)</span>
-            <span class="n">constantSum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">getMassFrac</span><span class="p">(</span><span class="n">nucName</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="n">nuclides</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">constantNuclides</span><span class="p">)</span>
-            <span class="p">)</span>
+            <span class="c1"># Intersect with current nuclides to eliminate double counting of element/isotopes</span>
+            <span class="n">constantNuclides</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+                <span class="n">nucDir</span><span class="o">.</span><span class="n">getNuclideNames</span><span class="p">(</span>
+                    <span class="n">nucName</span><span class="o">=</span><span class="n">nuclideToHoldConstant</span><span class="p">,</span> <span class="n">elementSymbol</span><span class="o">=</span><span class="n">elementToHoldConstant</span>
+                <span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">nuclides</span><span class="p">)</span>
+            <span class="n">constantSum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getMassFrac</span><span class="p">(</span><span class="n">nucName</span><span class="p">)</span> <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="n">constantNuclides</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">constantNuclides</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">constantSum</span> <span class="o">=</span> <span class="mf">0.0</span>
 
         <span class="c1"># determine which nuclides we&#39;re adjusting.</span>
         <span class="c1"># Rather than calling this material&#39;s getNuclides method, we call the nucDirectory to do this.</span>
-        <span class="c1"># this way, even zeroed-out nuclides will get int the mix</span>
-        <span class="n">adjustNuclides</span> <span class="o">=</span> <span class="n">nucDir</span><span class="o">.</span><span class="n">getNuclideNames</span><span class="p">(</span>
-            <span class="n">nucName</span><span class="o">=</span><span class="n">nuclideToAdjust</span><span class="p">,</span> <span class="n">elementSymbol</span><span class="o">=</span><span class="n">elementToAdjust</span>
-        <span class="p">)</span>
+        <span class="c1"># this way, even zeroed-out nuclides will get in the mix</span>
+        <span class="n">adjustNuclides</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+            <span class="n">nucDir</span><span class="o">.</span><span class="n">getNuclideNames</span><span class="p">(</span>
+                <span class="n">nucName</span><span class="o">=</span><span class="n">nuclideToAdjust</span><span class="p">,</span> <span class="n">elementSymbol</span><span class="o">=</span><span class="n">elementToAdjust</span>
+            <span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">nuclides</span><span class="p">)</span>
         <span class="c1"># get original mass frac A of those to be adjusted.</span>
         <span class="n">A</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getMassFrac</span><span class="p">(</span><span class="n">ni</span><span class="p">)</span> <span class="k">for</span> <span class="n">ni</span> <span class="ow">in</span> <span class="n">adjustNuclides</span><span class="p">)</span>
 
@@ -1364,7 +1464,7 @@
 
     <span class="k">def</span> <span class="nf">_expandLFPs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Expand the LFPs on the numberDensities dictionary using this composite&#39;s </span>
+<span class="sd">        Expand the LFPs on the numberDensities dictionary using this composite&#39;s</span>
 <span class="sd">        lumpedFissionProductCollection.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">lfpCollection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getLumpedFissionProductCollection</span><span class="p">()</span>
@@ -1413,13 +1513,13 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getAncestor</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ArmiObject.getAncestorWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getAncestorWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">getAncestorWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">exactMatch</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.getAncestorWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getAncestorWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">getAncestorWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span> <span class="n">exactMatch</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the first ancestor that matches the passed flags.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        typeSpec : Flags or [Flags]</span>
+<span class="sd">        typeSpec : TypeSpec</span>
 <span class="sd">            A collection of flags to match on candidate parents</span>
 <span class="sd">        exactMatch : bool</span>
 <span class="sd">            Whether the flags match should be exact</span>
@@ -1467,9 +1567,9 @@
 <span class="sd">        Set the number density of this nuclide to this value.</span>
 
 <span class="sd">        This distributes atom density evenly across all children that contain nucName.</span>
-<span class="sd">        If the nuclide doesn&#39;t exist in any of the children, then that&#39;s actually an error.</span>
-<span class="sd">        This would only happen if some unnatural nuclide like Pu239 built up in fresh UZr. That should</span>
-<span class="sd">        be anticipated and dealt with elsewhere.</span>
+<span class="sd">        If the nuclide doesn&#39;t exist in any of the children, then that&#39;s actually an</span>
+<span class="sd">        error.  This would only happen if some unnatural nuclide like Pu239 built up in</span>
+<span class="sd">        fresh UZr. That should be anticipated and dealt with elsewhere.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">activeChildren</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getChildrenWithNuclides</span><span class="p">({</span><span class="n">nucName</span><span class="p">})</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">activeChildren</span><span class="p">:</span>
@@ -1655,10 +1755,8 @@
 
 <div class="viewcode-block" id="ArmiObject.getPuN"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getPuN">[docs]</a>    <span class="k">def</span> <span class="nf">getPuN</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns total number density of Pu isotopes&quot;&quot;&quot;</span>
-        <span class="n">ndens</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="p">[</span><span class="n">nuc</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">elements</span><span class="o">.</span><span class="n">byZ</span><span class="p">[</span><span class="mi">94</span><span class="p">]</span><span class="o">.</span><span class="n">nuclideBases</span><span class="p">]:</span>
-            <span class="n">ndens</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nucName</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">ndens</span></div>
+        <span class="n">nucNames</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuc</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">elements</span><span class="o">.</span><span class="n">byZ</span><span class="p">[</span><span class="mi">94</span><span class="p">]</span><span class="o">.</span><span class="n">nuclideBases</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">nucNames</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="ArmiObject.calcTotalParam"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.calcTotalParam">[docs]</a>    <span class="k">def</span> <span class="nf">calcTotalParam</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1666,7 +1764,7 @@
         <span class="n">objs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">volumeIntegrated</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">addSymmetricPositions</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">generationNum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
         <span class="n">calcBasedOnFullObj</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
@@ -1683,7 +1781,7 @@
 <span class="sd">            Integrate over volume</span>
 <span class="sd">        addSymmetricPositions : bool, optional</span>
 <span class="sd">            If True, will multiply by the symmetry factor of the core (3 for 1/3 models, 1 for full core models)</span>
-<span class="sd">        typeSpec : Flags or list of Flags, optional</span>
+<span class="sd">        typeSpec : TypeSpec</span>
 <span class="sd">            object types to restrict to</span>
 <span class="sd">        generationNum : int, optional</span>
 <span class="sd">            Which generation to consider. 1 means direct children, 2 means children of children.</span>
@@ -1729,7 +1827,7 @@
 <div class="viewcode-block" id="ArmiObject.calcAvgParam"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.calcAvgParam">[docs]</a>    <span class="k">def</span> <span class="nf">calcAvgParam</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">param</span><span class="p">,</span>
-        <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">weightingParam</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">volumeAveraged</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># pylint: disable=too-many-arguments</span>
         <span class="n">absolute</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -1743,7 +1841,7 @@
 <span class="sd">        param : str</span>
 <span class="sd">            The ARMI block parameter that you want the average from</span>
 
-<span class="sd">        typeSpec : Flags or iterable with Flags values</span>
+<span class="sd">        typeSpec : TypeSpec</span>
 <span class="sd">            The child types that should be included in the calculation. Restrict average to</span>
 <span class="sd">            a certain child type with this parameter.</span>
 
@@ -1811,7 +1909,12 @@
         <span class="k">return</span> <span class="n">total</span> <span class="o">/</span> <span class="n">weightSum</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getMaxParam"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getMaxParam">[docs]</a>    <span class="k">def</span> <span class="nf">getMaxParam</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">absolute</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">generationNum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">returnObj</span><span class="o">=</span><span class="kc">False</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">param</span><span class="p">,</span>
+        <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">absolute</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">generationNum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">returnObj</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Find the maximum value for the parameter in this container</span>
 
@@ -1819,7 +1922,7 @@
 <span class="sd">        ----------</span>
 <span class="sd">        param : str</span>
 <span class="sd">            block parameter that will be sought.</span>
-<span class="sd">        typeSpec : Flags or list of Flags, optional</span>
+<span class="sd">        typeSpec : TypeSpec</span>
 <span class="sd">            restricts the search to cover a variety of block types.</span>
 <span class="sd">        absolute : bool</span>
 <span class="sd">            looks for the largest magnitude value, regardless of sign, default: true</span>
@@ -1845,7 +1948,12 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getMinParam"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getMinParam">[docs]</a>    <span class="k">def</span> <span class="nf">getMinParam</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">absolute</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">generationNum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">returnObj</span><span class="o">=</span><span class="kc">False</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">param</span><span class="p">,</span>
+        <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">absolute</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">generationNum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">returnObj</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Find the minimum value for the parameter in this container.</span>
@@ -1862,7 +1970,7 @@
     <span class="k">def</span> <span class="nf">_minMaxHelper</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">param</span><span class="p">,</span>
-        <span class="n">typeSpec</span><span class="p">,</span>
+        <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span>
         <span class="n">absolute</span><span class="p">,</span>
         <span class="n">generationNum</span><span class="p">,</span>
         <span class="n">returnObj</span><span class="p">,</span>
@@ -1912,13 +2020,13 @@
                 <span class="k">return</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="kc">False</span></div>
 
-<div class="viewcode-block" id="ArmiObject.getComponents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getComponents">[docs]</a>    <span class="k">def</span> <span class="nf">getComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.getComponents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getComponents">[docs]</a>    <span class="k">def</span> <span class="nf">getComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return all armi.reactor.component.Component within this Composite.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        typeSpec : flags.Flags, optional</span>
+<span class="sd">        typeSpec : TypeSpec</span>
 <span class="sd">            Component flags. Will restrict Components to specific ones matching the flags specified.</span>
 
 <span class="sd">        exact : bool, optional</span>
@@ -1943,13 +2051,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">())</span></div>
 
-<div class="viewcode-block" id="ArmiObject.iterComponents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.iterComponents">[docs]</a>    <span class="k">def</span> <span class="nf">iterComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.iterComponents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.iterComponents">[docs]</a>    <span class="k">def</span> <span class="nf">iterComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return an iterator of armi.reactor.component.Component objects within this Composite.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        typeSpec : flags.Flags, optional</span>
+<span class="sd">        typeSpec : TypeSpec</span>
 <span class="sd">            Component flags. Will restrict Components to specific ones matching the flags specified.</span>
 
 <span class="sd">        exact : bool, optional</span>
@@ -1991,9 +2099,7 @@
 
 <div class="viewcode-block" id="ArmiObject.getFissileMass"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getFissileMass">[docs]</a>    <span class="k">def</span> <span class="nf">getFissileMass</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns fissile mass in grams.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getMass</span><span class="p">(</span>
-            <span class="n">nuclideBases</span><span class="o">.</span><span class="n">NuclideBase</span><span class="o">.</span><span class="n">fissile</span>
-        <span class="p">)</span>  <span class="c1"># convert to kg #/1000 # * 1.66054e-3</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getMass</span><span class="p">(</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">NuclideBase</span><span class="o">.</span><span class="n">fissile</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getHMMass"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getHMMass">[docs]</a>    <span class="k">def</span> <span class="nf">getHMMass</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns heavy metal mass in grams&quot;&quot;&quot;</span>
@@ -2017,11 +2123,12 @@
 
 <span class="sd">        Warning</span>
 <span class="sd">        -------</span>
-<span class="sd">        getHMMoles is different than every other get mass call since it multiplies by symmetry factor </span>
-<span class="sd">        but getVolume() on the block level divides by symmetry factor causing them to cancel out. </span>
-<span class="sd">        </span>
-<span class="sd">        This was needed so that HM moles mass did not change based on if the block/assembly was on a </span>
-<span class="sd">        symmetry line or not.</span>
+<span class="sd">        getHMMoles is different than every other get mass call since it multiplies by</span>
+<span class="sd">        symmetry factor but getVolume() on the block level divides by symmetry factor</span>
+<span class="sd">        causing them to cancel out.</span>
+
+<span class="sd">        This was needed so that HM moles mass did not change based on if the</span>
+<span class="sd">        block/assembly was on a symmetry line or not.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">return</span> <span class="p">(</span>
@@ -2143,15 +2250,14 @@
 <div class="viewcode-block" id="ArmiObject.getAtomicWeight"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getAtomicWeight">[docs]</a>    <span class="k">def</span> <span class="nf">getAtomicWeight</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Calculate the atomic weight of this object in g/mole of atoms.</span>
-<span class="sd">        </span>
-<span class="sd">        .. warning:: This is not the molecular weight, which is grams per </span>
-<span class="sd">            mole of molecules (grams/gram-molecule). That requires knowledge </span>
-<span class="sd">            of the chemical formula. Don&#39;t be surprised when you run this </span>
-<span class="sd">            on UO2 and find it to be 90; there are a lot of Oxygen atoms</span>
-<span class="sd">            in UO2. </span>
+
+<span class="sd">        .. warning:: This is not the molecular weight, which is grams per mole of</span>
+<span class="sd">            molecules (grams/gram-molecule). That requires knowledge of the chemical</span>
+<span class="sd">            formula. Don&#39;t be surprised when you run this on UO2 and find it to be 90;</span>
+<span class="sd">            there are a lot of Oxygen atoms in UO2.</span>
 
 <span class="sd">        .. math::</span>
-<span class="sd">            </span>
+
 <span class="sd">            A =  \frac{\sum_i N_i A_i }{\sum_i N_i}</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -2165,8 +2271,20 @@
         <span class="k">return</span> <span class="n">numerator</span> <span class="o">/</span> <span class="n">denominator</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getMasses"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getMasses">[docs]</a>    <span class="k">def</span> <span class="nf">getMasses</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return a dictionary of masses indexed by their nuclide names.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="p">{</span><span class="n">nucName</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">getMass</span><span class="p">(</span><span class="n">nucName</span><span class="p">)</span> <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()}</span></div>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a dictionary of masses indexed by their nuclide names.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Implemented to get number densities and then convert to mass</span>
+<span class="sd">        because getMass is too slow on a large tree.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">numDensities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span>
+        <span class="n">vol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">nucName</span><span class="p">:</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">getMassInGrams</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">vol</span><span class="p">,</span> <span class="n">ndens</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">ndens</span> <span class="ow">in</span> <span class="n">numDensities</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getIntegratedMgFlux"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getIntegratedMgFlux">[docs]</a>    <span class="k">def</span> <span class="nf">getIntegratedMgFlux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">adjoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
@@ -2472,7 +2590,7 @@
 
         <span class="k">return</span> <span class="n">children</span></div>
 
-<div class="viewcode-block" id="Composite.getChildrenWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.getChildrenWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">getChildrenWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">exactMatch</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="Composite.getChildrenWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.getChildrenWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">getChildrenWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span> <span class="n">exactMatch</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get all children of a specific type.&quot;&quot;&quot;</span>
         <span class="n">children</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
@@ -2490,8 +2608,8 @@
 
 <div class="viewcode-block" id="Composite.syncMpiState"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.syncMpiState">[docs]</a>    <span class="k">def</span> <span class="nf">syncMpiState</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Synchronize all parameters of this object and all children to all worker nodes over the </span>
-<span class="sd">        network using MPI.</span>
+<span class="sd">        Synchronize all parameters of this object and all children to all worker nodes</span>
+<span class="sd">        over the network using MPI.</span>
 
 <span class="sd">        In parallelized runs, if each process has its own copy of the entire reactor</span>
 <span class="sd">        hierarchy, this method synchronizes the state of all parameters on all objects.</span>
@@ -2544,19 +2662,22 @@
 
         <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
             <span class="n">errorData</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-                <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">comp</span><span class="p">),</span> <span class="n">comp</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">nodes</span><span class="p">)</span>
+                <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">comp</span><span class="p">),</span> <span class="n">comp</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">comp</span><span class="o">.</span><span class="n">parent</span><span class="p">),</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">nodes</span><span class="p">)</span>
                 <span class="k">for</span> <span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="n">paramName</span><span class="p">),</span> <span class="n">nodes</span> <span class="ow">in</span> <span class="n">errors</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
             <span class="p">)</span>
-            <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Synchronization failed due to overlapping data. Only the first &quot;</span>
-            <span class="s2">&quot;duplicates are listed</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="n">tabulate</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span>
-                    <span class="n">errorData</span><span class="p">,</span>
-                    <span class="n">headers</span><span class="o">=</span><span class="p">[</span>
-                        <span class="s2">&quot;Composite&quot;</span><span class="p">,</span>
-                        <span class="s2">&quot;Composite Type&quot;</span><span class="p">,</span>
-                        <span class="s2">&quot;ParameterName&quot;</span><span class="p">,</span>
-                        <span class="s2">&quot;NodeRanks&quot;</span><span class="p">,</span>
-                    <span class="p">],</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;Synchronization failed due to overlapping data. Only the first &quot;</span>
+                <span class="s2">&quot;duplicates are listed</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">tabulate</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span>
+                        <span class="n">errorData</span><span class="p">,</span>
+                        <span class="n">headers</span><span class="o">=</span><span class="p">[</span>
+                            <span class="s2">&quot;Composite&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Composite Type&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Composite Parent&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;ParameterName&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;NodeRanks&quot;</span><span class="p">,</span>
+                        <span class="p">],</span>
+                    <span class="p">)</span>
                 <span class="p">)</span>
             <span class="p">)</span>
             <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">SynchronizationError</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
@@ -2856,12 +2977,12 @@
         <span class="sd">&quot;&quot;&quot;Return empty list, representing that this object has no children.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[]</span></div>
 
-<div class="viewcode-block" id="Leaf.getChildrenWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Leaf.getChildrenWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">getChildrenWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">exactMatch</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="Leaf.getChildrenWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Leaf.getChildrenWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">getChildrenWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span> <span class="n">exactMatch</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return empty list, representing that this object has no children.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[]</span></div></div>
 
 
-<div class="viewcode-block" id="StateRetainer"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.StateRetainer">[docs]</a><span class="k">class</span> <span class="nc">StateRetainer</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="StateRetainer"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.StateRetainer">[docs]</a><span class="k">class</span> <span class="nc">StateRetainer</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Retains state during some operations.</span>
 
@@ -2925,9 +3046,9 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2009-2019, TerraPower, LLC
+        &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-15.
+        Last updated on 2020-02-04.
       </span>
 
     </p>

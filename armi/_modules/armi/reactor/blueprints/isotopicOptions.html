@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.reactor.blueprints.isotopicOptions &mdash; ARMI 0.1.2-dev documentation</title>
+  <title>armi.reactor.blueprints.isotopicOptions &mdash; ARMI 0.1.3-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1.2-dev
+                0.1.3-dev
               </div>
             
           
@@ -181,11 +181,14 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">This module defines the ARMI input for a component definition, and code for constructing an ARMI ``Component``.</span>
+<span class="sd">Defines nuclide flags and custom isotopics via input.</span>
+
+<span class="sd">Nuclide flags control meta-data about nuclides. Custom isotopics</span>
+<span class="sd">allow specification of arbitrary isotopic compositions.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">yamlize</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">units</span>
 
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">units</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">materials</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.localization</span> <span class="k">import</span> <span class="n">exceptions</span>
@@ -193,15 +196,49 @@
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="k">import</span> <span class="n">nucDir</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="k">import</span> <span class="n">nuclideBases</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">densityTools</span>
-
+<span class="kn">from</span> <span class="nn">armi.localization.exceptions</span> <span class="k">import</span> <span class="n">InputError</span>
 
 <span class="n">ALLOWED_KEYS</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">elements</span><span class="o">.</span><span class="n">bySymbol</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 
 
 <div class="viewcode-block" id="NuclideFlag"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.isotopicOptions.html#armi.reactor.blueprints.isotopicOptions.NuclideFlag">[docs]</a><span class="k">class</span> <span class="nc">NuclideFlag</span><span class="p">(</span><span class="n">yamlize</span><span class="o">.</span><span class="n">Object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    This class defines a nuclide options for use within the ARMI simulation, defining whether or not it should be</span>
-<span class="sd">    included in the burn chain and cross sections.</span>
+<span class="sd">    Defines whether or not each nuclide is included in the burn chain and cross sections.</span>
+
+<span class="sd">    Also controls which nuclides get expanded from elementals to isotopics</span>
+<span class="sd">    and which natural isotopics to exclude (if any). Oftentimes, cross section</span>
+<span class="sd">    library creators include some natural isotopes but not all. For example,</span>
+<span class="sd">    it is common to include O16 but not O17 or O18. Each code has slightly</span>
+<span class="sd">    different interpretations of this so we give the user full control here.</span>
+
+<span class="sd">    We also try to provide useful defaults.</span>
+
+<span class="sd">    There are lots of complications that can arise in these choices.</span>
+<span class="sd">    It makes reasonable sense to use elemental compositions</span>
+<span class="sd">    for things that are typically used  without isotopic modifications</span>
+<span class="sd">    (Fe, O, Zr, Cr, Na). If we choose to expand some or all of these</span>
+<span class="sd">    to isotopics at initialization based on cross section library</span>
+<span class="sd">    requirements, a single case will work fine with a given lattice</span>
+<span class="sd">    physics option. However, restarting from that case with different</span>
+<span class="sd">    cross section needs is challenging.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    nuclideName : str</span>
+<span class="sd">        The name of the nuclide</span>
+<span class="sd">    burn : bool</span>
+<span class="sd">        True if this nuclide should be added to the burn chain.</span>
+<span class="sd">        If True, all reachable nuclides via transmutation</span>
+<span class="sd">        and decay must be included as well.</span>
+<span class="sd">    xs : bool</span>
+<span class="sd">        True if this nuclide should be included in the cross</span>
+<span class="sd">        section libraries. Effectively, if this nuclide is in the problem</span>
+<span class="sd">        at all, this should be true.</span>
+<span class="sd">    expandTo : list of str, optional</span>
+<span class="sd">        isotope nuclideNames to expand to. For example, if nuclideName is</span>
+<span class="sd">        ``O`` then this could be ``[&quot;O16&quot;, &quot;O17&quot;]`` to expand it into</span>
+<span class="sd">        those two isotopes (but not ``O18``). The nuclides will be scaled</span>
+<span class="sd">        up uniformly to account for any missing natural nuclides.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">nuclideName</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
@@ -217,29 +254,47 @@
 
     <span class="n">burn</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
     <span class="n">xs</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">expandTo</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">yamlize</span><span class="o">.</span><span class="n">StrList</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nuclideName</span><span class="p">,</span> <span class="n">burn</span><span class="p">,</span> <span class="n">xs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nuclideName</span><span class="p">,</span> <span class="n">burn</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">expandTo</span><span class="p">):</span>
         <span class="c1"># note: yamlize does not call an __init__ method, instead it uses __new__ and setattr</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">nuclideName</span> <span class="o">=</span> <span class="n">nuclideName</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">burn</span> <span class="o">=</span> <span class="n">burn</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">xs</span> <span class="o">=</span> <span class="n">xs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expandTo</span> <span class="o">=</span> <span class="n">expandTo</span>
 
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;&lt;NuclideFlag name:</span><span class="si">{}</span><span class="s2"> burn:</span><span class="si">{}</span><span class="s2"> xs:</span><span class="si">{}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">nuclideName</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">burn</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xs</span>
         <span class="p">)</span>
 
-<div class="viewcode-block" id="NuclideFlag.prepForCase"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.isotopicOptions.html#armi.reactor.blueprints.isotopicOptions.NuclideFlag.prepForCase">[docs]</a>    <span class="k">def</span> <span class="nf">prepForCase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">activeSet</span><span class="p">,</span> <span class="n">inertSet</span><span class="p">,</span> <span class="n">undefinedBurnChainActiveNuclides</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Take in the string nuclide or element name, try to expand it out to its bases correctly.&quot;&quot;&quot;</span>
-        <span class="n">actualNuclides</span> <span class="o">=</span> <span class="n">nucDir</span><span class="o">.</span><span class="n">getNuclidesFromInputName</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nuclideName</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">actualNuclide</span> <span class="ow">in</span> <span class="n">actualNuclides</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">burn</span><span class="p">:</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">actualNuclide</span><span class="o">.</span><span class="n">trans</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">actualNuclide</span><span class="o">.</span><span class="n">decays</span><span class="p">:</span>
-                    <span class="n">undefinedBurnChainActiveNuclides</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">actualNuclide</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-                <span class="n">activeSet</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">actualNuclide</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<div class="viewcode-block" id="NuclideFlag.fileAsActiveOrInert"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.isotopicOptions.html#armi.reactor.blueprints.isotopicOptions.NuclideFlag.fileAsActiveOrInert">[docs]</a>    <span class="k">def</span> <span class="nf">fileAsActiveOrInert</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">activeSet</span><span class="p">,</span> <span class="n">inertSet</span><span class="p">,</span> <span class="n">undefinedBurnChainActiveNuclides</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Given a nuclide or element name, file it as either active or inert.</span>
 
+<span class="sd">        If isotopic expansions are requested, include the isotopics</span>
+<span class="sd">        rather than the NaturalNuclideBase, as the NaturalNuclideBase will never</span>
+<span class="sd">        occur in such a problem.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nb</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">nuclideName</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">expandTo</span><span class="p">:</span>
+            <span class="n">nucBases</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nn</span><span class="p">]</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">expandTo</span><span class="p">]</span>
+            <span class="n">expanded</span> <span class="o">=</span> <span class="p">[</span><span class="n">nb</span><span class="o">.</span><span class="n">element</span><span class="p">]</span>  <span class="c1"># error to expand non-elements</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">nucBases</span> <span class="o">=</span> <span class="p">[</span><span class="n">nb</span><span class="p">]</span>
+            <span class="n">expanded</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nucBases</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">burn</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">nuc</span><span class="o">.</span><span class="n">trans</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">nuc</span><span class="o">.</span><span class="n">decays</span><span class="p">:</span>
+                    <span class="c1"># DUMPs and LFPs usually</span>
+                    <span class="n">undefinedBurnChainActiveNuclides</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                <span class="n">activeSet</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">xs</span><span class="p">:</span>
-                <span class="n">inertSet</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">actualNuclide</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div></div>
+                <span class="n">inertSet</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">expanded</span></div></div>
 
 
 <div class="viewcode-block" id="NuclideFlags"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.isotopicOptions.html#armi.reactor.blueprints.isotopicOptions.NuclideFlags">[docs]</a><span class="k">class</span> <span class="nc">NuclideFlags</span><span class="p">(</span><span class="n">yamlize</span><span class="o">.</span><span class="n">KeyedList</span><span class="p">):</span>
@@ -328,7 +383,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_initializeMassFracs</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_expandElementMassFracs</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="c1"># use a YamlizingError to line/column of erroneous input</span>
+            <span class="c1"># use a YamlizingError to get line/column of erroneous input</span>
             <span class="k">raise</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">YamlizingError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">),</span> <span class="n">node</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span></div>
@@ -347,7 +402,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_initializeMassFracs</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_expandElementMassFracs</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="c1"># use a YamlizingError to line/column of erroneous input</span>
+            <span class="c1"># use a YamlizingError to get line/column of erroneous input</span>
             <span class="k">raise</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">YamlizingError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">),</span> <span class="n">val_node</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span></div>
@@ -414,13 +469,15 @@
 
     <span class="k">def</span> <span class="nf">_expandElementMassFracs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Expand the massFrac dictionary element inputs to isotopics inputs (keys are strings) when the element name is</span>
-<span class="sd">        not a elemental nuclide. Most everywhere else expects Nuclide objects (or nuclide names). This input allows a</span>
+<span class="sd">        Expand the custom isotopics input entries that are elementals to isotopics.</span>
+
+<span class="sd">        This is necessary when the element name is not a elemental nuclide.</span>
+<span class="sd">        Most everywhere else expects Nuclide objects (or nuclide names). This input allows a</span>
 <span class="sd">        user to enter &quot;U&quot; which would expand to the naturally occurring uranium isotopics.</span>
 
-<span class="sd">        This is different than the isotopic expansion done for meeting user-specified modeling options (such as an</span>
-<span class="sd">        MC**2, or MCNP expecting elements or isotopes), because it translates the user input into something that can be</span>
-<span class="sd">        used later on.</span>
+<span class="sd">        This is different than the isotopic expansion done for meeting user-specified</span>
+<span class="sd">        modeling options (such as an MC**2, or MCNP expecting elements or isotopes),</span>
+<span class="sd">        because it translates the user input into something that can be used later on.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">elementsToExpand</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">massFracs</span><span class="p">:</span>
@@ -432,7 +489,8 @@
                             <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">nucName</span>
                         <span class="p">)</span>
                     <span class="p">)</span>
-                    <span class="n">elementsToExpand</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
+                    <span class="c1"># include all natural isotopes with None flag</span>
+                    <span class="n">elementsToExpand</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">element</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">InputError</span><span class="p">(</span>
                         <span class="s2">&quot;Unrecognized nuclide/isotope/element in input: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
@@ -455,6 +513,7 @@
 <span class="sd">        ----------</span>
 <span class="sd">        material : Material</span>
 <span class="sd">            An ARMI Material instance.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">material</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">massFracs</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">density</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -506,6 +565,177 @@
 
         <span class="n">custom</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="n">customIsotopicsName</span><span class="p">]</span>
         <span class="n">custom</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">material</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="getDefaultNuclideFlags"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.isotopicOptions.html#armi.reactor.blueprints.isotopicOptions.getDefaultNuclideFlags">[docs]</a><span class="k">def</span> <span class="nf">getDefaultNuclideFlags</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return a default set of nuclides to model and deplete.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The nuclideFlags input on blueprints has confused new users and is infrequently</span>
+<span class="sd">    changed. It will be moved to be a user setting, but in any case a reasonable default</span>
+<span class="sd">    should be provided. We will by default model medium-lived and longer actinides between</span>
+<span class="sd">    U234 and CM247.</span>
+
+<span class="sd">    We will include B10 and B11 without depletion, sodium, and structural elements.</span>
+
+<span class="sd">    We will include LFPs with depletion.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nuclideFlags</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">actinides</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;U&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">234</span><span class="p">,</span> <span class="mi">235</span><span class="p">,</span> <span class="mi">236</span><span class="p">,</span> <span class="mi">238</span><span class="p">],</span>
+        <span class="s2">&quot;NP&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">237</span><span class="p">,</span> <span class="mi">238</span><span class="p">],</span>
+        <span class="s2">&quot;PU&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">236</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">238</span><span class="p">,</span> <span class="mi">243</span><span class="p">)),</span>
+        <span class="s2">&quot;AM&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">241</span><span class="p">,</span> <span class="mi">244</span><span class="p">),</span>
+        <span class="s2">&quot;CM&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">242</span><span class="p">,</span> <span class="mi">248</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">el</span><span class="p">,</span> <span class="n">masses</span> <span class="ow">in</span> <span class="n">actinides</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">mass</span> <span class="ow">in</span> <span class="n">masses</span><span class="p">:</span>
+            <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">f</span><span class="s2">&quot;</span><span class="si">{el}{mass}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;burn&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;expandTo&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">fp</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">35</span><span class="p">,</span> <span class="mi">38</span><span class="p">,</span> <span class="mi">39</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">41</span><span class="p">]:</span>
+        <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">f</span><span class="s2">&quot;LFP</span><span class="si">{fp}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;burn&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;expandTo&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">dmp</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]:</span>
+        <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">f</span><span class="s2">&quot;DUMP</span><span class="si">{dmp}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;burn&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;expandTo&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">boron</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]:</span>
+        <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">f</span><span class="s2">&quot;B</span><span class="si">{boron}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;burn&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;expandTo&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">struct</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="s2">&quot;ZR&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SI&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;V&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CR&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;FE&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NI&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MO&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;W&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;HE&quot;</span><span class="p">,</span>
+    <span class="p">]:</span>
+        <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">struct</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;burn&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;expandTo&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">nuclideFlags</span></div>
+
+
+<div class="viewcode-block" id="autoSelectElementsToKeepFromSettings"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.isotopicOptions.html#armi.reactor.blueprints.isotopicOptions.autoSelectElementsToKeepFromSettings">[docs]</a><span class="k">def</span> <span class="nf">autoSelectElementsToKeepFromSettings</span><span class="p">(</span><span class="n">cs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Intelligently choose elements to expand based on settings.</span>
+
+<span class="sd">    If settings point to a particular code and library and we know</span>
+<span class="sd">    that combo requires certain elementals to be expanded, we</span>
+<span class="sd">    flag them here to make the user input as simple as possible.</span>
+
+<span class="sd">    This determines both which elementals to keep and which</span>
+<span class="sd">    specific expansion subsets to use.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This logic is expected to be moved to respective plugins in time.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    elementalsToKeep : set</span>
+<span class="sd">        Set of NaturalNuclideBase instances to not expand into</span>
+<span class="sd">        natural isotopics.</span>
+<span class="sd">    expansions : dict</span>
+<span class="sd">        Element to list of nuclides for expansion.</span>
+<span class="sd">        For example: {oxygen: [oxygen16]} indicates that all</span>
+<span class="sd">        oxygen should be expanded to O16, ignoring natural</span>
+<span class="sd">        O17 and O18. (variables are Natural/NuclideBases)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">elementalsToKeep</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="n">oxygenElementals</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s2">&quot;O&quot;</span><span class="p">]]</span>
+    <span class="n">hydrogenElementals</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;H&quot;</span><span class="p">]]</span>
+    <span class="n">endf70Elementals</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;V&quot;</span><span class="p">,</span> <span class="s2">&quot;ZN&quot;</span><span class="p">]]</span>
+    <span class="n">endf71Elementals</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">]]</span>
+    <span class="n">endf80Elementals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">elementalsInMC2</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="n">expansionStrings</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">mc2Expansions</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;HE&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;HE4&quot;</span><span class="p">],</span>  <span class="c1"># neglect HE3</span>
+        <span class="s2">&quot;O&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;O16&quot;</span><span class="p">],</span>  <span class="c1"># neglect O17 and O18</span>
+        <span class="s2">&quot;W&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;W182&quot;</span><span class="p">,</span> <span class="s2">&quot;W183&quot;</span><span class="p">,</span> <span class="s2">&quot;W184&quot;</span><span class="p">,</span> <span class="s2">&quot;W186&quot;</span><span class="p">],</span>  <span class="c1"># neglect W180</span>
+    <span class="p">}</span>
+    <span class="n">mcnpExpansions</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;O&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;O16&quot;</span><span class="p">],</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">elements</span><span class="o">.</span><span class="n">byName</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="c1"># any NaturalNuclideBase that&#39;s available in MC2 libs</span>
+        <span class="n">nnb</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">nnb</span> <span class="ow">and</span> <span class="n">nnb</span><span class="o">.</span><span class="n">mc2id</span><span class="p">:</span>
+            <span class="n">elementalsInMC2</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">nnb</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="s2">&quot;MCNP&quot;</span> <span class="ow">in</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;neutronicsKernel&quot;</span><span class="p">]:</span>
+        <span class="n">expansionStrings</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">mcnpExpansions</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;mcnpLibrary&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="mi">50</span><span class="p">:</span>
+            <span class="n">elementalsToKeep</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">instances</span><span class="p">)</span>  <span class="c1"># skip expansion</span>
+        <span class="c1"># ENDF/B VII.0</span>
+        <span class="k">elif</span> <span class="mi">70</span> <span class="o">&lt;=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;mcnpLibrary&quot;</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">79</span><span class="p">:</span>
+            <span class="n">elementalsToKeep</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf70Elementals</span><span class="p">)</span>
+        <span class="c1"># ENDF/B VII.1</span>
+        <span class="k">elif</span> <span class="mi">80</span> <span class="o">&lt;=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;mcnpLibrary&quot;</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">89</span><span class="p">:</span>
+            <span class="n">elementalsToKeep</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf71Elementals</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InputError</span><span class="p">(</span>
+                <span class="s2">&quot;Failed to determine nuclides for modeling. &quot;</span>
+                <span class="s2">&quot;The `mcnpLibrary` setting value (</span><span class="si">{}</span><span class="s2">) is not supported.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;mcnpLibrary&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;xsKernel&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;SERPENT&quot;</span><span class="p">,</span> <span class="s2">&quot;MC2v3&quot;</span><span class="p">,</span> <span class="s2">&quot;MC2v3-PARTISN&quot;</span><span class="p">]:</span>
+        <span class="n">elementalsToKeep</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf70Elementals</span><span class="p">)</span>
+        <span class="n">expansionStrings</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">mc2Expansions</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;xsKernel&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;DRAGON&quot;</span><span class="p">:</span>
+        <span class="c1"># Users need to use default nuclear lib name. This is documented.</span>
+        <span class="n">dragLib</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dragonDataPath&quot;</span><span class="p">]</span>
+        <span class="c1"># only supports ENDF/B VII/VIII at the moment.</span>
+        <span class="k">if</span> <span class="s2">&quot;7r0&quot;</span> <span class="ow">in</span> <span class="n">dragLib</span><span class="p">:</span>
+            <span class="n">elementalsToKeep</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf70Elementals</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="s2">&quot;7r1&quot;</span> <span class="ow">in</span> <span class="n">dragLib</span><span class="p">:</span>
+            <span class="n">elementalsToKeep</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf71Elementals</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="s2">&quot;8r0&quot;</span> <span class="ow">in</span> <span class="n">dragLib</span><span class="p">:</span>
+            <span class="n">elementalsToKeep</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf80Elementals</span><span class="p">)</span>
+            <span class="n">elementalsToKeep</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">hydrogenElementals</span><span class="p">)</span>
+            <span class="n">elementalsToKeep</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">oxygenElementals</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s2">&quot;Unrecognized DRAGLIB name: </span><span class="si">{dragLib}</span><span class="s2"> Use default file name.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;xsKernel&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;MC2v2&quot;</span><span class="p">:</span>
+        <span class="c1"># strip out any NaturalNuclideBase with no mc2id (not on mc2Nuclides.yaml)</span>
+        <span class="n">elementalsToKeep</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">elementalsInMC2</span><span class="p">)</span>
+        <span class="n">expansionStrings</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">mc2Expansions</span><span class="p">)</span>
+
+    <span class="c1"># convert convenient string notation to actual NuclideBase objects</span>
+    <span class="n">expansions</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">nnb</span><span class="p">,</span> <span class="n">nbs</span> <span class="ow">in</span> <span class="n">expansionStrings</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">expansions</span><span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nnb</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nb</span><span class="p">]</span> <span class="k">for</span> <span class="n">nb</span> <span class="ow">in</span> <span class="n">nbs</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">elementalsToKeep</span><span class="p">,</span> <span class="n">expansions</span></div>
+
+
+<div class="viewcode-block" id="genDefaultNucFlags"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.isotopicOptions.html#armi.reactor.blueprints.isotopicOptions.genDefaultNucFlags">[docs]</a><span class="k">def</span> <span class="nf">genDefaultNucFlags</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Perform all the yamlize-required type conversions.&quot;&quot;&quot;</span>
+    <span class="n">flagsDict</span> <span class="o">=</span> <span class="n">getDefaultNuclideFlags</span><span class="p">()</span>
+    <span class="n">flags</span> <span class="o">=</span> <span class="n">NuclideFlags</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">nucFlags</span> <span class="ow">in</span> <span class="n">flagsDict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">flag</span> <span class="o">=</span> <span class="n">NuclideFlag</span><span class="p">(</span>
+            <span class="n">nucName</span><span class="p">,</span> <span class="n">nucFlags</span><span class="p">[</span><span class="s2">&quot;burn&quot;</span><span class="p">],</span> <span class="n">nucFlags</span><span class="p">[</span><span class="s2">&quot;xs&quot;</span><span class="p">],</span> <span class="n">nucFlags</span><span class="p">[</span><span class="s2">&quot;expandTo&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">flags</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span> <span class="o">=</span> <span class="n">flag</span>
+    <span class="k">return</span> <span class="n">flags</span></div>
 </pre></div>
 
            </div>
@@ -518,9 +748,9 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2009-2019, TerraPower, LLC
+        &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-15.
+        Last updated on 2020-02-04.
       </span>
 
     </p>

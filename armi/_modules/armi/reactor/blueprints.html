@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.reactor.blueprints &mdash; ARMI 0.1.2-dev documentation</title>
+  <title>armi.reactor.blueprints &mdash; ARMI 0.1.3-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1.2-dev
+                0.1.3-dev
               </div>
             
           
@@ -232,11 +232,12 @@
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">OrderedDict</span>
 <span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">typing</span>
 
+<span class="kn">import</span> <span class="nn">ruamel</span>
 <span class="kn">import</span> <span class="nn">tabulate</span>
-
-<span class="kn">import</span> <span class="nn">six</span>
 <span class="kn">import</span> <span class="nn">yamlize</span>
 <span class="kn">import</span> <span class="nn">yamlize.objects</span>
 <span class="kn">import</span> <span class="nn">ordered_set</span>
@@ -248,19 +249,19 @@
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">plugins</span>
 <span class="kn">from</span> <span class="nn">armi.localization.exceptions</span> <span class="k">import</span> <span class="n">InputError</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="k">import</span> <span class="n">nuclideBases</span>
+<span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="k">import</span> <span class="n">elements</span>
+<span class="kn">from</span> <span class="nn">armi.scripts</span> <span class="k">import</span> <span class="n">migration</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">textProcessors</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">geometry</span>
 
 <span class="c1"># NOTE: using non-ARMI-standard imports because these are all a part of this package,</span>
 <span class="c1"># and using the module imports would make the attribute definitions extremely long</span>
 <span class="c1"># without adding detail</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.blueprints.reactorBlueprint</span> <span class="k">import</span> <span class="n">Systems</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.blueprints.reactorBlueprint</span> <span class="k">import</span> <span class="n">Systems</span><span class="p">,</span> <span class="n">SystemBlueprint</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.blueprints.assemblyBlueprint</span> <span class="k">import</span> <span class="n">AssemblyKeyedList</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.blueprints.blockBlueprint</span> <span class="k">import</span> <span class="n">BlockKeyedList</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.blueprints.isotopicOptions</span> <span class="k">import</span> <span class="p">(</span>
-    <span class="n">NuclideFlags</span><span class="p">,</span>
-    <span class="n">NuclideFlag</span><span class="p">,</span>
-    <span class="n">CustomIsotopics</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.blueprints.gridBlueprint</span> <span class="k">import</span> <span class="n">Grids</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.blueprints</span> <span class="k">import</span> <span class="n">isotopicOptions</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.blueprints.gridBlueprint</span> <span class="k">import</span> <span class="n">Grids</span><span class="p">,</span> <span class="n">Triplet</span>
 
 <span class="n">context</span><span class="o">.</span><span class="n">BLUEPRINTS_IMPORTED</span> <span class="o">=</span> <span class="kc">True</span>
 <span class="n">context</span><span class="o">.</span><span class="n">BLUEPRINTS_IMPORT_CONTEXT</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_stack</span><span class="p">())</span>
@@ -270,10 +271,15 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function to load Blueprints based on supplied ``CaseSettings``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">directoryChangers</span>  <span class="c1"># circular import protection</span>
+    <span class="c1"># pylint: disable=import-outside-toplevel; circular import protection</span>
+    <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">directoryChangers</span>
+
+    <span class="n">textProcessors</span><span class="o">.</span><span class="n">registerYamlIncludeConstructor</span><span class="p">()</span>
 
     <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">DirectoryChanger</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">):</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadingFile&quot;</span><span class="p">],</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">bpYaml</span><span class="p">:</span>
+            <span class="c1"># Make sure that the !include constructor is registered</span>
+            <span class="n">bpYaml</span> <span class="o">=</span> <span class="n">textProcessors</span><span class="o">.</span><span class="n">resolveMarkupInclusions</span><span class="p">(</span><span class="n">bpYaml</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">bp</span> <span class="o">=</span> <span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">bpYaml</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">yamlizing_error</span><span class="o">.</span><span class="n">YamlizingError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
@@ -299,15 +305,15 @@
 
     <span class="k">def</span> <span class="nf">__new__</span><span class="p">(</span><span class="n">mcs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">attrs</span><span class="p">):</span>
         <span class="c1"># pylint: disable=no-member</span>
-        <span class="n">plugins</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">getPluginManager</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">plugins</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pm</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">getPluginManager</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">pm</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;Blueprints were instantiated before the framework was &quot;</span>
                 <span class="s2">&quot;configured with plugins. Blueprints cannot be imported before &quot;</span>
                 <span class="s2">&quot;ARMI has been configured.&quot;</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">pluginSections</span> <span class="o">=</span> <span class="n">plugins</span><span class="o">.</span><span class="n">hook</span><span class="o">.</span><span class="n">defineBlueprintsSections</span><span class="p">()</span>
+            <span class="n">pluginSections</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">hook</span><span class="o">.</span><span class="n">defineBlueprintsSections</span><span class="p">()</span>
             <span class="k">for</span> <span class="n">plug</span> <span class="ow">in</span> <span class="n">pluginSections</span><span class="p">:</span>
                 <span class="k">for</span> <span class="p">(</span><span class="n">attrName</span><span class="p">,</span> <span class="n">section</span><span class="p">,</span> <span class="n">resolver</span><span class="p">)</span> <span class="ow">in</span> <span class="n">plug</span><span class="p">:</span>
                     <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">section</span><span class="p">,</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">)</span>
@@ -319,18 +325,19 @@
                     <span class="n">attrs</span><span class="p">[</span><span class="n">attrName</span><span class="p">]</span> <span class="o">=</span> <span class="n">section</span>
                     <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;_resolveFunctions&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">resolver</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">ObjectType</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="n">mcs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">attrs</span><span class="p">)</span>
+        <span class="n">newType</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">ObjectType</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="n">mcs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">attrs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">newType</span>
 
 
-<div class="viewcode-block" id="Blueprints"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.Blueprints">[docs]</a><span class="nd">@six</span><span class="o">.</span><span class="n">add_metaclass</span><span class="p">(</span><span class="n">_BlueprintsPluginCollector</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">Blueprints</span><span class="p">(</span><span class="n">yamlize</span><span class="o">.</span><span class="n">Object</span><span class="p">):</span>
+<div class="viewcode-block" id="Blueprints"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.Blueprints">[docs]</a><span class="k">class</span> <span class="nc">Blueprints</span><span class="p">(</span><span class="n">yamlize</span><span class="o">.</span><span class="n">Object</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">_BlueprintsPluginCollector</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Base Blueprintsobject representing all the subsections in the input file.&quot;&quot;&quot;</span>
 
     <span class="n">nuclideFlags</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span>
-        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;nuclide flags&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">NuclideFlags</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;nuclide flags&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">isotopicOptions</span><span class="o">.</span><span class="n">NuclideFlags</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">)</span>
     <span class="n">customIsotopics</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span>
-        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;custom isotopics&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">CustomIsotopics</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span>
+        <span class="n">key</span><span class="o">=</span><span class="s2">&quot;custom isotopics&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">isotopicOptions</span><span class="o">.</span><span class="n">CustomIsotopics</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">)</span>
     <span class="n">blockDesigns</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;blocks&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">BlockKeyedList</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
     <span class="n">assemDesigns</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span>
@@ -359,10 +366,10 @@
         <span class="k">return</span> <span class="bp">self</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># again, yamlize does not call __init__, instead we use Blueprints.load which creates and</span>
-        <span class="c1"># instance of a Blueprints object and initializes it with values using setattr. Since the</span>
-        <span class="c1"># method is never called, it serves the purpose of preventing pylint from issuing warnings</span>
-        <span class="c1"># about attributes not existing.</span>
+        <span class="c1"># again, yamlize does not call __init__, instead we use Blueprints.load which</span>
+        <span class="c1"># creates and instance of a Blueprints object and initializes it with values</span>
+        <span class="c1"># using setattr. Since the method is never called, it serves the purpose of</span>
+        <span class="c1"># preventing pylint from issuing warnings about attributes not existing.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assembliesBySpecifier</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_prepped</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">systemDesigns</span> <span class="o">=</span> <span class="n">Systems</span><span class="p">()</span>
@@ -419,7 +426,7 @@
 <span class="sd">        generates the `.assemblies` attribute (the BOL assemblies). Eventually, this</span>
 <span class="sd">        should be removed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_prepConstruction</span><span class="p">(</span><span class="n">geomType</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prepConstruction</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
 
         <span class="c1"># TODO: this should be migrated assembly designs instead of assemblies</span>
         <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -434,7 +441,7 @@
         <span class="n">a</span><span class="o">.</span><span class="n">makeUnique</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">a</span></div>
 
-    <span class="k">def</span> <span class="nf">_prepConstruction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">geomType</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_prepConstruction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        This method initializes a bunch of information within a Blueprints object such</span>
 <span class="sd">        as assigning assembly and block type numbers, resolving the nuclides in the</span>
@@ -482,49 +489,109 @@
                         <span class="bp">self</span><span class="o">.</span><span class="n">blockDesigns</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">bDesign</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_resolveNuclides</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Expands the density of any elemental nuclides to its natural isotopics.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Process elements and determine how to expand them to natural isotopics.</span>
+
+<span class="sd">        Also builds meta-data about which nuclides are in the problem.</span>
+
+<span class="sd">        This system works by building a dictionary in the</span>
+<span class="sd">        ``elementsToExpand`` attribute with ``Element`` keys</span>
+<span class="sd">        and list of ``NuclideBase`` values.</span>
+
+<span class="sd">        The actual expansion of elementals to isotopics occurs during</span>
+<span class="sd">        :py:meth:`Component construction &lt;armi.reactor.blueprints.componentBlueprint.</span>
+<span class="sd">        ComponentBlueprint._constructMaterial&gt;`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">utils</span>
 
-        <span class="c1"># expand burn-chain to only contain nuclides, no elements</span>
         <span class="n">actives</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="n">inerts</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="n">undefBurnChainActiveNuclides</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span> <span class="o">=</span> <span class="n">genDefaultNucFlags</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span> <span class="o">=</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">genDefaultNucFlags</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">nucFlag</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span><span class="p">:</span>
-            <span class="n">nucFlag</span><span class="o">.</span><span class="n">prepForCase</span><span class="p">(</span><span class="n">actives</span><span class="p">,</span> <span class="n">inerts</span><span class="p">,</span> <span class="n">undefBurnChainActiveNuclides</span><span class="p">)</span>
+            <span class="c1"># this returns any nuclides that are flagged specifically for expansion by input</span>
+            <span class="n">expandedElements</span> <span class="o">=</span> <span class="n">nucFlag</span><span class="o">.</span><span class="n">fileAsActiveOrInert</span><span class="p">(</span>
+                <span class="n">actives</span><span class="p">,</span> <span class="n">inerts</span><span class="p">,</span> <span class="n">undefBurnChainActiveNuclides</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">expandedElements</span><span class="p">)</span>
 
         <span class="n">inerts</span> <span class="o">-=</span> <span class="n">actives</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">customIsotopics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">customIsotopics</span> <span class="ow">or</span> <span class="n">CustomIsotopics</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">customIsotopics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">customIsotopics</span> <span class="ow">or</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">CustomIsotopics</span><span class="p">()</span>
+        <span class="p">(</span>
+            <span class="n">elementalsToKeep</span><span class="p">,</span>
+            <span class="n">expansions</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">autoSelectElementsToKeepFromSettings</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
 
-        <span class="n">elementalsToSkip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_selectNuclidesToExpandForModeling</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
-
-        <span class="c1"># if elementalsToSkip=[CR], we expand everything else. e.g. CR -&gt; CR (unchanged)</span>
         <span class="n">nucsFromInput</span> <span class="o">=</span> <span class="n">actives</span> <span class="o">|</span> <span class="n">inerts</span>  <span class="c1"># join</span>
 
+        <span class="c1"># Flag all elementals for expansion unless they&#39;ve been flagged otherwise by</span>
+        <span class="c1"># user input or automatic lattice/datalib rules.</span>
         <span class="k">for</span> <span class="n">elemental</span> <span class="ow">in</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">instances</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">elemental</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">NaturalNuclideBase</span><span class="p">):</span>
-                <span class="k">continue</span>
-            <span class="k">if</span> <span class="n">elemental</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">nucsFromInput</span><span class="p">:</span>
-                <span class="k">continue</span>
-
-            <span class="c1"># we&#39;ve now confirmed this elemental is in the problem</span>
-            <span class="k">if</span> <span class="n">elemental</span> <span class="ow">in</span> <span class="n">elementalsToSkip</span><span class="p">:</span>
+                <span class="c1"># `elemental` may be a NaturalNuclideBase or a NuclideBase</span>
+                <span class="c1"># skip all NuclideBases</span>
                 <span class="k">continue</span>
 
-            <span class="n">nucsInProblem</span> <span class="o">=</span> <span class="n">actives</span> <span class="k">if</span> <span class="n">elemental</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">actives</span> <span class="k">else</span> <span class="n">inerts</span>
-            <span class="n">nucsInProblem</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">elemental</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">elemental</span> <span class="ow">in</span> <span class="n">elementalsToKeep</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">elemental</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">actives</span><span class="p">:</span>
+                <span class="n">currentSet</span> <span class="o">=</span> <span class="n">actives</span>
+                <span class="n">actives</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">elemental</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">elemental</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">inerts</span><span class="p">:</span>
+                <span class="n">currentSet</span> <span class="o">=</span> <span class="n">inerts</span>
+                <span class="n">inerts</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">elemental</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># This was not specified in the nuclide flags at all.</span>
+                <span class="c1"># If a material with this in its composition is brought in</span>
+                <span class="c1"># it&#39;s nice from a user perspective to allow it.</span>
+                <span class="c1"># But current behavior is that all nuclides in problem</span>
+                <span class="c1"># must be declared up front.</span>
+                <span class="k">continue</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="p">)</span>
 
-            <span class="k">for</span> <span class="n">nb</span> <span class="ow">in</span> <span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">getNaturalIsotopics</span><span class="p">():</span>
-                <span class="n">nucsInProblem</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">elemental</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span><span class="p">[</span><span class="n">elemental</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">expandTo</span>
+            <span class="p">):</span>
+                <span class="c1"># user-input has precedence</span>
+                <span class="n">newNuclides</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nn</span><span class="p">]</span>
+                    <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span><span class="p">[</span><span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="p">]</span><span class="o">.</span><span class="n">expandTo</span>
+                <span class="p">]</span>
+            <span class="k">elif</span> <span class="p">(</span>
+                <span class="n">elemental</span> <span class="ow">in</span> <span class="n">expansions</span>
+                <span class="ow">and</span> <span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span>
+            <span class="p">):</span>
+                <span class="c1"># code-specific expansion required</span>
+                <span class="n">newNuclides</span> <span class="o">=</span> <span class="n">expansions</span><span class="p">[</span><span class="n">elemental</span><span class="p">]</span>
+                <span class="c1"># overlay code details onto nuclideFlags for other parts of the code</span>
+                <span class="c1"># that will use them.</span>
+                <span class="c1"># CRAP: would be better if nuclideFlags did this upon reading s.t.</span>
+                <span class="c1"># order didn&#39;t matter. On the other hand, this is the only place in</span>
+                <span class="c1"># the code where NuclideFlags get built and have user settings around</span>
+                <span class="c1"># (hence &quot;resolve&quot;).</span>
+                <span class="c1"># This must be updated because the operative expansion code just uses the flags</span>
+                <span class="c1">#</span>
+                <span class="c1"># Also, if this element is not in nuclideFlags at all, we just don&#39;t add it</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span><span class="p">[</span><span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="p">]</span><span class="o">.</span><span class="n">expandTo</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">nb</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">nb</span> <span class="ow">in</span> <span class="n">newNuclides</span>
+                <span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># expand to all possible natural isotopics</span>
+                <span class="n">newNuclides</span> <span class="o">=</span> <span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">getNaturalIsotopics</span><span class="p">()</span>
+
+            <span class="k">for</span> <span class="n">nb</span> <span class="ow">in</span> <span class="n">newNuclides</span><span class="p">:</span>
+                <span class="n">currentSet</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;Expanding </span><span class="si">{}</span><span class="s2"> elementals to have natural isotopics&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="s2">&quot;Will expand </span><span class="si">{}</span><span class="s2"> elementals to have natural isotopics&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                     <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span> <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span><span class="p">)</span>
                 <span class="p">)</span>
             <span class="p">)</span>
@@ -535,7 +602,7 @@
             <span class="nb">sorted</span><span class="p">(</span><span class="n">actives</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">inerts</span><span class="p">))</span>
         <span class="p">)</span>
 
-        <span class="c1"># Inform user that the burn-chain may not be complete</span>
+        <span class="c1"># Inform user which nuclides are truncating the burn chain.</span>
         <span class="k">if</span> <span class="n">undefBurnChainActiveNuclides</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="n">tabulate</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span>
@@ -551,52 +618,6 @@
                 <span class="p">),</span>
                 <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_selectNuclidesToExpandForModeling</span><span class="p">(</span><span class="n">cs</span><span class="p">):</span>
-        <span class="n">elementalsToSkip</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="n">endf70Elementals</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;V&quot;</span><span class="p">,</span> <span class="s2">&quot;ZN&quot;</span><span class="p">]]</span>
-        <span class="n">endf71Elementals</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">]]</span>
-        <span class="n">endf80Elementals</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="k">if</span> <span class="s2">&quot;MCNP&quot;</span> <span class="ow">in</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;neutronicsKernel&quot;</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;mcnpLibrary&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="mi">50</span><span class="p">:</span>
-                <span class="n">elementalsToSkip</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">instances</span><span class="p">)</span>  <span class="c1"># skip expansion</span>
-            <span class="c1"># ENDF/B VII.0</span>
-            <span class="k">elif</span> <span class="mi">70</span> <span class="o">&lt;=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;mcnpLibrary&quot;</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">79</span><span class="p">:</span>
-                <span class="n">elementalsToSkip</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf70Elementals</span><span class="p">)</span>
-            <span class="c1"># ENDF/B VII.1</span>
-            <span class="k">elif</span> <span class="mi">80</span> <span class="o">&lt;=</span> <span class="nb">int</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;mcnpLibrary&quot;</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="mi">89</span><span class="p">:</span>
-                <span class="n">elementalsToSkip</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf71Elementals</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">InputError</span><span class="p">(</span>
-                    <span class="s2">&quot;Failed to determine nuclides for modeling. &quot;</span>
-                    <span class="s2">&quot;The `mcnpLibrary` setting value (</span><span class="si">{}</span><span class="s2">) is not supported.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                        <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;mcnpLibrary&quot;</span><span class="p">]</span>
-                    <span class="p">)</span>
-                <span class="p">)</span>
-
-        <span class="k">elif</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;xsKernel&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;SERPENT&quot;</span><span class="p">,</span> <span class="s2">&quot;MC2v3&quot;</span><span class="p">,</span> <span class="s2">&quot;MC2v3-PARTISN&quot;</span><span class="p">]:</span>
-            <span class="n">elementalsToSkip</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf70Elementals</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;xsKernel&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;DRAGON&quot;</span><span class="p">:</span>
-            <span class="c1"># Users need to use default nuclear lib name. This is documented.</span>
-            <span class="n">dragLib</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dragonDataPath&quot;</span><span class="p">]</span>
-            <span class="c1"># only supports ENDF/B VII/VIII at the moment.</span>
-            <span class="k">if</span> <span class="s2">&quot;7r0&quot;</span> <span class="ow">in</span> <span class="n">dragLib</span><span class="p">:</span>
-                <span class="n">elementalsToSkip</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf70Elementals</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="s2">&quot;7r1&quot;</span> <span class="ow">in</span> <span class="n">dragLib</span><span class="p">:</span>
-                <span class="n">elementalsToSkip</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf71Elementals</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="s2">&quot;8r0&quot;</span> <span class="ow">in</span> <span class="n">dragLib</span><span class="p">:</span>
-                <span class="n">elementalsToSkip</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">endf80Elementals</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="n">f</span><span class="s2">&quot;Unrecognized DRAGLIB name: </span><span class="si">{dragLib}</span><span class="s2"> Use default file name.&quot;</span>
-                <span class="p">)</span>
-
-        <span class="k">elif</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;xsKernel&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;MC2v2&quot;</span><span class="p">:</span>
-            <span class="n">elementalsToSkip</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">instances</span><span class="p">)</span>  <span class="c1"># skip expansion</span>
-
-        <span class="k">return</span> <span class="n">elementalsToSkip</span>
 
     <span class="k">def</span> <span class="nf">_checkAssemblyAreaConsistency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="n">references</span> <span class="o">=</span> <span class="kc">None</span>
@@ -641,17 +662,86 @@
                         <span class="s2">&quot;Block </span><span class="si">{}</span><span class="s2"> has a different area </span><span class="si">{}</span><span class="s2"> than block </span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">. Check inputs for accuracy&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                             <span class="n">b</span><span class="p">,</span> <span class="n">b</span><span class="o">.</span><span class="n">getArea</span><span class="p">(),</span> <span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">blockArea</span>
                         <span class="p">)</span>
-                    <span class="p">)</span></div>
+                    <span class="p">)</span>
+
+<div class="viewcode-block" id="Blueprints.migrate"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.Blueprints.migrate">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">migrate</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">inp</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">TextIO</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Given a stream representation of a blueprints file, migrate it.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        inp : typing.TextIO</span>
+<span class="sd">            Input stream to migrate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">migI</span> <span class="ow">in</span> <span class="n">migration</span><span class="o">.</span><span class="n">ACTIVE_MIGRATIONS</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">migI</span><span class="p">,</span> <span class="n">migration</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">BlueprintsMigration</span><span class="p">):</span>
+                <span class="n">mig</span> <span class="o">=</span> <span class="n">migI</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="n">inp</span><span class="p">)</span>
+                <span class="n">inp</span> <span class="o">=</span> <span class="n">mig</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">inp</span></div></div>
+
+<div class="viewcode-block" id="migrate"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.migrate">[docs]</a><span class="k">def</span> <span class="nf">migrate</span><span class="p">(</span><span class="n">bp</span><span class="p">:</span> <span class="n">Blueprints</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply migrations to the input structure.</span>
+
+<span class="sd">    This is a good place to perform migrations that address changes to the system design</span>
+<span class="sd">    description (settings, blueprints, geom file). We have access to all three here, so</span>
+<span class="sd">    we can even move stuff between files. Namely, this:</span>
+<span class="sd">     - creates a grid blueprint to represent the core layout from the old ``geomFile``</span>
+<span class="sd">       setting, and applies that grid to a ``core`` system.</span>
+<span class="sd">     - moves the radial and azimuthal submesh values from the ``geomFile`` to the</span>
+<span class="sd">       assembly designs, but only if they are uniform (this is limiting, but could be</span>
+<span class="sd">       made more sophisticated in the future, if there is need)</span>
+
+<span class="sd">    This allows settings-driven core map to still be used for backwards compatibility.</span>
+<span class="sd">    At some point once the input stabilizes, we may wish to move this out to the</span>
+<span class="sd">    dedicated migration portion of the code, and not perform the migration so lazily.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">armi.reactor.blueprints</span> <span class="k">import</span> <span class="n">gridBlueprint</span>
+
+    <span class="k">if</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span> <span class="o">=</span> <span class="n">Systems</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span> <span class="o">=</span> <span class="n">gridBlueprint</span><span class="o">.</span><span class="n">Grids</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="s2">&quot;core&quot;</span> <span class="ow">in</span> <span class="p">[</span><span class="n">rd</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot auto-create a 2nd `core` grid. Adjust input.&quot;</span><span class="p">)</span>
+
+    <span class="n">geom</span> <span class="o">=</span> <span class="n">geometry</span><span class="o">.</span><span class="n">SystemLayoutInput</span><span class="p">()</span>
+    <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromFile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">,</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;geomFile&quot;</span><span class="p">]))</span>
+    <span class="n">gridDesign</span> <span class="o">=</span> <span class="n">geom</span><span class="o">.</span><span class="n">toGridBlueprint</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">)</span>
+    <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gridDesign</span>
+
+    <span class="k">if</span> <span class="s2">&quot;core&quot;</span> <span class="ow">in</span> <span class="p">[</span><span class="n">rd</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Core map is defined in both the ``geometry`` setting and in &quot;</span>
+            <span class="s2">&quot;the blueprints file. Only one definition may exist. &quot;</span>
+            <span class="s2">&quot;Update inputs.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">SystemBlueprint</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="n">Triplet</span><span class="p">())</span>
+
+    <span class="k">if</span> <span class="n">geom</span><span class="o">.</span><span class="n">geomType</span> <span class="ow">in</span> <span class="p">(</span><span class="n">geometry</span><span class="o">.</span><span class="n">RZT</span><span class="p">,</span> <span class="n">geometry</span><span class="o">.</span><span class="n">RZ</span><span class="p">):</span>
+        <span class="n">aziMeshes</span> <span class="o">=</span> <span class="p">{</span><span class="n">indices</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="k">for</span> <span class="n">indices</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">geom</span><span class="o">.</span><span class="n">assemTypeByIndices</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">radMeshes</span> <span class="o">=</span> <span class="p">{</span><span class="n">indices</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="k">for</span> <span class="n">indices</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">geom</span><span class="o">.</span><span class="n">assemTypeByIndices</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">aziMeshes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">radMeshes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The system layout described in </span><span class="si">{}</span><span class="s2"> has non-uniform &quot;</span>
+                    <span class="s2">&quot;azimuthal and/or radial submeshing. This migration is currently &quot;</span>
+                    <span class="s2">&quot;only smart enough to handle a single radial and single azimuthal &quot;</span>
+                    <span class="s2">&quot;submesh for all assemblies.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;geomFile&quot;</span><span class="p">]))</span>
+        <span class="n">radMesh</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">radMeshes</span><span class="p">))</span>
+        <span class="n">aziMesh</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">aziMeshes</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">aDesign</span> <span class="ow">in</span> <span class="n">bp</span><span class="o">.</span><span class="n">assemDesigns</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">aDesign</span><span class="o">.</span><span class="n">radialMeshPoints</span> <span class="o">=</span> <span class="n">radMesh</span>
+            <span class="n">aDesign</span><span class="o">.</span><span class="n">azimuthalMeshPoints</span> <span class="o">=</span> <span class="n">aziMesh</span></div>
+
+    <span class="c1"># Someday: write out the migrated file. At the moment this messes up the case</span>
+    <span class="c1"># title and doesn&#39;t yet have the other systems in place so this isn&#39;t the right place.</span>
 
 
-<div class="viewcode-block" id="genDefaultNucFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.genDefaultNucFlags">[docs]</a><span class="k">def</span> <span class="nf">genDefaultNucFlags</span><span class="p">():</span>
-    <span class="sd">&quot;&quot;&quot;Perform all the yamlize-required type conversions.&quot;&quot;&quot;</span>
-    <span class="n">flagsDict</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">getDefaultNuclideFlags</span><span class="p">()</span>
-    <span class="n">flags</span> <span class="o">=</span> <span class="n">NuclideFlags</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">nucFlags</span> <span class="ow">in</span> <span class="n">flagsDict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="n">flag</span> <span class="o">=</span> <span class="n">NuclideFlag</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">nucFlags</span><span class="p">[</span><span class="s2">&quot;burn&quot;</span><span class="p">],</span> <span class="n">nucFlags</span><span class="p">[</span><span class="s2">&quot;xs&quot;</span><span class="p">])</span>
-        <span class="n">flags</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span> <span class="o">=</span> <span class="n">flag</span>
-    <span class="k">return</span> <span class="n">flags</span></div>
+<span class="c1">#     cs.writeToXMLFile(cs.caseTitle + &#39;.migrated.xml&#39;)</span>
+<span class="c1">#     with open(os.path.split(cs[&#39;loadingFile&#39;])[0] + &#39;.migrated.&#39; + &#39;.yaml&#39;, &#39;w&#39;) as loadingFile:</span>
+<span class="c1">#         blueprints.Blueprints.dump(bp, loadingFile)</span>
 </pre></div>
 
            </div>
@@ -664,9 +754,9 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2009-2019, TerraPower, LLC
+        &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-15.
+        Last updated on 2020-02-04.
       </span>
 
     </p>

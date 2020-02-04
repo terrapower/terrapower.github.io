@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi &mdash; ARMI 0.1.2-dev documentation</title>
+  <title>armi &mdash; ARMI 0.1.3-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1.2-dev
+                0.1.3-dev
               </div>
             
           
@@ -315,19 +315,20 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Clean up temporary files after a run.</span>
 
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    olderThanDays: int, optional</span>
-<span class="sd">        If provided, deletes other ARMI directories if they are older than the requested</span>
-<span class="sd">        time.</span>
-
 <span class="sd">    The Windows HPC system sends a SIGBREAK signal when the user cancels a job, which</span>
 <span class="sd">    is NOT handled by ``atexit``. Notably SIGBREAK doesn&#39;t exist off Windows.</span>
 <span class="sd">    For the SIGBREAK signal to work with a Microsoft HPC, the ``TaskCancelGracePeriod``</span>
 <span class="sd">    option must be configured to be non-zero. This sets the period between SIGBREAK</span>
 <span class="sd">    and SIGTERM/SIGINT. To do cleanups in this case, we must use the ``signal`` module.</span>
 <span class="sd">    Actually, even then it does not work because MS ``mpiexec`` does not pass signals</span>
-<span class="sd">    through.  &quot;&quot;&quot;</span>
+<span class="sd">    through.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    olderThanDays: int, optional</span>
+<span class="sd">        If provided, deletes other ARMI directories if they are older than the requested</span>
+<span class="sd">        time.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">disconnectAllHdfDBs</span><span class="p">()</span>
 
     <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">FAST_PATH</span><span class="p">):</span>
@@ -450,11 +451,20 @@
     <span class="k">return</span> <span class="n">pm</span></div>
 
 
+<div class="viewcode-block" id="isConfigured"><a class="viewcode-back" href="../.apidocs/armi.html#armi.isConfigured">[docs]</a><span class="k">def</span> <span class="nf">isConfigured</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns whether ARMI has been configured with an App.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_app</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span></div>
+
+
 <div class="viewcode-block" id="getPluginManager"><a class="viewcode-back" href="../.apidocs/armi.html#armi.getPluginManager">[docs]</a><span class="k">def</span> <span class="nf">getPluginManager</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pluggy</span><span class="o">.</span><span class="n">PluginManager</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return the plugin manager, if there is one.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">_app</span>
+    <span class="k">if</span> <span class="n">_app</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
     <span class="k">return</span> <span class="n">_app</span><span class="o">.</span><span class="n">pluginManager</span></div>
 
 
@@ -490,9 +500,29 @@
     <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># since we&#39;re handling the signal we have to cancel</span>
 
 
-<div class="viewcode-block" id="configure"><a class="viewcode-back" href="../.apidocs/armi.html#armi.configure">[docs]</a><span class="k">def</span> <span class="nf">configure</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">apps</span><span class="o">.</span><span class="n">App</span><span class="p">):</span>
+<div class="viewcode-block" id="configure"><a class="viewcode-back" href="../.apidocs/armi.html#armi.configure">[docs]</a><span class="k">def</span> <span class="nf">configure</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">apps</span><span class="o">.</span><span class="n">App</span><span class="p">]</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Set the plugin manager for the Framework and configure internals to those plugins.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    app :</span>
+<span class="sd">        An :py:class:`armi.apps.App` instance with which the framework is to be</span>
+<span class="sd">        configured. If it is not provided, then the default ARMI App will be used.</span>
+
+<span class="sd">    Important</span>
+<span class="sd">    ---------</span>
+<span class="sd">    Since this affects the behavior of several modules at their import time, it is</span>
+<span class="sd">    generally not safe to re-configure the ARMI framework once it has been configured.</span>
+<span class="sd">    Therefore this will raise an ``AssertionError`` if such a re-configuration is</span>
+<span class="sd">    attempted.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    We are planning on encapsulating much of the global ARMI state that gets configured</span>
+<span class="sd">    with an App into the App object itself (with some other things going into the Case</span>
+<span class="sd">    object). This will provide a number of benefits, the main one being that it will</span>
+<span class="sd">    become trivial to re-configure the framework, which is currently not possible.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">assert</span> <span class="ow">not</span> <span class="n">armi</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">BLUEPRINTS_IMPORTED</span><span class="p">,</span> <span class="p">(</span>
         <span class="s2">&quot;ARMI can no longer be configured after blueprints have been imported. &quot;</span>
@@ -500,6 +530,8 @@
             <span class="n">armi</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">BLUEPRINTS_IMPORT_CONTEXT</span>
         <span class="p">)</span>
     <span class="p">)</span>
+
+    <span class="n">app</span> <span class="o">=</span> <span class="n">app</span> <span class="ow">or</span> <span class="n">apps</span><span class="o">.</span><span class="n">App</span><span class="p">()</span>
 
     <span class="k">global</span> <span class="n">_app</span>
     <span class="n">_app</span> <span class="o">=</span> <span class="n">app</span>
@@ -534,9 +566,9 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2009-2019, TerraPower, LLC
+        &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-15.
+        Last updated on 2020-02-04.
       </span>
 
     </p>

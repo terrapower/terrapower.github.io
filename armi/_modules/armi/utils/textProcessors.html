@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.utils.textProcessors &mdash; ARMI 0.1.2-dev documentation</title>
+  <title>armi.utils.textProcessors &mdash; ARMI 0.1.3-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1.2-dev
+                0.1.3-dev
               </div>
             
           
@@ -177,17 +177,165 @@
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
-
-
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Utility classes and functions for manipulating text files.</span>
+<span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">ruamel</span>
+<span class="kn">from</span> <span class="nn">ruamel.yaml.error</span> <span class="k">import</span> <span class="n">FileMark</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">directoryChangers</span>
 <span class="kn">from</span> <span class="nn">armi.localization</span> <span class="k">import</span> <span class="n">strings</span>
 
 
-<div class="viewcode-block" id="SequentialReader"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.SequentialReader">[docs]</a><span class="k">class</span> <span class="nc">SequentialReader</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="n">_INCLUDE_CTOR</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<div class="viewcode-block" id="registerYamlIncludeConstructor"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.registerYamlIncludeConstructor">[docs]</a><span class="k">def</span> <span class="nf">registerYamlIncludeConstructor</span><span class="p">():</span>
     <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Register a custom !include tag constructor with ruamel.yaml.</span>
+
+<span class="sd">    This teaches the ruamel.yaml parser to interpret ``!include`` tags as essentially a</span>
+<span class="sd">    textual inclusion. This is somewhat of a weird feature, as tags are typically used</span>
+<span class="sd">    to represent custom objects in YAML, rather than to directly manipulate the YAML</span>
+<span class="sd">    itself. As such it leads to interesting interactions with the yamlize library that</span>
+<span class="sd">    we use to do much of our input processing.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    resolveMarkupInclusions</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_INCLUDE_CTOR</span>
+    <span class="k">if</span> <span class="n">_INCLUDE_CTOR</span><span class="p">:</span>
+        <span class="c1"># already done; short circuit</span>
+        <span class="k">return</span>
+
+    <span class="k">def</span> <span class="nf">includeCtor</span><span class="p">(</span><span class="n">loader</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">loader</span>
+        <span class="n">typ</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">&quot;typ&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">pure</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">&quot;pure&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">yaml</span> <span class="o">=</span> <span class="n">ruamel</span><span class="o">.</span><span class="n">yaml</span><span class="o">.</span><span class="n">YAML</span><span class="p">(</span><span class="n">typ</span><span class="o">=</span><span class="n">typ</span><span class="p">,</span> <span class="n">pure</span><span class="o">=</span><span class="n">pure</span><span class="p">)</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span> <span class="o">/</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">return</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="n">ruamel</span><span class="o">.</span><span class="n">yaml</span><span class="o">.</span><span class="n">Constructor</span><span class="o">.</span><span class="n">add_constructor</span><span class="p">(</span><span class="s2">&quot;!include&quot;</span><span class="p">,</span> <span class="n">includeCtor</span><span class="p">)</span>
+    <span class="n">ruamel</span><span class="o">.</span><span class="n">yaml</span><span class="o">.</span><span class="n">constructor</span><span class="o">.</span><span class="n">SafeConstructor</span><span class="o">.</span><span class="n">add_constructor</span><span class="p">(</span><span class="s2">&quot;!include&quot;</span><span class="p">,</span> <span class="n">includeCtor</span><span class="p">)</span>
+    <span class="n">ruamel</span><span class="o">.</span><span class="n">yaml</span><span class="o">.</span><span class="n">constructor</span><span class="o">.</span><span class="n">RoundTripConstructor</span><span class="o">.</span><span class="n">add_constructor</span><span class="p">(</span><span class="s2">&quot;!include&quot;</span><span class="p">,</span> <span class="n">includeCtor</span><span class="p">)</span>
+
+    <span class="n">_INCLUDE_CTOR</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="resolveMarkupInclusions"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.resolveMarkupInclusions">[docs]</a><span class="k">def</span> <span class="nf">resolveMarkupInclusions</span><span class="p">(</span>
+    <span class="n">src</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">io</span><span class="o">.</span><span class="n">TextIOBase</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span>
+    <span class="n">typ</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">root</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Process a YAML stream, appropriately handling ``!include`` tags.&quot;</span>
+
+<span class="sd">    This will take the passed string or file path, and attempt to parse it as YAML. In</span>
+<span class="sd">    the process, any instances of ``!include [path]`` will be replaced with the</span>
+<span class="sd">    appropriate contents of the ``!include`` file.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    src : TextIOBase or Path</span>
+<span class="sd">        If a Path is provided, read YAML from there. If is stream is provided, consume</span>
+<span class="sd">        read text from the stream. If a stream is provided, ``root`` must also be</span>
+<span class="sd">        provided.</span>
+<span class="sd">    typ : str</span>
+<span class="sd">        A valid parse type for the ruamel YAML library. Defaults to &quot;rt&quot; to preserve</span>
+<span class="sd">        round-trip data.</span>
+<span class="sd">    root : Optional Path</span>
+<span class="sd">        The root directory to use for resolving relative paths in !include tags. If a</span>
+<span class="sd">        stream is provided for ``src``, ``root`` must be provided. Otherwise, the</span>
+<span class="sd">        directory containing the ``src`` path will be used by default.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This does a full (albeit not Yamlize) parse of the input YAML into the appropriate</span>
+<span class="sd">    data structure, resolving the textual inclusions along the way. Then, the resulting</span>
+<span class="sd">    data are re-serialized to a new YAML stream. As such, this is not super efficient.</span>
+<span class="sd">    We do it this way because we don&#39;t have a whole lot of control over how yamlize</span>
+<span class="sd">    handles the parsing. For instance, yamlize will not honor the custom !include tag.</span>
+<span class="sd">    This sort of makes sense, as yamlize and YAML tags are two distinct approaches to</span>
+<span class="sd">    representing custom objects in YAML.</span>
+
+<span class="sd">    For now, this is not handling cross-document anchors and aliases, which sucks. We</span>
+<span class="sd">    may wish to resolve this, but methods to do so are rather complex and not without</span>
+<span class="sd">    their own drawbacks. There is some pure gold on that topic here:</span>
+<span class="sd">    https://stackoverflow.com/questions/44910886/pyyaml-include-file-and-yaml-aliases-anchors-references</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">registerYamlIncludeConstructor</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">):</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">root</span> <span class="ow">or</span> <span class="n">src</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">root</span> <span class="ow">or</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span>
+
+    <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">DirectoryChanger</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
+        <span class="n">yaml</span> <span class="o">=</span> <span class="n">ruamel</span><span class="o">.</span><span class="n">yaml</span><span class="o">.</span><span class="n">YAML</span><span class="p">(</span><span class="n">typ</span><span class="o">=</span><span class="n">typ</span><span class="p">,</span> <span class="n">pure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+
+    <span class="n">out</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">()</span>
+
+    <span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOBase</span><span class="p">):</span>
+        <span class="n">src</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="findYamlInclusions"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.findYamlInclusions">[docs]</a><span class="k">def</span> <span class="nf">findYamlInclusions</span><span class="p">(</span>
+    <span class="n">src</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">io</span><span class="o">.</span><span class="n">TextIOBase</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">],</span> <span class="n">root</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span> <span class="n">FileMark</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return a list of paths to ``!include`` files.</span>
+
+<span class="sd">    src : TextIOBase or Path</span>
+<span class="sd">        If a Path is provided, read YAML from there. If is stream is provided, consume</span>
+<span class="sd">        read text from the stream. If a stream is provided, ``root`` must also be</span>
+<span class="sd">        provided.</span>
+<span class="sd">    root : Optional Path</span>
+<span class="sd">        The root directory to use for resolving relative paths in !include tags. If a</span>
+<span class="sd">        stream is provided for ``src``, the current working directory is implied.</span>
+<span class="sd">        Otherwise, the directory containing the ``src`` path will be used by default.</span>
+
+<span class="sd">    This is useful for determining which files need to be copied in order to have a</span>
+<span class="sd">    complete input, without explicitly inserting the content from ``!include`` tags.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">):</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">root</span> <span class="ow">or</span> <span class="n">src</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">root</span> <span class="ow">or</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span>
+
+    <span class="n">includes</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">includeCtor</span><span class="p">(</span><span class="n">loader</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">loader</span>
+        <span class="n">yaml</span> <span class="o">=</span> <span class="n">ruamel</span><span class="o">.</span><span class="n">yaml</span><span class="o">.</span><span class="n">YAML</span><span class="p">(</span><span class="n">typ</span><span class="o">=</span><span class="n">y</span><span class="o">.</span><span class="n">typ</span><span class="p">,</span> <span class="n">pure</span><span class="o">=</span><span class="n">y</span><span class="o">.</span><span class="n">pure</span><span class="p">)</span>
+        <span class="n">includes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">root</span> <span class="o">/</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">),</span> <span class="n">node</span><span class="o">.</span><span class="n">start_mark</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+
+    <span class="n">yaml</span> <span class="o">=</span> <span class="n">ruamel</span><span class="o">.</span><span class="n">yaml</span><span class="o">.</span><span class="n">YAML</span><span class="p">(</span><span class="n">typ</span><span class="o">=</span><span class="s2">&quot;safe&quot;</span><span class="p">,</span> <span class="n">pure</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">yaml</span><span class="o">.</span><span class="n">Constructor</span><span class="o">.</span><span class="n">add_constructor</span><span class="p">(</span><span class="s2">&quot;!include&quot;</span><span class="p">,</span> <span class="n">includeCtor</span><span class="p">)</span>
+    <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOBase</span><span class="p">):</span>
+        <span class="n">src</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">includes</span></div>
+
+
+<div class="viewcode-block" id="SequentialReader"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.SequentialReader">[docs]</a><span class="k">class</span> <span class="nc">SequentialReader</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Fast sequential reader that must be used within a with statement.</span>
 
 <span class="sd">    Attributes</span>
@@ -199,13 +347,15 @@
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    This reader will sequentially search a file for a regular expression pattern or string depending on the method</span>
-<span class="sd">    used. When the pattern/string is matched/found, the reader will stop, return :code:`True`, and set the</span>
-<span class="sd">    attributes :code:`line` and :code:`match`.</span>
+<span class="sd">    This reader will sequentially search a file for a regular expression pattern or</span>
+<span class="sd">    string depending on the method used. When the pattern/string is matched/found, the</span>
+<span class="sd">    reader will stop, return :code:`True`, and set the attributes :code:`line` and</span>
+<span class="sd">    :code:`match`.</span>
 
-<span class="sd">    This pattern makes it easy to cycle through repetitive output in a very fast manner. For example, if you had a text</span>
-<span class="sd">    file with consistent chuncks of information that always started with the same text followed by information, you</span>
-<span class="sd">    could do something like this:</span>
+<span class="sd">    This pattern makes it easy to cycle through repetitive output in a very fast manner.</span>
+<span class="sd">    For example, if you had a text file with consistent chuncks of information that</span>
+<span class="sd">    always started with the same text followed by information, you could do something</span>
+<span class="sd">    like this:</span>
 
 <span class="sd">    &gt;&gt;&gt; with SequentialReader(&#39;somefile&#39;) as sr:</span>
 <span class="sd">    ...     data = []</span>
@@ -315,14 +465,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_stream</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="SequentialReader.searchForText"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.SequentialReader.searchForText">[docs]</a>    <span class="k">def</span> <span class="nf">searchForText</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Search the file for the next occurrence of :code:`text`, and set the :code:`self.line` attribute to that</span>
-<span class="sd">        line&#39;s value if it matched.</span>
+        <span class="sd">&quot;&quot;&quot;Search the file for the next occurrence of :code:`text`, and set the</span>
+<span class="sd">        :code:`self.line` attribute to that line&#39;s value if it matched.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        This will search the file line by line until it finds the text.</span>
-<span class="sd">        This sets the attribute :code:`self.line`. If the previous :code:`_searchFor*` method did not match, the last</span>
-<span class="sd">        line it did not match will be searched first.</span>
+<span class="sd">        This will search the file line by line until it finds the text.  This sets the</span>
+<span class="sd">        attribute :code:`self.line`. If the previous :code:`_searchFor*` method did not</span>
+<span class="sd">        match, the last line it did not match will be searched first.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -345,8 +495,8 @@
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        This will search the file line by line until it finds the pattern.</span>
-<span class="sd">        This sets the attribute :code:`self.line`. If the previous :code:`_searchFor*` method did not match, the last</span>
-<span class="sd">        line it did not match will be searched first.</span>
+<span class="sd">        This sets the attribute :code:`self.line`. If the previous :code:`_searchFor*`</span>
+<span class="sd">        method did not match, the last line it did not match will be searched first.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -368,8 +518,8 @@
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        This sets the attribute :code:`self.line`. If the previous :code:`_searchFor*` method did not match, the last</span>
-<span class="sd">        line it did not match will be searched first.</span>
+<span class="sd">        This sets the attribute :code:`self.line`. If the previous :code:`_searchFor*`</span>
+<span class="sd">        method did not match, the last line it did not match will be searched first.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -399,8 +549,8 @@
 <div class="viewcode-block" id="SequentialReader.consumeLine"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.SequentialReader.consumeLine">[docs]</a>    <span class="k">def</span> <span class="nf">consumeLine</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Consumes the line.</span>
 
-<span class="sd">        This is necessary when searching for the same pattern repetitively, because otherwise</span>
-<span class="sd">        searchForPatternOnNextLine would not work.</span>
+<span class="sd">        This is necessary when searching for the same pattern repetitively, because</span>
+<span class="sd">        otherwise searchForPatternOnNextLine would not work.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">line</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">match</span> <span class="o">=</span> <span class="kc">None</span></div></div>
@@ -419,13 +569,15 @@
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    This reader will sequentially search a file for a regular expression pattern or string depending on the method</span>
-<span class="sd">    used. When the pattern/string is matched/found, the reader will stop, return :code:`True`, and set the</span>
-<span class="sd">    attributes :code:`line` and :code:`match`.</span>
+<span class="sd">    This reader will sequentially search a file for a regular expression pattern or</span>
+<span class="sd">    string depending on the method used. When the pattern/string is matched/found, the</span>
+<span class="sd">    reader will stop, return :code:`True`, and set the attributes :code:`line` and</span>
+<span class="sd">    :code:`match`.</span>
 
-<span class="sd">    This pattern makes it easy to cycle through repetitive output in a very fast manner. For example, if you had a text</span>
-<span class="sd">    file with consistent chuncks of information that always started with the same text followed by information, you</span>
-<span class="sd">    could do something like this:</span>
+<span class="sd">    This pattern makes it easy to cycle through repetitive output in a very fast manner.</span>
+<span class="sd">    For example, if you had a text file with consistent chuncks of information that</span>
+<span class="sd">    always started with the same text followed by information, you could do something</span>
+<span class="sd">    like this:</span>
 
 <span class="sd">    &gt;&gt;&gt; with SequentialReader(&#39;somefile&#39;) as sr:</span>
 <span class="sd">    ...     data = []</span>
@@ -443,12 +595,14 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Override to prevent trying to open/reopen a StringIO object.</span>
 
-<span class="sd">        We don&#39;t need to override :code:`__exit__`, because it doesn&#39;t care if closing the object fails.</span>
+<span class="sd">        We don&#39;t need to override :code:`__exit__`, because it doesn&#39;t care if closing</span>
+<span class="sd">        the object fails.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span></div></div>
 
 
-<div class="viewcode-block" id="TextProcessor"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.TextProcessor">[docs]</a><span class="k">class</span> <span class="nc">TextProcessor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="TextProcessor"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.TextProcessor">[docs]</a><span class="k">class</span> <span class="nc">TextProcessor</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A general text processing object that extends python&#39;s abilities to scan through huge files.</span>
 
@@ -502,10 +656,11 @@
 <span class="sd">        pattern is found or FALSE if no pattern is found.</span>
 <span class="sd">        Stops searching if finds killOn first</span>
 
-<span class="sd">        If you specify textFlag=True, the search won&#39;t use a regular expression (and can&#39;t). The</span>
-<span class="sd">        basic result is you get less powerful matching capabilities at a huge speedup (10x or so probably, but</span>
-<span class="sd">        that&#39;s just a guess.) pattern and killOn must be pure text if you do this.</span>
-<span class="sd">         &quot;&quot;&quot;</span>
+<span class="sd">        If you specify textFlag=True, the search won&#39;t use a regular expression (and</span>
+<span class="sd">        can&#39;t). The basic result is you get less powerful matching capabilities at a</span>
+<span class="sd">        huge speedup (10x or so probably, but that&#39;s just a guess.) pattern and killOn</span>
+<span class="sd">        must be pure text if you do this.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">current</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">result</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
@@ -548,7 +703,7 @@
         <span class="k">return</span> <span class="n">result</span></div></div>
 
 
-<div class="viewcode-block" id="SmartList"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.SmartList">[docs]</a><span class="k">class</span> <span class="nc">SmartList</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="SmartList"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.SmartList">[docs]</a><span class="k">class</span> <span class="nc">SmartList</span><span class="p">:</span>
     <span class="sa">r</span><span class="sd">&quot;&quot;&quot;A list that does stuff like files do i.e. remembers where it was, can seek, etc.</span>
 <span class="sd">    Actually this is pretty slow. so much for being smart. nice idea though. &quot;&quot;&quot;</span>
 
@@ -596,9 +751,9 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2009-2019, TerraPower, LLC
+        &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-15.
+        Last updated on 2020-02-04.
       </span>
 
     </p>

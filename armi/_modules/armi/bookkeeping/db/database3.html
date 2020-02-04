@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.bookkeeping.db.database3 &mdash; ARMI 0.1.2-dev documentation</title>
+  <title>armi.bookkeeping.db.database3 &mdash; ARMI 0.1.3-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1.2-dev
+                0.1.3-dev
               </div>
             
           
@@ -200,12 +200,25 @@
 <span class="sd">for a given object or collection of object from the database file. When interacting with</span>
 <span class="sd">the database file, the ``Layout`` class is used to help map the hierarchical Composite</span>
 <span class="sd">Reactor Model to the flat representation in the database.</span>
+
+<span class="sd">Minor revision changelog</span>
+<span class="sd">------------------------</span>
+<span class="sd"> - 3.1: Improve the handling of reading/writing grids.</span>
+
+<span class="sd"> - 3.2: Change the strategy for storing large attributes from using an Object Reference</span>
+<span class="sd">   to an external dataset to using a special string starting with an &quot;@&quot; symbol (e.g.,</span>
+<span class="sd">   &quot;@/c00n00/attrs/5_linkedDims&quot;). This was done to support copying time node datasets</span>
+<span class="sd">   from one file to another without invalidating the references. Support is maintained</span>
+<span class="sd">   for reading previous versions, and for performing a ``mergeHistory()`` and converting</span>
+<span class="sd">   to the new reference strategy, but the old version cannot be written.</span>
+
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">io</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">time</span>
@@ -241,9 +254,15 @@
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.db.types</span> <span class="k">import</span> <span class="n">History</span><span class="p">,</span> <span class="n">Histories</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.db</span> <span class="k">import</span> <span class="n">database</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">geometry</span>
+<span class="kn">from</span> <span class="nn">armi.utils.textProcessors</span> <span class="k">import</span> <span class="n">resolveMarkupInclusions</span>
 
 <span class="n">ORDER</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">BOOKKEEPING</span>
-<span class="n">DB_VERSION</span> <span class="o">=</span> <span class="s2">&quot;3.1&quot;</span>
+<span class="n">DB_VERSION</span> <span class="o">=</span> <span class="s2">&quot;3.2&quot;</span>
+
+<span class="n">ATTR_LINK</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;^@(.*)$&quot;</span><span class="p">)</span>
+
+<span class="n">_SERIALIZER_NAME</span> <span class="o">=</span> <span class="s2">&quot;serializerName&quot;</span>
+<span class="n">_SERIALIZER_VERSION</span> <span class="o">=</span> <span class="s2">&quot;serializerVersion&quot;</span>
 
 
 <div class="viewcode-block" id="getH5GroupName"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.getH5GroupName">[docs]</a><span class="k">def</span> <span class="nf">getH5GroupName</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">,</span> <span class="n">statePointName</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -253,6 +272,14 @@
 <div class="viewcode-block" id="describeInterfaces"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.describeInterfaces">[docs]</a><span class="k">def</span> <span class="nf">describeInterfaces</span><span class="p">(</span><span class="n">cs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Function for exposing interface(s) to other code&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">DatabaseInterface</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">]})</span></div>
+
+
+<div class="viewcode-block" id="updateGlobalAssemblyNum"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.updateGlobalAssemblyNum">[docs]</a><span class="k">def</span> <span class="nf">updateGlobalAssemblyNum</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+    <span class="n">assemNum</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span>
+    <span class="k">if</span> <span class="n">assemNum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">assemblies</span><span class="o">.</span><span class="n">setAssemNumCounter</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">assemNum</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not load maxAssemNum from the database&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DatabaseInterface"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.DatabaseInterface">[docs]</a><span class="k">class</span> <span class="nc">DatabaseInterface</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
@@ -313,17 +340,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span> <span class="o">=</span> <span class="n">Database3</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span> <span class="o">+</span> <span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
 
-        <span class="c1"># Grab geomString here because the DB-level has no access to the reactor or blueprints</span>
-        <span class="c1"># or anything.</span>
-        <span class="c1"># There&#39;s not always a geomFile; sometimes geom is brought in via systems.</span>
-        <span class="c1"># Eventually, we&#39;ll need to store multiple of these (one for each system).</span>
-        <span class="c1"># Just do core for now.</span>
-        <span class="n">geomFileName</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">latticeFile</span>
-        <span class="k">if</span> <span class="n">geomFileName</span><span class="p">:</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span><span class="p">),</span> <span class="n">geomFileName</span><span class="p">),</span> <span class="s2">&quot;r&quot;</span>
-            <span class="p">)</span> <span class="k">as</span> <span class="n">fileStream</span><span class="p">:</span>
-                <span class="n">geomString</span> <span class="o">=</span> <span class="n">fileStream</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="c1"># Grab geomString here because the DB-level has no access to the reactor or</span>
+        <span class="c1"># blueprints or anything.</span>
+        <span class="c1"># There&#39;s not always a geomFile; we are moving towards the core grid definition</span>
+        <span class="c1"># living in the blueprints themselves. In this case, the db doesnt need to store</span>
+        <span class="c1"># a geomFile at all.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;geomFile&quot;</span><span class="p">]:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;geomFile&quot;</span><span class="p">]))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">geomString</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">geomString</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">writeInputsToDB</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">geomString</span><span class="o">=</span><span class="n">geomString</span><span class="p">)</span></div>
@@ -352,7 +376,7 @@
 <div class="viewcode-block" id="DatabaseInterface.interactEOL"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.DatabaseInterface.interactEOL">[docs]</a>    <span class="k">def</span> <span class="nf">interactEOL</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;DB&#39;s should be closed at run&#39;s end. &quot;&quot;&quot;</span>
         <span class="c1"># minutesSinceStarts should include as much of the ARMI run as possible so EOL</span>
-        <span class="c1"># is necessary  too.</span>
+        <span class="c1"># is necessary, too.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">minutesSinceStart</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">timeOfStart</span><span class="p">)</span> <span class="o">/</span> <span class="mf">60.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">writeToDB</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span></div>
@@ -427,7 +451,7 @@
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        timeStepName is not currently supportred by database load.</span>
+<span class="sd">        timeStepName is not currently supported by database load.</span>
 <span class="sd">        Will load preferentially from the `fileName` if passed. Otherwise will load from</span>
 <span class="sd">        existing database in memory or `cs[&quot;reloadDBName&quot;]` in that order.</span>
 
@@ -459,11 +483,7 @@
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">updateGlobalAssemNum</span><span class="p">:</span>
-            <span class="n">assemNum</span> <span class="o">=</span> <span class="n">newR</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span>
-            <span class="k">if</span> <span class="n">assemNum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">assemblies</span><span class="o">.</span><span class="n">setAssemNumCounter</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">assemNum</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not load maxAssemNum from the database&quot;</span><span class="p">)</span>
+            <span class="n">updateGlobalAssemblyNum</span><span class="p">(</span><span class="n">newR</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="n">newR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span></div>
 
@@ -549,8 +569,6 @@
 <span class="sd">    `doc/user/outputs/database` for more details.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">version</span> <span class="o">=</span> <span class="n">DB_VERSION</span>
-
     <span class="n">timeNodeGroupPattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^c(\d\d)n(\d\d)$&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fileName</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">permission</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
@@ -578,6 +596,31 @@
         <span class="c1"># closed.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_openCount</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
 
+        <span class="k">if</span> <span class="n">permission</span> <span class="o">==</span> <span class="s2">&quot;w&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">=</span> <span class="n">DB_VERSION</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># will be set upon read</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_version</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_versionMajor</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_versionMinor</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_version</span>
+
+    <span class="nd">@version</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_version</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_versionMajor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_versionMinor</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">versionMajor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_versionMajor</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">versionMinor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_versionMinor</span>
+
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;&lt;</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
@@ -592,9 +635,10 @@
         <span class="n">filePath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fileName</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_openCount</span> <span class="o">+=</span> <span class="mi">1</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_permission</span> <span class="o">==</span> <span class="s2">&quot;r&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_permission</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">}:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_fullPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">filePath</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filePath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_permission</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;databaseVersion&quot;</span><span class="p">]</span>
             <span class="k">return</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_permission</span> <span class="o">==</span> <span class="s2">&quot;w&quot;</span><span class="p">:</span>
@@ -612,7 +656,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filePath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_permission</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;successfulCompletion&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">__version__</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;databaseVersion&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">DB_VERSION</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;databaseVersion&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;user&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">USER</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;armiLocation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">armi</span><span class="o">.</span><span class="n">ROOT</span><span class="p">)</span>
@@ -729,7 +773,9 @@
 <div class="viewcode-block" id="Database3.loadBlueprints"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.loadBlueprints">[docs]</a>    <span class="k">def</span> <span class="nf">loadBlueprints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">blueprints</span>
 
-        <span class="n">bp</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">][()])</span>
+        <span class="n">stream</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">][()])</span>
+        <span class="n">stream</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">migrate</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
+        <span class="n">bp</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">bp</span></div>
 
 <div class="viewcode-block" id="Database3.loadGeometry"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.loadGeometry">[docs]</a>    <span class="k">def</span> <span class="nf">loadGeometry</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -750,8 +796,8 @@
 <span class="sd">        This is hard-coded to read the entire file contents into memory and write that</span>
 <span class="sd">        directly into the database. We could have the cs/blueprints/geom write to a</span>
 <span class="sd">        string, however the ARMI log file contains a hash of each files&#39; contents. In</span>
-<span class="sd">        the future, we will be able to reproduce calculation showing that the inputs are</span>
-<span class="sd">        identical.</span>
+<span class="sd">        the future, we should be able to reproduce a calculation with confidence that</span>
+<span class="sd">        the inputs are identical.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">caseTitle</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span> <span class="k">if</span> <span class="n">cs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fileName</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
@@ -766,10 +812,10 @@
             <span class="n">csString</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">bpString</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span><span class="p">),</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadingFile&quot;</span><span class="p">]),</span> <span class="s2">&quot;r&quot;</span>
-            <span class="p">)</span> <span class="k">as</span> <span class="n">fileStream</span><span class="p">:</span>
-                <span class="n">bpString</span> <span class="o">=</span> <span class="n">fileStream</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="c1"># Ensure that the input as stored in the DB is complete</span>
+            <span class="n">bpString</span> <span class="o">=</span> <span class="n">resolveMarkupInclusions</span><span class="p">(</span>
+                <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">)</span> <span class="o">/</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadingFile&quot;</span><span class="p">]</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/settings&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">csString</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/geomFile&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">geomString</span>
@@ -798,7 +844,23 @@
             <span class="k">if</span> <span class="n">cyc</span> <span class="o">==</span> <span class="n">startCycle</span> <span class="ow">and</span> <span class="n">tn</span> <span class="o">==</span> <span class="n">startNode</span><span class="p">:</span>
                 <span class="c1"># all data up to current state are merged</span>
                 <span class="k">return</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">h5ts</span><span class="p">,</span> <span class="n">h5ts</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">h5ts</span><span class="p">,</span> <span class="n">h5ts</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">inputDB</span><span class="o">.</span><span class="n">versionMinor</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="c1"># The source database may have object references in some attributes.</span>
+                <span class="c1"># make sure to link those up using our manual path strategy.</span>
+                <span class="n">references</span> <span class="o">=</span> <span class="p">[]</span>
+
+                <span class="k">def</span> <span class="nf">findReferences</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">h5r</span><span class="o">.</span><span class="n">Reference</span><span class="p">):</span>
+                            <span class="n">references</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">inputDB</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+
+                <span class="n">h5ts</span><span class="o">.</span><span class="n">visititems</span><span class="p">(</span><span class="n">findReferences</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">references</span><span class="p">:</span>
+                    <span class="n">destTs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="n">h5ts</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+                    <span class="n">destTs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;@</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Database3.__enter__"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.__enter__">[docs]</a>    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Context management support&quot;&quot;&quot;</span>
@@ -819,6 +881,12 @@
     <span class="k">def</span> <span class="nf">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__delitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tn</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]):</span>
+        <span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">,</span> <span class="n">statePointName</span> <span class="o">=</span> <span class="n">tn</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">getH5GroupName</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">,</span> <span class="n">statePointName</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
 
 <div class="viewcode-block" id="Database3.genTimeStepGroups"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.genTimeStepGroups">[docs]</a>    <span class="k">def</span> <span class="nf">genTimeStepGroups</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">timeSteps</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -906,7 +974,7 @@
         <span class="k">for</span> <span class="n">comps</span> <span class="ow">in</span> <span class="n">groupedComps</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_writeParams</span><span class="p">(</span><span class="n">h5group</span><span class="p">,</span> <span class="n">comps</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Database3.load"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Database3.load"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.database3.Database3.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">statePointName</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Load a new reactor from (cycle, node).</span>
 
 <span class="sd">        Case settings, blueprints, and geom can be provided by the client, or read from</span>
@@ -925,6 +993,11 @@
 <span class="sd">            if not provided one is read from the database</span>
 <span class="sd">        bp : armi.reactor.Blueprints (Optional)</span>
 <span class="sd">            if not provided one is read from the database</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        root : ArmiObject</span>
+<span class="sd">            The top-level object stored in the database; usually a Reactor.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading reactor state for time node (</span><span class="si">{}</span><span class="s2">, </span><span class="si">{}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">))</span>
 
@@ -933,7 +1006,7 @@
         <span class="n">settings</span><span class="o">.</span><span class="n">setMasterCs</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
         <span class="n">bp</span> <span class="o">=</span> <span class="n">bp</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">loadBlueprints</span><span class="p">()</span>
 
-        <span class="n">h5group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="n">getH5GroupName</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">)]</span>
+        <span class="n">h5group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="n">getH5GroupName</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">statePointName</span><span class="p">)]</span>
 
         <span class="n">layout</span> <span class="o">=</span> <span class="n">Layout</span><span class="p">(</span><span class="n">h5group</span><span class="o">=</span><span class="n">h5group</span><span class="p">)</span>
         <span class="n">comps</span><span class="p">,</span> <span class="n">groupedComps</span> <span class="o">=</span> <span class="n">layout</span><span class="o">.</span><span class="n">_initComps</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
@@ -945,13 +1018,6 @@
         <span class="c1"># assign params from blueprints</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assignBlueprintsParams</span><span class="p">(</span><span class="n">bp</span><span class="p">,</span> <span class="n">groupedComps</span><span class="p">)</span>
 
-        <span class="c1"># Re-assign names to assemblies and blocks based on the read-in assemnum. Should</span>
-        <span class="c1"># the name be a param?</span>
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">groupedComps</span><span class="p">[</span><span class="n">Assembly</span><span class="p">]:</span>
-            <span class="n">name</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">makeNameFromAssemNum</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span><span class="p">)</span>
-            <span class="n">a</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
-            <span class="n">a</span><span class="o">.</span><span class="n">renameBlocksAccordingToAssemblyNum</span><span class="p">()</span>
-
         <span class="c1"># stitch together</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_compose</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">comps</span><span class="p">),</span> <span class="n">cs</span><span class="p">)</span>
 
@@ -959,8 +1025,8 @@
         <span class="n">parameterCollections</span><span class="o">.</span><span class="n">GLOBAL_SERIAL_NUM</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
             <span class="n">parameterCollections</span><span class="o">.</span><span class="n">GLOBAL_SERIAL_NUM</span><span class="p">,</span> <span class="n">layout</span><span class="o">.</span><span class="n">serialNum</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
         <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">comps</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span></div>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">comps</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">root</span>  <span class="c1"># usually reactor object</span></div>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_assignBlueprintsParams</span><span class="p">(</span><span class="n">blueprints</span><span class="p">,</span> <span class="n">groupedComps</span><span class="p">):</span>
@@ -1040,7 +1106,7 @@
             <span class="c1"># the SFP, etc.</span>
             <span class="k">if</span> <span class="n">comp</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CORE</span><span class="p">):</span>
                 <span class="n">comp</span><span class="o">.</span><span class="n">processLoading</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="n">Assembly</span><span class="p">):</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="n">Assembly</span><span class="p">):</span>
             <span class="n">comp</span><span class="o">.</span><span class="n">calculateZCoords</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="n">comp</span>
@@ -1062,7 +1128,6 @@
             <span class="n">attrs</span> <span class="o">=</span> <span class="p">{}</span>
 
             <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="s2">&quot;DIMENSION_NAMES&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">paramDef</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">DIMENSION_NAMES</span><span class="p">:</span>
-                <span class="c1"># assume failure due to linked dimensions</span>
                 <span class="n">linkedDims</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -1082,8 +1147,19 @@
                 <span class="c1"># XXX: side effect is that after loading previously unset values will be</span>
                 <span class="c1"># the default</span>
                 <span class="n">temp</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">paramDef</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">paramDef</span><span class="o">.</span><span class="n">default</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">comps</span><span class="p">]</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
-                <span class="k">del</span> <span class="n">temp</span>
+                <span class="k">if</span> <span class="n">paramDef</span><span class="o">.</span><span class="n">serializer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">data</span><span class="p">,</span> <span class="n">sAttrs</span> <span class="o">=</span> <span class="n">paramDef</span><span class="o">.</span><span class="n">serializer</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+                    <span class="k">assert</span> <span class="p">(</span>
+                        <span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">!=</span> <span class="s2">&quot;O&quot;</span>
+                    <span class="p">),</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> failed to convert </span><span class="si">{}</span><span class="s2"> to a numpy-supported type.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">paramDef</span><span class="o">.</span><span class="n">serializer</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">paramDef</span><span class="o">.</span><span class="n">name</span>
+                    <span class="p">)</span>
+                    <span class="n">attrs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">sAttrs</span><span class="p">)</span>
+                    <span class="n">attrs</span><span class="p">[</span><span class="n">_SERIALIZER_NAME</span><span class="p">]</span> <span class="o">=</span> <span class="n">paramDef</span><span class="o">.</span><span class="n">serializer</span><span class="o">.</span><span class="vm">__name__</span>
+                    <span class="n">attrs</span><span class="p">[</span><span class="n">_SERIALIZER_VERSION</span><span class="p">]</span> <span class="o">=</span> <span class="n">paramDef</span><span class="o">.</span><span class="n">serializer</span><span class="o">.</span><span class="n">version</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+                    <span class="k">del</span> <span class="n">temp</span>
 
             <span class="c1"># Convert Unicode to byte-string</span>
             <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;U&quot;</span><span class="p">:</span>
@@ -1125,8 +1201,8 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">paramDef</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">g</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="s2">&quot;`</span><span class="si">{}</span><span class="s2">` was already in database. This time node &quot;</span>
-                        <span class="s2">&quot;should have been empty&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">paramDef</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                        <span class="s2">&quot;`</span><span class="si">{}</span><span class="s2">` was already in `</span><span class="si">{}</span><span class="s2">`. This time node &quot;</span>
+                        <span class="s2">&quot;should have been empty&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">paramDef</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">dataset</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
@@ -1147,6 +1223,8 @@
 
         <span class="n">renames</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">getApp</span><span class="p">()</span><span class="o">.</span><span class="n">getParamRenames</span><span class="p">()</span>
 
+        <span class="n">pDefs</span> <span class="o">=</span> <span class="n">comps</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">pDefs</span>
+
         <span class="c1"># this can also be made faster by specializing the method by type</span>
         <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">dataSet</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="c1"># Honor historical databases where the parameters may have changed names</span>
@@ -1154,8 +1232,19 @@
             <span class="k">while</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">renames</span><span class="p">:</span>
                 <span class="n">paramName</span> <span class="o">=</span> <span class="n">renames</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
 
+            <span class="n">pDef</span> <span class="o">=</span> <span class="n">pDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
+
             <span class="n">data</span> <span class="o">=</span> <span class="n">dataSet</span><span class="p">[:]</span>
             <span class="n">attrs</span> <span class="o">=</span> <span class="n">_resolveAttrs</span><span class="p">(</span><span class="n">dataSet</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span> <span class="n">h5group</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">pDef</span><span class="o">.</span><span class="n">serializer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">_SERIALIZER_NAME</span> <span class="ow">in</span> <span class="n">dataSet</span><span class="o">.</span><span class="n">attrs</span>
+                <span class="k">assert</span> <span class="n">dataSet</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">_SERIALIZER_NAME</span><span class="p">]</span> <span class="o">==</span> <span class="n">pDef</span><span class="o">.</span><span class="n">serializer</span><span class="o">.</span><span class="vm">__name__</span>
+                <span class="k">assert</span> <span class="n">_SERIALIZER_VERSION</span> <span class="ow">in</span> <span class="n">dataSet</span><span class="o">.</span><span class="n">attrs</span>
+
+                <span class="n">data</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pDef</span><span class="o">.</span><span class="n">serializer</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span>
+                    <span class="n">data</span><span class="p">,</span> <span class="n">dataSet</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">_SERIALIZER_VERSION</span><span class="p">],</span> <span class="n">attrs</span>
+                <span class="p">))</span>
 
             <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">type</span> <span class="ow">is</span> <span class="n">numpy</span><span class="o">.</span><span class="n">string_</span><span class="p">:</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">char</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
@@ -2127,6 +2216,11 @@
 <span class="sd">    limited space. If an attribute is too large, h5py raises a RuntimeError.</span>
 <span class="sd">    In such cases, this will store the attribute data in a proper dataset and</span>
 <span class="sd">    place a reference to that dataset in the attribute instead.</span>
+
+<span class="sd">    In practice, this takes ``linkedDims`` attrs from a particular component type (like</span>
+<span class="sd">    ``c00n00/Circle/id``) and stores them in new datasets (like</span>
+<span class="sd">    ``c00n00/attrs/1_linkedDims``, ``c00n00/attrs/2_linkedDims``) and then sets the</span>
+<span class="sd">    object&#39;s attrs to links to those datasets.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="k">try</span><span class="p">:</span>
@@ -2147,19 +2241,39 @@
             <span class="n">dataName</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">attrGroup</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">key</span>
             <span class="n">attrGroup</span><span class="p">[</span><span class="n">dataName</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
 
-            <span class="n">obj</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">attrGroup</span><span class="p">[</span><span class="n">dataName</span><span class="p">]</span><span class="o">.</span><span class="n">ref</span>
+            <span class="c1"># using a soft link here allows us to cheaply copy time nodes without</span>
+            <span class="c1"># needing to crawl through and update object references.</span>
+            <span class="n">linkName</span> <span class="o">=</span> <span class="n">attrGroup</span><span class="p">[</span><span class="n">dataName</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+            <span class="n">obj</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;@</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">linkName</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">_resolveAttrs</span><span class="p">(</span><span class="n">attrs</span><span class="p">,</span> <span class="n">group</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Reverse the action of _writeAttrs</span>
+<span class="sd">    Reverse the action of _writeAttrs.</span>
+
+<span class="sd">    This reads actual attrs and looks for the real data</span>
+<span class="sd">    in the datasets that the attrs were pointing to.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">resolved</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">h5r</span><span class="o">.</span><span class="n">Reference</span><span class="p">):</span>
-            <span class="n">resolved</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="n">val</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">resolved</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">h5r</span><span class="o">.</span><span class="n">Reference</span><span class="p">):</span>
+                <span class="c1"># Old style object reference. If this cannot be dereferenced, it is</span>
+                <span class="c1"># likely because mergeHistory was used to get the current database,</span>
+                <span class="c1"># which does not preserve references.</span>
+                <span class="n">resolved</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="n">val</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">m</span> <span class="o">=</span> <span class="n">ATTR_LINK</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
+                    <span class="c1"># dereference the path to get the data out of the dataset.</span>
+                    <span class="n">resolved</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)][()]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">resolved</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">resolved</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;HDF error loading </span><span class="si">{key}</span><span class="s2"> : </span><span class="si">{val}</span><span class="se">\n</span><span class="s2">Group: </span><span class="si">{group}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span>
     <span class="k">return</span> <span class="n">resolved</span>
 </pre></div>
 
@@ -2173,9 +2287,9 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2009-2019, TerraPower, LLC
+        &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-15.
+        Last updated on 2020-02-04.
       </span>
 
     </p>

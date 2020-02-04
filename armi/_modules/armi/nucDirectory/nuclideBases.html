@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.nucDirectory.nuclideBases &mdash; ARMI 0.1.2-dev documentation</title>
+  <title>armi.nucDirectory.nuclideBases &mdash; ARMI 0.1.3-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1.2-dev
+                0.1.3-dev
               </div>
             
           
@@ -571,9 +571,14 @@
 <span class="sd">    change to the data files, which should not happen during run time, or a *bad*</span>
 <span class="sd">    :py:class`INuclide` is created.</span>
 
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Nuclide labels from MC2-2, MC2-3, and MCNP are currently handled directly.</span>
+<span class="sd">    Moving forward, we plan to implement a more generic labeling system so that</span>
+<span class="sd">    plugins can provide code-specific nuclide labels in a more extensible fashion.</span>
+
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
-
 <span class="sd">    force: bool, optional</span>
 <span class="sd">        If True, forces the reinstantiation of all :py:class:`INuclides`.</span>
 <span class="sd">        Any :py:class:`Nuclides &lt;armi.nucDirectory.nuclide.Nuclde&gt;` objects referring to the</span>
@@ -597,7 +602,21 @@
         <span class="n">__readRiplAbundance</span><span class="p">()</span>
         <span class="c1"># load the mc2Nuclide.json file. This will be used to supply nuclide IDs</span>
         <span class="n">__readMc2Nuclides</span><span class="p">()</span>
+        <span class="n">_completeNaturalNuclideBases</span><span class="p">()</span>
         <span class="n">elements</span><span class="o">.</span><span class="n">deriveNaturalWeights</span><span class="p">()</span></div>
+
+
+<span class="k">def</span> <span class="nf">_completeNaturalNuclideBases</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    After natural nuclide bases are loaded for mc2, fill in missing ones.</span>
+
+<span class="sd">    This is important for libraries that have elementals that differ</span>
+<span class="sd">    from MC2.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">elements</span><span class="o">.</span><span class="n">byZ</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">element</span><span class="o">.</span><span class="n">symbol</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">element</span><span class="o">.</span><span class="n">z</span> <span class="o">&lt;=</span> <span class="mi">92</span><span class="p">:</span>
+                <span class="n">NaturalNuclideBase</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">_renormalizeElementRelationship</span><span class="p">():</span>
@@ -1255,7 +1274,7 @@
             <span class="mi">0</span><span class="p">,</span>
             <span class="mi">0</span><span class="p">,</span>
             <span class="nb">sum</span><span class="p">([</span><span class="n">nn</span><span class="o">.</span><span class="n">weight</span> <span class="o">*</span> <span class="n">nn</span><span class="o">.</span><span class="n">abundance</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">element</span><span class="o">.</span><span class="n">getNaturalIsotopics</span><span class="p">()]),</span>
-            <span class="mf">1.0</span><span class="p">,</span>
+            <span class="mf">0.0</span><span class="p">,</span>  <span class="c1"># keep abundance 0.0 to not interfere with the isotopes</span>
             <span class="n">name</span><span class="p">,</span>
             <span class="n">name</span><span class="p">,</span>
             <span class="n">mc2id</span><span class="p">,</span>
@@ -1346,68 +1365,6 @@
         <span class="k">return</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">z</span> <span class="o">*</span> <span class="mi">100</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="getDefaultNuclideFlags"><a class="viewcode-back" href="../../../.apidocs/armi.nucDirectory.nuclideBases.html#armi.nucDirectory.nuclideBases.getDefaultNuclideFlags">[docs]</a><span class="k">def</span> <span class="nf">getDefaultNuclideFlags</span><span class="p">():</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Return a default set of nuclides to model and deplete.</span>
-
-<span class="sd">    Notes</span>
-<span class="sd">    -----</span>
-<span class="sd">    The nuclideFlags input on blueprints has confused new users and is infrequently</span>
-<span class="sd">    changed. It will be moved to be a user setting, but in any case a reasonable default</span>
-<span class="sd">    should be provided. We will by default model medium-lived and longer actinides between</span>
-<span class="sd">    U234 and CM247.</span>
-<span class="sd">    </span>
-<span class="sd">    We will include B10 and B11 without depletion, sodium, and structural elements. </span>
-<span class="sd">    </span>
-<span class="sd">    We will include LFPs with depletion.</span>
-<span class="sd">    </span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">nuclideFlags</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="n">actinides</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;U&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">234</span><span class="p">,</span> <span class="mi">235</span><span class="p">,</span> <span class="mi">236</span><span class="p">,</span> <span class="mi">238</span><span class="p">],</span>
-        <span class="s2">&quot;NP&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">237</span><span class="p">,</span> <span class="mi">238</span><span class="p">],</span>
-        <span class="s2">&quot;PU&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">236</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">238</span><span class="p">,</span> <span class="mi">243</span><span class="p">)),</span>
-        <span class="s2">&quot;AM&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">241</span><span class="p">,</span> <span class="mi">244</span><span class="p">),</span>
-        <span class="s2">&quot;CM&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">242</span><span class="p">,</span> <span class="mi">248</span><span class="p">),</span>
-    <span class="p">}</span>
-
-    <span class="k">for</span> <span class="n">el</span><span class="p">,</span> <span class="n">masses</span> <span class="ow">in</span> <span class="n">actinides</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">for</span> <span class="n">mass</span> <span class="ow">in</span> <span class="n">masses</span><span class="p">:</span>
-            <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">f</span><span class="s2">&quot;</span><span class="si">{el}{mass}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;burn&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
-
-    <span class="k">for</span> <span class="n">fp</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">35</span><span class="p">,</span> <span class="mi">38</span><span class="p">,</span> <span class="mi">39</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">41</span><span class="p">]:</span>
-        <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">f</span><span class="s2">&quot;LFP</span><span class="si">{fp}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;burn&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
-
-    <span class="k">for</span> <span class="n">dmp</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]:</span>
-        <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">f</span><span class="s2">&quot;DUMP</span><span class="si">{dmp}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;burn&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
-
-    <span class="k">for</span> <span class="n">boron</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]:</span>
-        <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">f</span><span class="s2">&quot;B</span><span class="si">{boron}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;burn&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
-
-    <span class="k">for</span> <span class="n">struct</span> <span class="ow">in</span> <span class="p">[</span>
-        <span class="s2">&quot;ZR&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;SI&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;V&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;CR&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;MN55&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;FE&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;NI&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;MO&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;W182&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;W183&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;W184&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;W186&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;NA23&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;HE4&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;O&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;H&quot;</span><span class="p">,</span>
-    <span class="p">]:</span>
-        <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">struct</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;burn&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
-
-    <span class="k">return</span> <span class="n">nuclideFlags</span></div>
-
-
 <div class="viewcode-block" id="initReachableActiveNuclidesThroughBurnChain"><a class="viewcode-back" href="../../../.apidocs/armi.nucDirectory.nuclideBases.html#armi.nucDirectory.nuclideBases.initReachableActiveNuclidesThroughBurnChain">[docs]</a><span class="k">def</span> <span class="nf">initReachableActiveNuclidesThroughBurnChain</span><span class="p">(</span><span class="n">numberDensityDict</span><span class="p">,</span> <span class="n">activeNuclides</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    March through the depletion chain and find all nuclides that can be reached by depleting nuclides passed in.</span>
@@ -1470,9 +1427,9 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2009-2019, TerraPower, LLC
+        &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-15.
+        Last updated on 2020-02-04.
       </span>
 
     </p>

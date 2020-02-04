@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.reactor.geometry &mdash; ARMI 0.1.2-dev documentation</title>
+  <title>armi.reactor.geometry &mdash; ARMI 0.1.3-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1.2-dev
+                0.1.3-dev
               </div>
             
           
@@ -216,6 +216,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">grids</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">asciimaps</span>
 
+
 <span class="n">SYSTEMS</span> <span class="o">=</span> <span class="s2">&quot;systems&quot;</span>
 <span class="n">VERSION</span> <span class="o">=</span> <span class="s2">&quot;version&quot;</span>
 
@@ -339,15 +340,16 @@
 
 <div class="viewcode-block" id="loadFromCs"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.geometry.html#armi.reactor.geometry.loadFromCs">[docs]</a><span class="k">def</span> <span class="nf">loadFromCs</span><span class="p">(</span><span class="n">cs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Function to load Geoemtry based on supplied ``CaseSettings``.&quot;&quot;&quot;</span>
-    <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">directoryChangers</span>  <span class="c1"># circular import protection</span>
-
+    <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">directoryChangers</span>  <span class="c1"># pylint: disable=import-outside-toplevel; circular import protection</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;geomFile&quot;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="kc">None</span>
     <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">DirectoryChanger</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">):</span>
         <span class="n">geom</span> <span class="o">=</span> <span class="n">SystemLayoutInput</span><span class="p">()</span>
         <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromFile</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;geomFile&quot;</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">geom</span></div>
 
 
-<div class="viewcode-block" id="SystemLayoutInput"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.geometry.html#armi.reactor.geometry.SystemLayoutInput">[docs]</a><span class="k">class</span> <span class="nc">SystemLayoutInput</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="SystemLayoutInput"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.geometry.html#armi.reactor.geometry.SystemLayoutInput">[docs]</a><span class="k">class</span> <span class="nc">SystemLayoutInput</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Geometry file. Contains 2-D mapping of geometry.&quot;&quot;&quot;</span>
 
     <span class="n">_GEOM_FILE_EXTENSION</span> <span class="o">=</span> <span class="s2">&quot;.xml&quot;</span>
@@ -395,6 +397,44 @@
             <span class="n">stream</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_readYaml</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_applyMigrations</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SystemLayoutInput.toGridBlueprint"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.geometry.html#armi.reactor.geometry.SystemLayoutInput.toGridBlueprint">[docs]</a>    <span class="k">def</span> <span class="nf">toGridBlueprint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;core&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Migrate old-style SystemLayoutInput to new GridBlueprint.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">armi.reactor.blueprints.gridBlueprint</span> <span class="k">import</span> <span class="n">GridBlueprint</span>
+
+        <span class="n">geom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">geomType</span>
+        <span class="n">symmetry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span>
+
+        <span class="n">bounds</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">geomType</span> <span class="o">==</span> <span class="n">RZT</span><span class="p">:</span>
+            <span class="c1"># We need a grid in order to go from whats in the input to indices, and to</span>
+            <span class="c1"># be able to provide grid bounds to the blueprint.</span>
+            <span class="n">rztGrid</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">thetaRZGridFromGeom</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="n">theta</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">rztGrid</span><span class="o">.</span><span class="n">getBounds</span><span class="p">()</span>
+            <span class="n">bounds</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;theta&quot;</span><span class="p">:</span> <span class="n">theta</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">:</span> <span class="n">r</span><span class="p">}</span>
+
+        <span class="n">gridContents</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">indices</span><span class="p">,</span> <span class="n">spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemTypeByIndices</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">HEX</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">geomType</span><span class="p">:</span>
+                <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">getIndicesFromRingAndPos</span><span class="p">(</span><span class="o">*</span><span class="n">indices</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">RZT</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">geomType</span><span class="p">:</span>
+                <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">rztGrid</span><span class="o">.</span><span class="n">indicesOfBounds</span><span class="p">(</span><span class="o">*</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">4</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">indices</span>
+            <span class="n">gridContents</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">spec</span>
+
+        <span class="n">bp</span> <span class="o">=</span> <span class="n">GridBlueprint</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">gridContents</span><span class="o">=</span><span class="n">gridContents</span><span class="p">,</span>
+            <span class="n">geom</span><span class="o">=</span><span class="n">geom</span><span class="p">,</span>
+            <span class="n">symmetry</span><span class="o">=</span><span class="n">symmetry</span><span class="p">,</span>
+            <span class="n">gridBounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">bp</span><span class="o">.</span><span class="n">eqPathInput</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eqPathInput</span>
+
+        <span class="k">return</span> <span class="n">bp</span></div>
 
     <span class="k">def</span> <span class="nf">_readXml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">):</span>
         <span class="n">tree</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
@@ -499,12 +539,13 @@
 <div class="viewcode-block" id="SystemLayoutInput.modifyEqPaths"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.geometry.html#armi.reactor.geometry.SystemLayoutInput.modifyEqPaths">[docs]</a>    <span class="k">def</span> <span class="nf">modifyEqPaths</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">modifiedPaths</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Modifies the geometry object by updating the equilibrium path indices and equilibrium path cycles.</span>
-<span class="sd">        </span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        modifiedPaths : dict, required</span>
-<span class="sd">            This is a dictionary that contains the indices that are mapped to the eqPathIndex and eqPathCycle.</span>
-<span class="sd">            modifiedPath[indices] = (eqPathIndex, eqPathCycle)</span>
+<span class="sd">            This is a dictionary that contains the indices that are mapped to the</span>
+<span class="sd">            eqPathIndex and eqPathCycle.  modifiedPath[indices] = (eqPathIndex,</span>
+<span class="sd">            eqPathCycle)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Modifying the equilibrium paths on </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">eqPathsHaveBeenModified</span> <span class="o">=</span> <span class="kc">True</span>
@@ -695,9 +736,9 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2009-2019, TerraPower, LLC
+        &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-15.
+        Last updated on 2020-02-04.
       </span>
 
     </p>

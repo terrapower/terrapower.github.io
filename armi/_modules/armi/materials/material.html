@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.materials.material &mdash; ARMI 0.1.2-dev documentation</title>
+  <title>armi.materials.material &mdash; ARMI 0.1.3-dev documentation</title>
   
 
   
@@ -67,7 +67,7 @@
             
             
               <div class="version">
-                0.1.2-dev
+                0.1.3-dev
               </div>
             
           
@@ -200,6 +200,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">composites</span>
 <span class="kn">from</span> <span class="nn">armi.materials</span> <span class="k">import</span> <span class="n">materialParameters</span>
 <span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="k">import</span> <span class="n">getTk</span><span class="p">,</span> <span class="n">getTc</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">densityTools</span>
 
 <span class="c1"># globals</span>
 <span class="n">FAIL_ON_RANGE</span> <span class="o">=</span> <span class="kc">False</span>
@@ -275,7 +276,9 @@
 
 <span class="sd">        This is used for reactivity coefficients, etc.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">linearExpansion</span></div>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="n">f</span><span class="s2">&quot;</span><span class="si">{self}</span><span class="s2"> does not have a linear expansion property defined&quot;</span>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="Material.linearExpansionPercent"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.linearExpansionPercent">[docs]</a>    <span class="k">def</span> <span class="nf">linearExpansionPercent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tk</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">Tc</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
@@ -350,7 +353,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span> <span class="o">=</span> <span class="n">massFrac</span></div>
 
 <div class="viewcode-block" id="Material.applyInputParams"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.applyInputParams">[docs]</a>    <span class="k">def</span> <span class="nf">applyInputParams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;default do-nothing responder to XLS input params&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Apply material-specific material input parameters.&quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
 <div class="viewcode-block" id="Material.adjustMassEnrichment"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.adjustMassEnrichment">[docs]</a>    <span class="k">def</span> <span class="nf">adjustMassEnrichment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">massEnrichment</span><span class="p">):</span>
@@ -634,13 +637,10 @@
         <span class="n">expandFissionProducts</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        return mass fraction of nucName.</span>
-
-<span class="sd">        If no arguments, send sum of all.</span>
+<span class="sd">        Return mass fraction of nucName.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-
 <span class="sd">        nucName : str, optional</span>
 <span class="sd">            Nuclide name to return (&#39;ZR&#39;,&#39;PU239&#39;,etc.)</span>
 
@@ -880,6 +880,54 @@
 <span class="sd">        for fluids, there is no such thing as 2 d expansion so density() is already 3D.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">density</span><span class="p">(</span><span class="n">Tk</span><span class="o">=</span><span class="n">Tk</span><span class="p">,</span> <span class="n">Tc</span><span class="o">=</span><span class="n">Tc</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="FuelMaterial"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.FuelMaterial">[docs]</a><span class="k">class</span> <span class="nc">FuelMaterial</span><span class="p">(</span><span class="n">Material</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Material that is considered a nuclear fuel.</span>
+
+<span class="sd">    All this really does is enable the special class 1/class 2 isotopics input option.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pDefs</span> <span class="o">=</span> <span class="n">materialParameters</span><span class="o">.</span><span class="n">getFuelMaterialParameterDefinitions</span><span class="p">()</span>
+
+<div class="viewcode-block" id="FuelMaterial.applyInputParams"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.FuelMaterial.applyInputParams">[docs]</a>    <span class="k">def</span> <span class="nf">applyInputParams</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">class1_custom_isotopics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">class2_custom_isotopics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">class1_wt_frac</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">customIsotopics</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Apply optional class 1/class 2 custom enrichment input.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This is often overridden to insert customized material modification parameters</span>
+<span class="sd">        but then this parent should always be called at the end in case users want to</span>
+<span class="sd">        use this style of custom input.</span>
+
+<span class="sd">        This is only applied to materials considered fuel so we don&#39;t apply these</span>
+<span class="sd">        kinds of parameters to coolants and structural material, which are often</span>
+<span class="sd">        not parameterized with any kind of enrichment.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Save class data for future reconstructions (e.g. in closed cycles)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">class1_wt_frac</span> <span class="o">=</span> <span class="n">class1_wt_frac</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">class1_custom_isotopics</span> <span class="o">=</span> <span class="n">class1_custom_isotopics</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">class2_custom_isotopics</span> <span class="o">=</span> <span class="n">class2_custom_isotopics</span>
+        <span class="k">if</span> <span class="n">class1_wt_frac</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_applyIsotopicsMixFromCustomIsotopicsInput</span><span class="p">(</span><span class="n">customIsotopics</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_applyIsotopicsMixFromCustomIsotopicsInput</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">customIsotopics</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply a Class 1/Class 2 mixture of custom isotopics at input.</span>
+
+<span class="sd">        Only adjust heavy metal.</span>
+
+<span class="sd">        This may also be needed for building charge assemblies during reprocessing, but</span>
+<span class="sd">        will take input from the SFP rather than from the input external feeds.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">class1Isotopics</span> <span class="o">=</span> <span class="n">customIsotopics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">class1_custom_isotopics</span><span class="p">]</span>
+        <span class="n">class2Isotopics</span> <span class="o">=</span> <span class="n">customIsotopics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">class2_custom_isotopics</span><span class="p">]</span>
+        <span class="n">densityTools</span><span class="o">.</span><span class="n">applyIsotopicsMix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">class1Isotopics</span><span class="p">,</span> <span class="n">class2Isotopics</span><span class="p">)</span></div>
 </pre></div>
 
            </div>
@@ -892,9 +940,9 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2009-2019, TerraPower, LLC
+        &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2019-11-15.
+        Last updated on 2020-02-04.
       </span>
 
     </p>
