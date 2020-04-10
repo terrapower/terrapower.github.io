@@ -38,7 +38,7 @@
   
   <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../../_static/theme_overrides.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/theme_fixes.css" type="text/css" />
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
 </head>
@@ -236,7 +236,6 @@
 <span class="kn">import</span> <span class="nn">traceback</span>
 <span class="kn">import</span> <span class="nn">typing</span>
 
-<span class="kn">import</span> <span class="nn">ruamel</span>
 <span class="kn">import</span> <span class="nn">tabulate</span>
 <span class="kn">import</span> <span class="nn">yamlize</span>
 <span class="kn">import</span> <span class="nn">yamlize.objects</span>
@@ -274,12 +273,10 @@
     <span class="c1"># pylint: disable=import-outside-toplevel; circular import protection</span>
     <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">directoryChangers</span>
 
-    <span class="n">textProcessors</span><span class="o">.</span><span class="n">registerYamlIncludeConstructor</span><span class="p">()</span>
-
-    <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">DirectoryChanger</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">DirectoryChanger</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">,</span> <span class="n">dumpOnException</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadingFile&quot;</span><span class="p">],</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">bpYaml</span><span class="p">:</span>
-            <span class="c1"># Make sure that the !include constructor is registered</span>
-            <span class="n">bpYaml</span> <span class="o">=</span> <span class="n">textProcessors</span><span class="o">.</span><span class="n">resolveMarkupInclusions</span><span class="p">(</span><span class="n">bpYaml</span><span class="p">)</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadingFile&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span>
+            <span class="n">bpYaml</span> <span class="o">=</span> <span class="n">textProcessors</span><span class="o">.</span><span class="n">resolveMarkupInclusions</span><span class="p">(</span><span class="n">bpYaml</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">bp</span> <span class="o">=</span> <span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">bpYaml</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">yamlizing_error</span><span class="o">.</span><span class="n">YamlizingError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
@@ -679,6 +676,7 @@
                 <span class="n">inp</span> <span class="o">=</span> <span class="n">mig</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">inp</span></div></div>
 
+
 <div class="viewcode-block" id="migrate"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.migrate">[docs]</a><span class="k">def</span> <span class="nf">migrate</span><span class="p">(</span><span class="n">bp</span><span class="p">:</span> <span class="n">Blueprints</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Apply migrations to the input structure.</span>
@@ -694,8 +692,10 @@
 
 <span class="sd">    This allows settings-driven core map to still be used for backwards compatibility.</span>
 <span class="sd">    At some point once the input stabilizes, we may wish to move this out to the</span>
-<span class="sd">    dedicated migration portion of the code, and not perform the migration so lazily.</span>
+<span class="sd">    dedicated migration portion of the code, and not perform the migration so</span>
+<span class="sd">    implicitly.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">blueprints</span>
     <span class="kn">from</span> <span class="nn">armi.reactor.blueprints</span> <span class="k">import</span> <span class="n">gridBlueprint</span>
 
     <span class="k">if</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -708,8 +708,9 @@
 
     <span class="n">geom</span> <span class="o">=</span> <span class="n">geometry</span><span class="o">.</span><span class="n">SystemLayoutInput</span><span class="p">()</span>
     <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromFile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">,</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;geomFile&quot;</span><span class="p">]))</span>
-    <span class="n">gridDesign</span> <span class="o">=</span> <span class="n">geom</span><span class="o">.</span><span class="n">toGridBlueprint</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">)</span>
-    <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gridDesign</span>
+    <span class="n">gridDesigns</span> <span class="o">=</span> <span class="n">geom</span><span class="o">.</span><span class="n">toGridBlueprints</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">design</span> <span class="ow">in</span> <span class="n">gridDesigns</span><span class="p">:</span>
+        <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">[</span><span class="n">design</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">design</span>
 
     <span class="k">if</span> <span class="s2">&quot;core&quot;</span> <span class="ow">in</span> <span class="p">[</span><span class="n">rd</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">]:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -724,10 +725,12 @@
         <span class="n">radMeshes</span> <span class="o">=</span> <span class="p">{</span><span class="n">indices</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="k">for</span> <span class="n">indices</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">geom</span><span class="o">.</span><span class="n">assemTypeByIndices</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">aziMeshes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">radMeshes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The system layout described in </span><span class="si">{}</span><span class="s2"> has non-uniform &quot;</span>
-                    <span class="s2">&quot;azimuthal and/or radial submeshing. This migration is currently &quot;</span>
-                    <span class="s2">&quot;only smart enough to handle a single radial and single azimuthal &quot;</span>
-                    <span class="s2">&quot;submesh for all assemblies.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;geomFile&quot;</span><span class="p">]))</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The system layout described in </span><span class="si">{}</span><span class="s2"> has non-uniform &quot;</span>
+                <span class="s2">&quot;azimuthal and/or radial submeshing. This migration is currently &quot;</span>
+                <span class="s2">&quot;only smart enough to handle a single radial and single azimuthal &quot;</span>
+                <span class="s2">&quot;submesh for all assemblies.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;geomFile&quot;</span><span class="p">])</span>
+            <span class="p">)</span>
         <span class="n">radMesh</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">radMeshes</span><span class="p">))</span>
         <span class="n">aziMesh</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">aziMeshes</span><span class="p">))</span>
 
@@ -756,7 +759,7 @@
     <p>
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-03-20.
+        Last updated on 2020-04-10.
       </span>
 
     </p>

@@ -38,7 +38,7 @@
   
   <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="../../../../_static/theme_overrides.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/theme_fixes.css" type="text/css" />
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
 </head>
@@ -182,8 +182,12 @@
 <span class="sd">Converts reactor with arbitrary axial meshing (e.g. multiple assemblies with different</span>
 <span class="sd">axial meshes) to one with a global uniform axial mesh.</span>
 
-<span class="sd">Useful for preparing DIF3D, etc. structured mesh neutronics runs from flexible ARMI</span>
-<span class="sd">reactor</span>
+<span class="sd">Useful for preparing inputs for physics codes that require structured meshes</span>
+<span class="sd">from a more flexible ARMI reactor mesh.</span>
+
+<span class="sd">This is implemented generically but includes a concrete subclass for</span>
+<span class="sd">neutronics-specific parameters. This is used for build input files</span>
+<span class="sd">for codes like DIF3D which require axially uniform meshes.</span>
 
 <span class="sd">Requirements</span>
 <span class="sd">------------</span>
@@ -195,8 +199,7 @@
 
 <span class="sd">Examples</span>
 <span class="sd">--------</span>
-
-<span class="sd">converter = uniformMesh.UniformMeshGeometryConverter()</span>
+<span class="sd">converter = uniformMesh.NeutronicsUniformMeshConverter()</span>
 <span class="sd">uniformReactor = converter.convert(reactor)</span>
 <span class="sd"># do calcs, then:</span>
 <span class="sd">converter.applyStateToOriginal()</span>
@@ -227,21 +230,35 @@
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">GeometryConverter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_uniformMesh</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span> <span class="o">=</span> <span class="p">[]</span>
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter.convert"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.convert">[docs]</a>    <span class="k">def</span> <span class="nf">convert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a new reactor with a uniform mesh.&quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Building copy of </span><span class="si">{}</span><span class="s2"> with a uniform axial mesh&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span> <span class="o">=</span> <span class="n">r</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initNewReactor</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setParamsToUpdate</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_computeAverageAxialMesh</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_convertNumberDensities</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buildAllUniformAssemblies</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">updateAxialMesh</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkConversion</span><span class="p">()</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span></div>
+
+    <span class="k">def</span> <span class="nf">_checkConversion</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Perform checks to ensure conversion occurred properly.&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter.initNewReactor"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.initNewReactor">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">initNewReactor</span><span class="p">(</span><span class="n">sourceReactor</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Set up the new reactor</span>
+<span class="sd">        Built an empty version of the new reactor.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">newReactor</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">sourceReactor</span><span class="p">)</span>  <span class="c1"># XXX: very wasteful</span>
+        <span class="c1"># XXX: this deepcopy is extremely wasteful because the assemblies copied</span>
+        <span class="c1"># are immediately removed. It&#39;s just laziness of getting the same class</span>
+        <span class="c1"># of reactor set up.</span>
+        <span class="n">newReactor</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">sourceReactor</span><span class="p">)</span>
         <span class="n">newReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">removeAllAssemblies</span><span class="p">()</span>
         <span class="n">newReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">regenAssemblyLists</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">newReactor</span></div>
@@ -270,8 +287,20 @@
         <span class="n">a</span><span class="o">.</span><span class="n">setName</span><span class="p">(</span><span class="n">sourceAssembly</span><span class="o">.</span><span class="n">getName</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">a</span>
 
-<div class="viewcode-block" id="UniformMeshGeometryConverter.applyUniformMesh"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.applyUniformMesh">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">applyUniformMesh</span><span class="p">(</span><span class="n">sourceAssem</span><span class="p">,</span> <span class="n">newMesh</span><span class="p">):</span>
+<div class="viewcode-block" id="UniformMeshGeometryConverter.makeAssemWithUniformMesh"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.makeAssemWithUniformMesh">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">makeAssemWithUniformMesh</span><span class="p">(</span><span class="n">sourceAssem</span><span class="p">,</span> <span class="n">newMesh</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Build new assembly based on a source assembly but apply the uniform mesh.</span>
+
+<span class="sd">        The new assemblies must have appropriately mapped number densities as</span>
+<span class="sd">        input for a neutronics solve. They must also have other relevant</span>
+<span class="sd">        state parameters for follow-on steps. Thus, this maps many parameters </span>
+<span class="sd">        from the ARMI mesh to the uniform mesh.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        applyStateToOriginal : basically the reverse on the way out.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">newAssem</span> <span class="o">=</span> <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_createNewAssembly</span><span class="p">(</span><span class="n">sourceAssem</span><span class="p">)</span>
         <span class="n">bottom</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">topMeshPoint</span> <span class="ow">in</span> <span class="n">newMesh</span><span class="p">:</span>
@@ -326,7 +355,7 @@
         <span class="n">newAssem</span><span class="o">.</span><span class="n">calculateZCoords</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">newAssem</span></div>
 
-    <span class="k">def</span> <span class="nf">_convertNumberDensities</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_buildAllUniformAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Loop through each new block for each mesh point and apply conservation of atoms.</span>
 
@@ -335,7 +364,7 @@
 <span class="sd">        into plenum).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">sourceAssem</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="p">:</span>
-            <span class="n">newAssem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">applyUniformMesh</span><span class="p">(</span><span class="n">sourceAssem</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_uniformMesh</span><span class="p">)</span>
+            <span class="n">newAssem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeAssemWithUniformMesh</span><span class="p">(</span><span class="n">sourceAssem</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_uniformMesh</span><span class="p">)</span>
             <span class="n">newAssem</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span>
             <span class="c1"># would be nicer if this happened in add but there&#39;s  complication between</span>
             <span class="c1"># moveTo and add precedence and location-already-filled-issues.</span>
@@ -343,8 +372,6 @@
             <span class="n">src</span> <span class="o">=</span> <span class="n">sourceAssem</span><span class="o">.</span><span class="n">spatialLocator</span>
             <span class="n">newLoc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="n">src</span><span class="o">.</span><span class="n">i</span><span class="p">,</span> <span class="n">src</span><span class="o">.</span><span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">newAssem</span><span class="p">,</span> <span class="n">newLoc</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">updateAxialMesh</span><span class="p">()</span>
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter.plotConvertedReactor"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.plotConvertedReactor">[docs]</a>    <span class="k">def</span> <span class="nf">plotConvertedReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">assemsToPlot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="p">[:</span><span class="mi">12</span><span class="p">]</span>
@@ -354,11 +381,91 @@
             <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_setParamsToUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Gather a list of parameters that will be mapped between reactors.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Delete existing state that will be updated so they don&#39;t increment.</span>
+
+<span class="sd">        The summations should start at zero but will happen for all overlaps.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Clearing params from source reactor that will be converted.&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">rp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span><span class="p">:</span>
+            <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">rp</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">bp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span><span class="p">:</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">bp</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+<div class="viewcode-block" id="UniformMeshGeometryConverter.applyStateToOriginal"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.applyStateToOriginal">[docs]</a>    <span class="k">def</span> <span class="nf">applyStateToOriginal</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Now that state is computed on the uniform mesh, map it back to ARMI mesh.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+            <span class="s2">&quot;Applying uniform neutronics mesh results on </span><span class="si">{0}</span><span class="s2"> to ARMI mesh on </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sourceReactor</span><span class="p">,</span> <span class="n">destReactor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Map parameters from one reactor to another.</span>
+
+<span class="sd">        Used for preparing and uniform reactor as well as for mapping its results</span>
+<span class="sd">        back to the original reactor.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="NeutronicsUniformMeshConverter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.NeutronicsUniformMeshConverter">[docs]</a><span class="k">class</span> <span class="nc">NeutronicsUniformMeshConverter</span><span class="p">(</span><span class="n">UniformMeshGeometryConverter</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A uniform mesh converter that specifically maps neutronics parameters.</span>
+
+<span class="sd">    This is useful for codes like DIF3D.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    If a case runs where two mesh conversions happen one after the other</span>
+<span class="sd">    (e.g. a fixed source gamma transport step that needs appropriate </span>
+<span class="sd">    fission rates), it is essential that the neutronics params be</span>
+<span class="sd">    mapped onto the newly converted reactor as well as off of it</span>
+<span class="sd">    back to the source reactor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_checkConversion</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Make sure both reactors have the same power and that it&#39;s equal to user-input.</span>
+
+<span class="sd">        On the initial neutronics run, of course source power will be zero.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_checkConversion</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">sourcePow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getTotalBlockParam</span><span class="p">(</span><span class="s2">&quot;power&quot;</span><span class="p">)</span>
+        <span class="n">convPow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getTotalBlockParam</span><span class="p">(</span><span class="s2">&quot;power&quot;</span><span class="p">)</span>
+        <span class="n">expectedPow</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">powerMultiplier</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">sourcePow</span> <span class="o">-</span> <span class="n">convPow</span><span class="p">)</span> <span class="o">/</span> <span class="n">sourcePow</span> <span class="o">&gt;</span> <span class="mf">1e-5</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="n">f</span><span class="s2">&quot;Source reactor power (</span><span class="si">{sourcePow}</span><span class="s2">) is too different from &quot;</span>
+                <span class="n">f</span><span class="s2">&quot;converted power (</span><span class="si">{convPow}</span><span class="s2">).&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">sourcePow</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">sourcePow</span> <span class="o">-</span> <span class="n">expectedPow</span><span class="p">)</span> <span class="o">/</span> <span class="n">sourcePow</span> <span class="o">&gt;</span> <span class="mf">1e-5</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s2">&quot;Source reactor power (</span><span class="si">{sourcePow}</span><span class="s2">) is too different from &quot;</span>
+                <span class="n">f</span><span class="s2">&quot;user-input power (</span><span class="si">{expectedPow}</span><span class="s2">).&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_setParamsToUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Activate conversion of various neutronics paramters.&quot;&quot;&quot;</span>
+        <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_setParamsToUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">()</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span><span class="s2">&quot;detailedAxialExpansion&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">.</span><span class="n">Category</span><span class="o">.</span><span class="n">detailedAxialExpansion</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">names</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span>
-            <span class="s2">&quot;neutronics&quot;</span>
+            <span class="n">parameters</span><span class="o">.</span><span class="n">Category</span><span class="o">.</span><span class="n">neutronics</span>
         <span class="p">)</span><span class="o">.</span><span class="n">names</span>
 
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
@@ -372,31 +479,20 @@
             <span class="p">)</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_clearStateOnSourceReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Delete existing state that will be updated so they don&#39;t increment.&quot;&quot;&quot;</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Clearing params from source reactor that will be converted.&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">rp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">rp</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">def</span> <span class="nf">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Also clear mgFlux params.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">adjMgFlux</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">bp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span><span class="p">:</span>
-                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">bp</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
 
-<div class="viewcode-block" id="UniformMeshGeometryConverter.applyStateToOriginal"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.applyStateToOriginal">[docs]</a>    <span class="k">def</span> <span class="nf">applyStateToOriginal</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Now that flux/power, etc. is computed on the uniform mesh (newReactor), map it back to ARMI mesh (sourceReactor)</span>
-
-<span class="sd">        this runs after the neutronics has been computed on the neutronics mesh</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
-            <span class="s2">&quot;Applying uniform neutronics mesh results on </span><span class="si">{0}</span><span class="s2"> to ARMI mesh on </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span>
-            <span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sourceReactor</span><span class="p">,</span> <span class="n">destReactor</span><span class="p">):</span>
+        <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_mapStateFromReactorToOther</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">sourceReactor</span><span class="p">,</span> <span class="n">destReactor</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_setParamsToUpdate</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_clearStateOnSourceReactor</span><span class="p">()</span>
 
         <span class="k">def</span> <span class="nf">paramSetter</span><span class="p">(</span><span class="n">armiObject</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">paramNames</span><span class="p">,</span> <span class="n">vals</span><span class="p">):</span>
@@ -431,17 +527,17 @@
                 <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
+            <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
 
-        <span class="k">for</span> <span class="n">aUniform</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="p">:</span>
-            <span class="n">aReal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyByName</span><span class="p">(</span><span class="n">aUniform</span><span class="o">.</span><span class="n">getName</span><span class="p">())</span>
+        <span class="k">for</span> <span class="n">aSource</span> <span class="ow">in</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="p">:</span>
+            <span class="n">aDest</span> <span class="o">=</span> <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyByName</span><span class="p">(</span><span class="n">aSource</span><span class="o">.</span><span class="n">getName</span><span class="p">())</span>
             <span class="n">_setStateFromOverlaps</span><span class="p">(</span>
-                <span class="n">aUniform</span><span class="p">,</span> <span class="n">aReal</span><span class="p">,</span> <span class="n">paramSetter</span><span class="p">,</span> <span class="n">paramGetter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span>
+                <span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="n">paramSetter</span><span class="p">,</span> <span class="n">paramGetter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span>
             <span class="p">)</span>
-            <span class="n">_setStateFromOverlaps</span><span class="p">(</span><span class="n">aUniform</span><span class="p">,</span> <span class="n">aReal</span><span class="p">,</span> <span class="n">fluxSetter</span><span class="p">,</span> <span class="n">fluxGetter</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;mgFlux&quot;</span><span class="p">])</span>
+            <span class="n">_setStateFromOverlaps</span><span class="p">(</span><span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="n">fluxSetter</span><span class="p">,</span> <span class="n">fluxGetter</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;mgFlux&quot;</span><span class="p">])</span>
             <span class="n">_setStateFromOverlaps</span><span class="p">(</span>
-                <span class="n">aUniform</span><span class="p">,</span> <span class="n">aReal</span><span class="p">,</span> <span class="n">adjointFluxSetter</span><span class="p">,</span> <span class="n">adjointFluxGetter</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;adjMgFlux&quot;</span><span class="p">]</span>
-            <span class="p">)</span></div></div>
+                <span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="n">adjointFluxSetter</span><span class="p">,</span> <span class="n">adjointFluxGetter</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;adjMgFlux&quot;</span><span class="p">]</span>
+            <span class="p">)</span></div>
 
 
 <span class="k">def</span> <span class="nf">_setNumberDensitiesFromOverlaps</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">overlappingBlockInfo</span><span class="p">):</span>
@@ -593,7 +689,7 @@
     <p>
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-03-20.
+        Last updated on 2020-04-10.
       </span>
 
     </p>
