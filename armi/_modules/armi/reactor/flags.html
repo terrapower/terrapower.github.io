@@ -246,9 +246,10 @@
 <span class="sd">[&lt;component fuel1&gt;, &lt;component fuel2&gt;, ...]</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">armi.utils.flags</span> <span class="k">import</span> <span class="n">Flag</span><span class="p">,</span> <span class="n">auto</span>
+<span class="kn">from</span> <span class="nn">armi.utils.flags</span> <span class="kn">import</span> <span class="n">Flag</span><span class="p">,</span> <span class="n">auto</span>
 
 
 <span class="c1"># Type alias used for passing type specifications to many of the composite methods. See</span>
@@ -261,10 +262,11 @@
     <span class="sd">&quot;&quot;&quot;Helper method to minimize code repeat in other fromString methods.&quot;&quot;&quot;</span>
     <span class="n">result</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">typeSpec</span> <span class="o">=</span> <span class="n">typeSpec</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">conversion</span> <span class="ow">in</span> <span class="n">CONVERSIONS</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">conversion</span> <span class="ow">in</span> <span class="n">typeSpec</span><span class="p">:</span>
-            <span class="n">typeSpec</span> <span class="o">=</span> <span class="n">typeSpec</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">conversion</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-            <span class="n">result</span> <span class="o">|=</span> <span class="n">CONVERSIONS</span><span class="p">[</span><span class="n">conversion</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">conversion</span> <span class="ow">in</span> <span class="n">_CONVERSIONS</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">conversion</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
+            <span class="n">typeSpec</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">conversion</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">|=</span> <span class="n">_CONVERSIONS</span><span class="p">[</span><span class="n">conversion</span><span class="p">]</span>
 
     <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">typeSpec</span><span class="o">.</span><span class="n">split</span><span class="p">():</span>
         <span class="c1"># ignore numbers so we don&#39;t have to define flags up to 217+ (number of pins/assem)</span>
@@ -458,26 +460,26 @@
 
 
 <span class="c1"># string conversions for multiple-word flags</span>
-<span class="n">CONVERSIONS</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;GRID PLATE&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GRID_PLATE</span><span class="p">,</span>
-    <span class="s2">&quot;GRID&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GRID_PLATE</span><span class="p">,</span>  <span class="c1"># often used as component in &quot;grid plate&quot; block</span>
-    <span class="s2">&quot;INLET NOZZLE&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INLET_NOZZLE</span><span class="p">,</span>
-    <span class="s2">&quot;NOZZLE&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INLET_NOZZLE</span><span class="p">,</span>
-    <span class="s2">&quot;HANDLING SOCKET&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">HANDLING_SOCKET</span><span class="p">,</span>
-    <span class="s2">&quot;GUIDE TUBE&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GUIDE_TUBE</span><span class="p">,</span>
-    <span class="s2">&quot;FISSION CHAMBER&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">FISSION_CHAMBER</span><span class="p">,</span>
-    <span class="s2">&quot;SOCKET&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">HANDLING_SOCKET</span><span class="p">,</span>
-    <span class="s2">&quot;SHIELD BLOCK&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">SHIELD_BLOCK</span><span class="p">,</span>
-    <span class="s2">&quot;SHIELDBLOCK&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">SHIELD_BLOCK</span><span class="p">,</span>
-    <span class="s2">&quot;CORE BARREL&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CORE_BARREL</span><span class="p">,</span>
-    <span class="s2">&quot;INNERDUCT&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INNER</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">,</span>
-    <span class="s2">&quot;GAP1&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GAP</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">A</span><span class="p">,</span>
-    <span class="s2">&quot;GAP2&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GAP</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">B</span><span class="p">,</span>
-    <span class="s2">&quot;GAP3&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GAP</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">C</span><span class="p">,</span>
-    <span class="s2">&quot;GAP4&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GAP</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">D</span><span class="p">,</span>
-    <span class="s2">&quot;GAP5&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GAP</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">E</span><span class="p">,</span>
-    <span class="s2">&quot;LINER1&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">LINER</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">A</span><span class="p">,</span>
-    <span class="s2">&quot;LINER2&quot;</span><span class="p">:</span> <span class="n">Flags</span><span class="o">.</span><span class="n">LINER</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">B</span><span class="p">,</span>
+<span class="n">_CONVERSIONS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;GRID\s+PLATE&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GRID_PLATE</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\bGRID\b&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GRID_PLATE</span><span class="p">,</span>  <span class="c1"># often used as component in &quot;grid plate&quot; block</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;INLET\s+NOZZLE&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INLET_NOZZLE</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;NOZZLE&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INLET_NOZZLE</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;HANDLING\s+SOCKET&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">HANDLING_SOCKET</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;GUIDE\s+TUBE&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GUIDE_TUBE</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;FISSION\s+CHAMBER&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">FISSION_CHAMBER</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;SOCKET&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">HANDLING_SOCKET</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;SHIELD\s+BLOCK&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">SHIELD_BLOCK</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;SHIELDBLOCK&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">SHIELD_BLOCK</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;CORE\s+BARREL&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CORE_BARREL</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;INNERDUCT&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INNER</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;GAP1&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GAP</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">A</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;GAP2&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GAP</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">B</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;GAP3&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GAP</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">C</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;GAP4&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GAP</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">D</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;GAP5&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">GAP</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">E</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;LINER1&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">LINER</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">A</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;LINER2&quot;</span><span class="p">):</span> <span class="n">Flags</span><span class="o">.</span><span class="n">LINER</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">B</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
 
@@ -493,7 +495,7 @@
     <p>
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-04-10.
+        Last updated on 2020-06-08.
       </span>
 
     </p>

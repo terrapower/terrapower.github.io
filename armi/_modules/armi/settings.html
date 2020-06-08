@@ -181,58 +181,39 @@
 
 <span class="sd">They are one of the key inputs to an ARMI run. They say which modules to run and which</span>
 <span class="sd">modeling approximations to apply and how many cycles to run and at what power and</span>
-<span class="sd">availability fraction and things like that.</span>
-
-<span class="sd">Notes</span>
-<span class="sd">-----</span>
-<span class="sd">Originally, these were just a Python module ``settings.py`` that had Python types in it.</span>
-<span class="sd">We transitioned to XML because it was trendy. Later, we wanted better uniformity across</span>
-<span class="sd">our input formats so we made it do YAML, too. We then added the ability to provide new</span>
-<span class="sd">Settings from plugins, which introduced the ``setting2`` module. As a result of this</span>
-<span class="sd">history, there are now two implementations of the ``Setting`` class, which, while they</span>
-<span class="sd">are not related through inheritance, do expose very similar interfaces and can largely</span>
-<span class="sd">be used interchangeably. There are no insances of the old ``Setting`` format, but we are</span>
-<span class="sd">leaving it in the code for now to facilitate input migrations from older versions of</span>
-<span class="sd">ARMI. We plan to remove the old implementation, and replace it with the new</span>
-<span class="sd">implementation in ``setting2`` very soon.</span>
+<span class="sd">availability fraction and things like that. The ARMI Framework itself has many settings</span>
+<span class="sd">of its own, and plugins typically register some of their own settings as well.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">fnmatch</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">glob</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">ruamel</span> <span class="k">import</span> <span class="n">yaml</span>
+<span class="kn">from</span> <span class="nn">ruamel</span> <span class="kn">import</span> <span class="n">yaml</span>
 
 <span class="kn">import</span> <span class="nn">armi</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.localization</span> <span class="k">import</span> <span class="n">exceptions</span>
-<span class="kn">from</span> <span class="nn">armi.settings.caseSettings</span> <span class="k">import</span> <span class="n">Settings</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">pathTools</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.localization</span> <span class="kn">import</span> <span class="n">exceptions</span>
+<span class="kn">from</span> <span class="nn">armi.settings.caseSettings</span> <span class="kn">import</span> <span class="n">Settings</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">pathTools</span>
 
-<span class="kn">from</span> <span class="nn">armi.settings.setting</span> <span class="k">import</span> <span class="n">Setting</span><span class="p">,</span> <span class="n">BoolSetting</span>
-<span class="kn">from</span> <span class="nn">armi.settings.setting2</span> <span class="k">import</span> <span class="n">Setting</span> <span class="k">as</span> <span class="n">Setting2</span>
+<span class="kn">from</span> <span class="nn">armi.settings.setting</span> <span class="kn">import</span> <span class="n">Setting</span>
 
 <span class="n">NOT_ENABLED</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>  <span class="c1"># An empty setting value implies that the feature</span>
 
 
-<div class="viewcode-block" id="isBoolSetting"><a class="viewcode-back" href="../../.apidocs/armi.settings.html#armi.settings.isBoolSetting">[docs]</a><span class="k">def</span> <span class="nf">isBoolSetting</span><span class="p">(</span><span class="n">setting</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Setting</span><span class="p">,</span> <span class="n">Setting2</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Return whether the passed setting represents a boolean value.</span>
-
-<span class="sd">    This is useful during the transition from old to new settings. The old settings used</span>
-<span class="sd">    to be &quot;strongly&quot; typed, wheras the new once are a little bit looser in that their</span>
-<span class="sd">    types are largely enforced by their schemas. In situations where we want to treat</span>
-<span class="sd">    bool-y settings special (e.g., when we want to make command-line toggles out of</span>
-<span class="sd">    them), this provides the appropriate logic depending on which Setting class is being</span>
-<span class="sd">    used.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">setting</span><span class="p">,</span> <span class="n">BoolSetting</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span>
-        <span class="nb">isinstance</span><span class="p">(</span><span class="n">setting</span><span class="p">,</span> <span class="n">Setting2</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">setting</span><span class="o">.</span><span class="n">default</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
-    <span class="p">)</span></div>
+<div class="viewcode-block" id="isBoolSetting"><a class="viewcode-back" href="../../.apidocs/armi.settings.html#armi.settings.isBoolSetting">[docs]</a><span class="k">def</span> <span class="nf">isBoolSetting</span><span class="p">(</span><span class="n">setting</span><span class="p">:</span> <span class="n">Setting</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Return whether the passed setting represents a boolean value.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">setting</span><span class="o">.</span><span class="n">default</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="recursivelyLoadSettingsFiles"><a class="viewcode-back" href="../../.apidocs/armi.settings.html#armi.settings.recursivelyLoadSettingsFiles">[docs]</a><span class="k">def</span> <span class="nf">recursivelyLoadSettingsFiles</span><span class="p">(</span>
-    <span class="n">rootDir</span><span class="p">,</span> <span class="n">patterns</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ignorePatterns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="kc">True</span>
+    <span class="n">rootDir</span><span class="p">,</span>
+    <span class="n">patterns</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">ignorePatterns</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">handleInvalids</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Scans path for valid xml files and returns their paths.</span>
@@ -256,6 +237,14 @@
 <span class="sd">    csFiles : list</span>
 <span class="sd">        list of :py:class:`~armi.settings.caseSettings.Settings` objects.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+        <span class="n">ignorePatterns</span><span class="p">,</span> <span class="nb">str</span>
+    <span class="p">),</span> <span class="s2">&quot;Bare string passed as ignorePatterns. Make sure to pass a list&quot;</span>
+
+    <span class="k">assert</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+        <span class="n">patterns</span><span class="p">,</span> <span class="nb">str</span>
+    <span class="p">),</span> <span class="s2">&quot;Bare string passed as patterns. Make sure to pass a list&quot;</span>
+
     <span class="n">possibleSettings</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finding potential settings files matching </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">patterns</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">recursive</span><span class="p">:</span>
@@ -315,7 +304,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Welcome to the ARMI Loader&quot;</span><span class="p">)</span>
     <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Scanning for ARMI settings files...&quot;</span><span class="p">)</span>
-    <span class="n">files</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.yaml&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.xml&quot;</span><span class="p">)</span>  <span class="c1"># phase out xml later</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.yaml&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.xml&quot;</span><span class="p">))</span>  <span class="c1"># phase out xml later</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">files</span><span class="p">:</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="s2">&quot;No eligible settings files found. Creating settings without choice&quot;</span>
@@ -403,7 +392,7 @@
     <p>
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-04-10.
+        Last updated on 2020-06-08.
       </span>
 
     </p>

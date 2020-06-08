@@ -197,6 +197,15 @@
 <span class="sd">3. For neutronics cases, all neutronics-related block params should be translated, as</span>
 <span class="sd">   well as the multigroup real and adjoint flux.</span>
 
+
+<span class="sd">.. warning: This procedure can cause numerical diffusion in some cases. For example, </span>
+<span class="sd">    if a control rod tip block has a large coolant block below it, things like peak</span>
+<span class="sd">    absorption rate can get lost into it. We recalculate some but not all </span>
+<span class="sd">    reaction rates in the re-mapping process based on a flux remapping. To avoid this,</span>
+<span class="sd">    finer meshes will help. Always perform mesh sensitivity studies to ensure appropriate</span>
+<span class="sd">    convergence for your needs.</span>
+
+
 <span class="sd">Examples</span>
 <span class="sd">--------</span>
 <span class="sd">converter = uniformMesh.NeutronicsUniformMeshConverter()</span>
@@ -213,13 +222,17 @@
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">utils</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">iterables</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">grids</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="k">import</span> <span class="n">Flags</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.converters.geometryConverters</span> <span class="k">import</span> <span class="n">GeometryConverter</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">parameters</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">utils</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">iterables</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">plotting</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.converters.geometryConverters</span> <span class="kn">import</span> <span class="n">GeometryConverter</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
+
+<span class="c1"># unfortunate physics coupling, but still in the framework</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.globalFlux</span> <span class="kn">import</span> <span class="n">globalFluxInterface</span>
 
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter">[docs]</a><span class="k">class</span> <span class="nc">UniformMeshGeometryConverter</span><span class="p">(</span><span class="n">GeometryConverter</span><span class="p">):</span>
@@ -227,7 +240,7 @@
 <span class="sd">    Build uniform mesh version of the source reactor</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">GeometryConverter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_uniformMesh</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span> <span class="o">=</span> <span class="p">[]</span>
@@ -376,8 +389,13 @@
 <div class="viewcode-block" id="UniformMeshGeometryConverter.plotConvertedReactor"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.plotConvertedReactor">[docs]</a>    <span class="k">def</span> <span class="nf">plotConvertedReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">assemsToPlot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="p">[:</span><span class="mi">12</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">plotNum</span><span class="p">,</span> <span class="n">assemBatch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">iterables</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">assemsToPlot</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">plotAssemblyTypes</span><span class="p">(</span>
-                <span class="n">assemBatch</span><span class="p">,</span> <span class="n">plotNum</span><span class="p">,</span> <span class="n">maxAssems</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">showBlockAxMesh</span><span class="o">=</span><span class="kc">True</span>
+            <span class="n">plotting</span><span class="o">.</span><span class="n">plotAssemblyTypes</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">assemBatch</span><span class="p">,</span>
+                <span class="n">plotNum</span><span class="p">,</span>
+                <span class="n">maxAssems</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+                <span class="n">showBlockAxMesh</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_setParamsToUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -447,13 +465,13 @@
         <span class="p">)</span>
         <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">sourcePow</span> <span class="o">-</span> <span class="n">convPow</span><span class="p">)</span> <span class="o">/</span> <span class="n">sourcePow</span> <span class="o">&gt;</span> <span class="mf">1e-5</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="n">f</span><span class="s2">&quot;Source reactor power (</span><span class="si">{sourcePow}</span><span class="s2">) is too different from &quot;</span>
-                <span class="n">f</span><span class="s2">&quot;converted power (</span><span class="si">{convPow}</span><span class="s2">).&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Source reactor power (</span><span class="si">{</span><span class="n">sourcePow</span><span class="si">}</span><span class="s2">) is too different from &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;converted power (</span><span class="si">{</span><span class="n">convPow</span><span class="si">}</span><span class="s2">).&quot;</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">sourcePow</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">sourcePow</span> <span class="o">-</span> <span class="n">expectedPow</span><span class="p">)</span> <span class="o">/</span> <span class="n">sourcePow</span> <span class="o">&gt;</span> <span class="mf">1e-5</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="n">f</span><span class="s2">&quot;Source reactor power (</span><span class="si">{sourcePow}</span><span class="s2">) is too different from &quot;</span>
-                <span class="n">f</span><span class="s2">&quot;user-input power (</span><span class="si">{expectedPow}</span><span class="s2">).&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Source reactor power (</span><span class="si">{</span><span class="n">sourcePow</span><span class="si">}</span><span class="s2">) is too different from &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;user-input power (</span><span class="si">{</span><span class="n">expectedPow</span><span class="si">}</span><span class="s2">).&quot;</span>
             <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_setParamsToUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -531,13 +549,22 @@
 
         <span class="k">for</span> <span class="n">aSource</span> <span class="ow">in</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="p">:</span>
             <span class="n">aDest</span> <span class="o">=</span> <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyByName</span><span class="p">(</span><span class="n">aSource</span><span class="o">.</span><span class="n">getName</span><span class="p">())</span>
-            <span class="n">_setStateFromOverlaps</span><span class="p">(</span>
-                <span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="n">paramSetter</span><span class="p">,</span> <span class="n">paramGetter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span>
-            <span class="p">)</span>
             <span class="n">_setStateFromOverlaps</span><span class="p">(</span><span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="n">fluxSetter</span><span class="p">,</span> <span class="n">fluxGetter</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;mgFlux&quot;</span><span class="p">])</span>
             <span class="n">_setStateFromOverlaps</span><span class="p">(</span>
                 <span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="n">adjointFluxSetter</span><span class="p">,</span> <span class="n">adjointFluxGetter</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;adjMgFlux&quot;</span><span class="p">]</span>
-            <span class="p">)</span></div>
+            <span class="p">)</span>
+            <span class="n">_setStateFromOverlaps</span><span class="p">(</span>
+                <span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="n">paramSetter</span><span class="p">,</span> <span class="n">paramGetter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span>
+            <span class="p">)</span>
+            <span class="c1"># Now recalculate derived params with the mapped flux to minimize</span>
+            <span class="c1"># potential numerical diffusion (e.g. control rod tip into large coolant)</span>
+
+        <span class="k">if</span> <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing block-level reaction rates for </span><span class="si">{</span><span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">aDest</span><span class="p">:</span>
+                <span class="n">globalFluxInterface</span><span class="o">.</span><span class="n">calcReactionRates</span><span class="p">(</span>
+                    <span class="n">b</span><span class="p">,</span> <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">keff</span><span class="p">,</span> <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span>
+                <span class="p">)</span></div>
 
 
 <span class="k">def</span> <span class="nf">_setNumberDensitiesFromOverlaps</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">overlappingBlockInfo</span><span class="p">):</span>
@@ -689,7 +716,7 @@
     <p>
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-04-10.
+        Last updated on 2020-06-08.
       </span>
 
     </p>
