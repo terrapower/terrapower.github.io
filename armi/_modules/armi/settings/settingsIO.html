@@ -14,6 +14,9 @@
   <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
   <link rel="stylesheet" href="../../../_static/theme_fixes.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/gallery.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/gallery-binder.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/gallery-dataframe.css" type="text/css" />
 
   
   
@@ -185,58 +188,142 @@
 <span class="sd">:py:class:`~armi.settings.caseSettings.Settings`, and the contained</span>
 <span class="sd">:py:class:`~armi.settings.setting.Setting`.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">collections</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">enum</span>
 <span class="kn">import</span> <span class="nn">ast</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">enum</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">xml.etree.ElementTree</span> <span class="k">as</span> <span class="nn">ET</span>
 
 <span class="kn">from</span> <span class="nn">ruamel.yaml</span> <span class="k">import</span> <span class="n">YAML</span>
 <span class="kn">import</span> <span class="nn">ruamel.yaml.comments</span>
-<span class="kn">import</span> <span class="nn">xml.etree.ElementTree</span> <span class="k">as</span> <span class="nn">ET</span>
 
 <span class="kn">import</span> <span class="nn">armi</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.localization</span> <span class="k">import</span> <span class="n">exceptions</span>
-<span class="kn">from</span> <span class="nn">armi.settings</span> <span class="k">import</span> <span class="n">setting</span>
+<span class="kn">from</span> <span class="nn">armi.settings.setting</span> <span class="k">import</span> <span class="n">Setting</span>
 <span class="kn">from</span> <span class="nn">armi.settings</span> <span class="k">import</span> <span class="n">settingsRules</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">geometry</span>
 
 
-<div class="viewcode-block" id="Roots"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.Roots">[docs]</a><span class="k">class</span> <span class="nc">Roots</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="Roots"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.Roots">[docs]</a><span class="k">class</span> <span class="nc">Roots</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;XML tree root node common strings&quot;&quot;&quot;</span>
 
     <span class="n">CUSTOM</span> <span class="o">=</span> <span class="s2">&quot;settings&quot;</span>
-    <span class="n">DEFINITION</span> <span class="o">=</span> <span class="s2">&quot;settings-definitions&quot;</span>
     <span class="n">VERSION</span> <span class="o">=</span> <span class="s2">&quot;version&quot;</span></div>
 
 
-<span class="k">class</span> <span class="nc">_SettingsReader</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="SettingRenamer"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingRenamer">[docs]</a><span class="k">class</span> <span class="nc">SettingRenamer</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Utility class to help with setting rename migrations.</span>
+
+<span class="sd">    This class stores a cache of renaming maps, derived from the ``Setting.oldNames``</span>
+<span class="sd">    values of the passed ``settings``. Expired renames are retained, so that meaningful</span>
+<span class="sd">    warning messages can be generated if one attempts to use one of them. The renaming</span>
+<span class="sd">    logic follows the rules described in :py:meth:`renameSetting`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Setting</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_currentNames</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_activeRenames</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_expiredRenames</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="n">today</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">settings</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_currentNames</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">oldName</span><span class="p">,</span> <span class="n">expiry</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">oldNames</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">expiry</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">expired</span> <span class="o">=</span> <span class="n">expiry</span> <span class="o">&lt;=</span> <span class="n">today</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">expired</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">if</span> <span class="n">expired</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_expiredRenames</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">oldName</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">expiry</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">oldName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_activeRenames</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">SettingException</span><span class="p">(</span>
+                            <span class="s2">&quot;The setting rename from </span><span class="si">{0}</span><span class="s2">-&gt;</span><span class="si">{1}</span><span class="s2"> collides with another &quot;</span>
+                            <span class="s2">&quot;rename </span><span class="si">{0}</span><span class="s2">-&gt;</span><span class="si">{2}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                                <span class="n">oldName</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_activeRenames</span><span class="p">[</span><span class="n">oldName</span><span class="p">]</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_activeRenames</span><span class="p">[</span><span class="n">oldName</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+
+<div class="viewcode-block" id="SettingRenamer.renameSetting"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingRenamer.renameSetting">[docs]</a>    <span class="k">def</span> <span class="nf">renameSetting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Attempt to rename a candidate setting.</span>
+
+<span class="sd">        Renaming follows these rules:</span>
+<span class="sd">         - If the ``name`` corresponds to a current setting name, do not attempt to</span>
+<span class="sd">           rename it.</span>
+<span class="sd">         - If the ``name`` does not correspond to a current setting name, but is one of</span>
+<span class="sd">           the active renames, return the corresponding active rename.</span>
+<span class="sd">         - If the ``name`` does not correspond to a current setting name, but is one of</span>
+<span class="sd">           the expired renames, produce a warning and do not rename it.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            The candidate setting name to potentially rename.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            The potentially-renamed setting</span>
+<span class="sd">        renamed : bool</span>
+<span class="sd">            Whether the setting was actually renamed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_currentNames</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">name</span><span class="p">,</span> <span class="kc">False</span>
+
+        <span class="n">activeRename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_activeRenames</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">activeRename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Invalid setting </span><span class="si">{}</span><span class="s2"> found. Renaming to </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">activeRename</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">activeRename</span><span class="p">,</span> <span class="kc">True</span>
+
+        <span class="n">expiredCandidates</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">val</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="n">val</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expiredRenames</span> <span class="k">if</span> <span class="n">val</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">name</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">expiredCandidates</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="s2">&quot;   </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">expiredRename</span><span class="p">,</span> <span class="n">date</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">expiredRename</span><span class="p">,</span> <span class="n">date</span> <span class="ow">in</span> <span class="n">expiredCandidates</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Encountered an invalid setting `</span><span class="si">{}</span><span class="s2">`. There are expired &quot;</span>
+                <span class="s2">&quot;renames to newer setting names:</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">name</span><span class="p">,</span> <span class="kc">False</span></div></div>
+
+
+<div class="viewcode-block" id="SettingsReader"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsReader">[docs]</a><span class="k">class</span> <span class="nc">SettingsReader</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Abstract class for processing settings files.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    cs : CaseSettings</span>
 <span class="sd">        The settings object to read into</span>
-
-<span class="sd">    See Also</span>
-<span class="sd">    --------</span>
-<span class="sd">    SettingsReader</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">class</span> <span class="nc">SettingsInputFormat</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
+<div class="viewcode-block" id="SettingsReader.SettingsInputFormat"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsReader.SettingsInputFormat">[docs]</a>    <span class="k">class</span> <span class="nc">SettingsInputFormat</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Enum</span><span class="p">):</span>
         <span class="n">XML</span> <span class="o">=</span> <span class="n">enum</span><span class="o">.</span><span class="n">auto</span><span class="p">()</span>
         <span class="n">YAML</span> <span class="o">=</span> <span class="n">enum</span><span class="o">.</span><span class="n">auto</span><span class="p">()</span>
 
-    <span class="n">FORMAT_FROM_EXT</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;.xml&quot;</span><span class="p">:</span> <span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">XML</span><span class="p">,</span>
-        <span class="s2">&quot;.yaml&quot;</span><span class="p">:</span> <span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">YAML</span><span class="p">,</span>
-    <span class="p">}</span>
+<div class="viewcode-block" id="SettingsReader.SettingsInputFormat.fromExt"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsReader.SettingsInputFormat.fromExt">[docs]</a>        <span class="nd">@classmethod</span>
+        <span class="k">def</span> <span class="nf">fromExt</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">ext</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;.xml&quot;</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">XML</span><span class="p">,</span> <span class="s2">&quot;.yaml&quot;</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">YAML</span><span class="p">}[</span><span class="n">ext</span><span class="p">]</span></div></div>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">rootTag</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">rootTag</span> <span class="o">=</span> <span class="n">rootTag</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rootTag</span> <span class="o">=</span> <span class="n">Roots</span><span class="o">.</span><span class="n">CUSTOM</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">YAML</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inputPath</span> <span class="o">=</span> <span class="s2">&quot;&lt;stream&gt;&quot;</span>
 
@@ -244,8 +331,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">settingsAlreadyRead</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">liveVersion</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">__version__</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inputVersion</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">__version__</span>
-        <span class="c1"># the input version will be overwritten if explicitly stated in input file</span>
-        <span class="c1"># otherwise it&#39;s assumed to precede the version inclusion change and should be treated as alright</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_renamer</span> <span class="o">=</span> <span class="n">SettingRenamer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">settings</span><span class="p">)</span>
+
+        <span class="c1"># the input version will be overwritten if explicitly stated in input file.</span>
+        <span class="c1"># otherwise, it&#39;s assumed to precede the version inclusion change and should be</span>
+        <span class="c1"># treated as alright</span>
 
     <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
@@ -261,21 +352,21 @@
         <span class="sd">&quot;&quot;&quot;True if file read is in the old XML format.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">XML</span>
 
-    <span class="k">def</span> <span class="nf">readFromFile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="SettingsReader.readFromFile"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsReader.readFromFile">[docs]</a>    <span class="k">def</span> <span class="nf">readFromFile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Load file and read it.&quot;&quot;&quot;</span>
 
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="c1"># make sure that we can actually open the file before trying to guess its</span>
             <span class="c1"># format. This will yield better error messages when things go awry.</span>
             <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">path</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FORMAT_FROM_EXT</span><span class="p">[</span><span class="n">ext</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">fromExt</span><span class="p">(</span><span class="n">ext</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">inputPath</span> <span class="o">=</span> <span class="n">path</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">readFromStream</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ee</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidSettingsFileError</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">ee</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">InvalidSettingsFileError</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">ee</span><span class="p">))</span></div>
 
-    <span class="k">def</span> <span class="nf">readFromStream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">YAML</span><span class="p">):</span>
+<div class="viewcode-block" id="SettingsReader.readFromStream"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsReader.readFromStream">[docs]</a>    <span class="k">def</span> <span class="nf">readFromStream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">YAML</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Read from a file-like stream.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">=</span> <span class="n">fmt</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">YAML</span><span class="p">:</span>
@@ -289,7 +380,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">XML</span>
                 <span class="n">stream</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">format</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">XML</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_readXml</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="n">handleInvalids</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_readXml</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="n">handleInvalids</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_readXml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -321,10 +412,10 @@
             <span class="p">)</span>
 
         <span class="k">for</span> <span class="n">settingElement</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">settingRoot</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_interpretSetting</span><span class="p">(</span><span class="n">settingElement</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_interpretXmlSetting</span><span class="p">(</span><span class="n">settingElement</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">handleInvalids</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_resolveProblems</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkInvalidSettings</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_readYaml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -352,9 +443,6 @@
         <span class="k">for</span> <span class="n">settingName</span><span class="p">,</span> <span class="n">settingVal</span> <span class="ow">in</span> <span class="n">caseSettings</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_applySettings</span><span class="p">(</span><span class="n">settingName</span><span class="p">,</span> <span class="n">settingVal</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_resolveProblems</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
-
     <span class="k">def</span> <span class="nf">_checkInvalidSettings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">invalidSettings</span><span class="p">:</span>
             <span class="k">return</span>
@@ -375,37 +463,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Ignoring invalid settings: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">invalidNames</span><span class="p">))</span>
 
-    <span class="k">def</span> <span class="nf">_interpretSetting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settingElement</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
-
-    <span class="k">def</span> <span class="nf">applyConversions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Applies conversion rules to give special behavior to certain named settings.</span>
-
-<span class="sd">        Intended to be applied on setting names and attributes as soon as they&#39;re read in</span>
-<span class="sd">        keep in mind everything in the attributes dictionary is still a string even if it&#39;s intended to be</span>
-<span class="sd">        something else later, that happens at a later stage.</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># general needs to come first for things like renaming.</span>
-        <span class="n">settingsToApply</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">func</span> <span class="ow">in</span> <span class="n">settingsRules</span><span class="o">.</span><span class="n">GENERAL_CONVERSIONS</span><span class="p">:</span>
-            <span class="n">settingsToApply</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
-
-        <span class="n">func</span> <span class="o">=</span> <span class="n">settingsRules</span><span class="o">.</span><span class="n">TARGETED_CONVERSIONS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">settingsToApply</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
-
-        <span class="k">return</span> <span class="n">settingsToApply</span>
-
-
-<div class="viewcode-block" id="SettingsReader"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsReader">[docs]</a><span class="k">class</span> <span class="nc">SettingsReader</span><span class="p">(</span><span class="n">_SettingsReader</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;A specialized _SettingsReader which only assigns values to existing settings.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
-        <span class="n">_SettingsReader</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">Roots</span><span class="o">.</span><span class="n">CUSTOM</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_interpretSetting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settingElement</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_interpretXmlSetting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settingElement</span><span class="p">):</span>
         <span class="n">settingName</span> <span class="o">=</span> <span class="n">settingElement</span><span class="o">.</span><span class="n">tag</span>
         <span class="n">attributes</span> <span class="o">=</span> <span class="n">settingElement</span><span class="o">.</span><span class="n">attrib</span>
         <span class="k">if</span> <span class="n">settingName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">settingsAlreadyRead</span><span class="p">:</span>
@@ -444,7 +502,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_applySettings</span><span class="p">(</span><span class="n">settingName</span><span class="p">,</span> <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">])</span>
 
     <span class="k">def</span> <span class="nf">_applySettings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
-        <span class="n">settingsToApply</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">applyConversions</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+        <span class="n">nameToSet</span><span class="p">,</span> <span class="n">renamed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_renamer</span><span class="o">.</span><span class="n">renameSetting</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="n">settingsToApply</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">applyConversions</span><span class="p">(</span><span class="n">nameToSet</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">settingName</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">settingsToApply</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">settingName</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">settings</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">invalidSettings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">settingName</span><span class="p">)</span>
@@ -462,8 +522,24 @@
                     <span class="k">raise</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
 
-    <span class="k">def</span> <span class="nf">_resolveProblems</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_checkInvalidSettings</span><span class="p">()</span></div>
+<div class="viewcode-block" id="SettingsReader.applyConversions"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsReader.applyConversions">[docs]</a>    <span class="k">def</span> <span class="nf">applyConversions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Applies conversion rules to give special behavior to certain named settings.</span>
+
+<span class="sd">        Intended to be applied on setting names and attributes as soon as they&#39;re read</span>
+<span class="sd">        in keep in mind everything in the attributes dictionary is still a string even</span>
+<span class="sd">        if it&#39;s intended to be something else later, that happens at a later stage.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># general needs to come first for things like renaming.</span>
+        <span class="n">settingsToApply</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">func</span> <span class="ow">in</span> <span class="n">settingsRules</span><span class="o">.</span><span class="n">GENERAL_CONVERSIONS</span><span class="p">:</span>
+            <span class="n">settingsToApply</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+
+        <span class="n">func</span> <span class="o">=</span> <span class="n">settingsRules</span><span class="o">.</span><span class="n">TARGETED_CONVERSIONS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">settingsToApply</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">settingsToApply</span></div></div>
 
 
 <div class="viewcode-block" id="applyTypeConversions"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.applyTypeConversions">[docs]</a><span class="k">def</span> <span class="nf">applyTypeConversions</span><span class="p">(</span><span class="n">settingObj</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
@@ -687,7 +763,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-07-06.
+        Last updated on 2020-07-29.
       </span>
 
     </p>

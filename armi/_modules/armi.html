@@ -14,6 +14,9 @@
   <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
   <link rel="stylesheet" href="../_static/theme_fixes.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/gallery.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/gallery-binder.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/gallery-dataframe.css" type="text/css" />
 
   
   
@@ -216,10 +219,9 @@
 <span class="kn">import</span> <span class="nn">signal</span>
 <span class="kn">import</span> <span class="nn">subprocess</span>
 <span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Type</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
-
-<span class="kn">import</span> <span class="nn">pluggy</span>
 
 <span class="c1"># The _bootstrap module performs operations that may need to occur before it is</span>
 <span class="c1"># necessarily safe to import the rest of the ARMI system. Things like:</span>
@@ -248,9 +250,11 @@
 <span class="kn">from</span> <span class="nn">armi.context</span> <span class="k">import</span> <span class="n">Mode</span>
 <span class="kn">from</span> <span class="nn">armi.meta</span> <span class="k">import</span> <span class="n">__version__</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">apps</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">pluginManager</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">plugins</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">materials</span>
+<span class="kn">from</span> <span class="nn">armi.localization</span> <span class="k">import</span> <span class="n">exceptions</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">composites</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">flags</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.db</span> <span class="k">import</span> <span class="n">Database3</span>
@@ -263,6 +267,11 @@
 <span class="c1"># explicitly taken place. An application should call `configure()` with its App class in</span>
 <span class="c1"># order for ARMI to work properly</span>
 <span class="n">_app</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">apps</span><span class="o">.</span><span class="n">App</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">_ARMI_CONFIGURE_CONTEXT</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="c1"># Advanced flag used in documentation builds to avoid isConfigured guards.</span>
+<span class="n">_ignoreConfigures</span> <span class="o">=</span> <span class="kc">False</span>
 
 
 <div class="viewcode-block" id="isStableReleaseVersion"><a class="viewcode-back" href="../.apidocs/armi.html#armi.isStableReleaseVersion">[docs]</a><span class="k">def</span> <span class="nf">isStableReleaseVersion</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -440,7 +449,7 @@
     <span class="k">return</span> <span class="n">defaultPlugins</span></div>
 
 
-<div class="viewcode-block" id="getDefaultPluginManager"><a class="viewcode-back" href="../.apidocs/armi.html#armi.getDefaultPluginManager">[docs]</a><span class="k">def</span> <span class="nf">getDefaultPluginManager</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">pluggy</span><span class="o">.</span><span class="n">PluginManager</span><span class="p">:</span>
+<div class="viewcode-block" id="getDefaultPluginManager"><a class="viewcode-back" href="../.apidocs/armi.html#armi.getDefaultPluginManager">[docs]</a><span class="k">def</span> <span class="nf">getDefaultPluginManager</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">pluginManager</span><span class="o">.</span><span class="n">ArmiPluginManager</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return a plugin manager containing the default set of ARMI Framework plugins.</span>
 
@@ -461,7 +470,7 @@
     <span class="k">return</span> <span class="n">_app</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span></div>
 
 
-<div class="viewcode-block" id="getPluginManager"><a class="viewcode-back" href="../.apidocs/armi.html#armi.getPluginManager">[docs]</a><span class="k">def</span> <span class="nf">getPluginManager</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pluggy</span><span class="o">.</span><span class="n">PluginManager</span><span class="p">]:</span>
+<div class="viewcode-block" id="getPluginManager"><a class="viewcode-back" href="../.apidocs/armi.html#armi.getPluginManager">[docs]</a><span class="k">def</span> <span class="nf">getPluginManager</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pluginManager</span><span class="o">.</span><span class="n">ArmiPluginManager</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return the plugin manager, if there is one.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -471,7 +480,7 @@
     <span class="k">return</span> <span class="n">_app</span><span class="o">.</span><span class="n">pluginManager</span></div>
 
 
-<div class="viewcode-block" id="getPluginManagerOrFail"><a class="viewcode-back" href="../.apidocs/armi.html#armi.getPluginManagerOrFail">[docs]</a><span class="k">def</span> <span class="nf">getPluginManagerOrFail</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">pluggy</span><span class="o">.</span><span class="n">PluginManager</span><span class="p">:</span>
+<div class="viewcode-block" id="getPluginManagerOrFail"><a class="viewcode-back" href="../.apidocs/armi.html#armi.getPluginManagerOrFail">[docs]</a><span class="k">def</span> <span class="nf">getPluginManagerOrFail</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">pluginManager</span><span class="o">.</span><span class="n">ArmiPluginManager</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return the plugin manager. Raise an error if there is none.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -527,6 +536,16 @@
 <span class="sd">    object). This will provide a number of benefits, the main one being that it will</span>
 <span class="sd">    become trivial to re-configure the framework, which is currently not possible.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_app</span>
+    <span class="k">global</span> <span class="n">_ARMI_CONFIGURE_CONTEXT</span>
+
+    <span class="k">if</span> <span class="n">_ignoreConfigures</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="k">if</span> <span class="n">_app</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># ARMI cannot be reconfigured!</span>
+        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">OverConfiguredError</span><span class="p">(</span><span class="n">_ARMI_CONFIGURE_CONTEXT</span><span class="p">)</span>
+
     <span class="k">assert</span> <span class="ow">not</span> <span class="n">armi</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">BLUEPRINTS_IMPORTED</span><span class="p">,</span> <span class="p">(</span>
         <span class="s2">&quot;ARMI can no longer be configured after blueprints have been imported. &quot;</span>
         <span class="s2">&quot;Blueprints were imported from:</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
@@ -534,9 +553,10 @@
         <span class="p">)</span>
     <span class="p">)</span>
 
+    <span class="n">_ARMI_CONFIGURE_CONTEXT</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_stack</span><span class="p">())</span>
+
     <span class="n">app</span> <span class="o">=</span> <span class="n">app</span> <span class="ow">or</span> <span class="n">apps</span><span class="o">.</span><span class="n">App</span><span class="p">()</span>
 
-    <span class="k">global</span> <span class="n">_app</span>
     <span class="n">_app</span> <span class="o">=</span> <span class="n">app</span>
 
     <span class="n">pm</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">pluginManager</span>
@@ -572,7 +592,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-07-06.
+        Last updated on 2020-07-29.
       </span>
 
     </p>

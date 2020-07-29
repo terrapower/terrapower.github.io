@@ -14,6 +14,9 @@
   <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
   <link rel="stylesheet" href="../../../_static/theme_fixes.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/gallery.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/gallery-binder.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/gallery-dataframe.css" type="text/css" />
 
   
   
@@ -181,7 +184,20 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="sd">&quot;&quot;&quot;This module contains rules supporting custom actions taken on the reading of setting inputs&quot;&quot;&quot;</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module contains rules supporting custom actions taken on the reading of setting inputs</span>
+
+<span class="sd">Note</span>
+<span class="sd">----</span>
+<span class="sd">The ``settingsRules`` system was developed before the pluginification of ARMI, and</span>
+<span class="sd">doesn&#39;t play very nicely with the post-plugin world. This is mainly because</span>
+<span class="sd">registration of new rules happens at import time of the rule itself, which is</span>
+<span class="sd">unreliable and difficult to control, and even sort of implicit and sneaky. They are</span>
+<span class="sd">also somewhate redundant with the</span>
+<span class="sd">:py:class:`armi.operators.settingsValidation.Query`/:py:class:`armi.operators.settingsValidation.Inspector`</span>
+<span class="sd">system. It is not recommended for plugins to define settings rules using the mechanism</span>
+<span class="sd">in this module, which may be removed in the future.</span>
+<span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">re</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
@@ -196,138 +212,6 @@
     <span class="s2">&quot;boolean&quot;</span><span class="p">:</span> <span class="s2">&quot;bool&quot;</span><span class="p">,</span>
     <span class="s2">&quot;string&quot;</span><span class="p">:</span> <span class="s2">&quot;str&quot;</span><span class="p">,</span>
     <span class="s2">&quot;list&quot;</span><span class="p">:</span> <span class="s2">&quot;list&quot;</span><span class="p">,</span>
-<span class="p">}</span>
-
-<span class="c1"># old : new</span>
-<span class="n">RENAMES</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;hexSideSubdivisions&quot;</span><span class="p">:</span> <span class="s2">&quot;numberMeshPerEdge&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;generateFluxReconImagePlots&quot;</span><span class="p">:</span> <span class="s2">&quot;plotReconAxialPower&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;snapShotDB&quot;</span><span class="p">:</span> <span class="s2">&quot;reloadDBName&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;summarizer&quot;</span><span class="p">:</span> <span class="s2">&quot;genReports&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;asymtoticExtrapolationPowerIters&quot;</span><span class="p">:</span> <span class="s2">&quot;asymptoticExtrapolationPowerIters&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;old1PhaseHTC&quot;</span><span class="p">:</span> <span class="s2">&quot;SinglePhaseHTC&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;1PhaseHTC&quot;</span><span class="p">:</span> <span class="s2">&quot;SinglePhaseHTC&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;movesFile&quot;</span><span class="p">:</span> <span class="s2">&quot;explicitRepeatShuffles&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;shuffleFileName&quot;</span><span class="p">:</span> <span class="s2">&quot;explicitRepeatShuffles&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;intrinsicsourceDecayTime&quot;</span><span class="p">:</span> <span class="s2">&quot;intrinsicSourceDecayTime&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;handlingSocketLength&quot;</span><span class="p">:</span> <span class="s2">&quot;HandlingSocketLength&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;VoidWorth&quot;</span><span class="p">:</span> <span class="s2">&quot;voidWorth&quot;</span><span class="p">,</span>
-    <span class="c1"># start of SASSYS settings rename</span>
-    <span class="s2">&quot;useFileforGenericUncertainty&quot;</span><span class="p">:</span> <span class="s2">&quot;useFileForGenericUncertainty&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;VoideddopplerCoeff&quot;</span><span class="p">:</span> <span class="s2">&quot;voidedDopplerCoeff&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;structDensityCoeff&quot;</span><span class="p">:</span> <span class="s2">&quot;structureDensityCoeff&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cladaxialparams&quot;</span><span class="p">:</span> <span class="s2">&quot;cladAxialParams&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cladaxialParams&quot;</span><span class="p">:</span> <span class="s2">&quot;cladAxialParams&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cladaxialdistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;cladAxialDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cladaxialDistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;cladAxialDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;structureaxialParams&quot;</span><span class="p">:</span> <span class="s2">&quot;structureAxialParams&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;structureaxialDistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;structureAxialDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;fuelaxialparams&quot;</span><span class="p">:</span> <span class="s2">&quot;fuelAxialParams&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;fuelaxialParams&quot;</span><span class="p">:</span> <span class="s2">&quot;fuelAxialParams&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;fuelaxialdistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;fuelAxialDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;fuelaxialDistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;fuelAxialDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cladaxialdistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;cladaxialDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;coolantparams&quot;</span><span class="p">:</span> <span class="s2">&quot;coolantParams&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;coolantdistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;coolantDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;crdlparams&quot;</span><span class="p">:</span> <span class="s2">&quot;crdlParams&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;crdldistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;crdlDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;dopplerparams&quot;</span><span class="p">:</span> <span class="s2">&quot;dopplerParams&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;dopplerdistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;dopplerDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;fuelaxialparams&quot;</span><span class="p">:</span> <span class="s2">&quot;fuelaxialParams&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;fuelaxialdistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;fuelaxialDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;radialparams&quot;</span><span class="p">:</span> <span class="s2">&quot;radialParams&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;radialdistrib&quot;</span><span class="p">:</span> <span class="s2">&quot;radialDistrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;ACRDEX&quot;</span><span class="p">:</span> <span class="s2">&quot;acrDex&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;BCRDEX&quot;</span><span class="p">:</span> <span class="s2">&quot;bcrDex&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;CPfe&quot;</span><span class="p">:</span> <span class="s2">&quot;cpFe&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;CRWorthFile&quot;</span><span class="p">:</span> <span class="s2">&quot;crWorthFile&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;numberofCases&quot;</span><span class="p">:</span> <span class="s2">&quot;numberOfCases&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;numCaseforSassysSensitivity&quot;</span><span class="p">:</span> <span class="s2">&quot;numCaseForSassysSensitivity&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;PowerFlowUncerCases&quot;</span><span class="p">:</span> <span class="s2">&quot;powerFlowUncerCases&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;PowertoFlowRatioList&quot;</span><span class="p">:</span> <span class="s2">&quot;powerToFlowRatioList&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;reCRDL&quot;</span><span class="p">:</span> <span class="s2">&quot;reCrdl&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;sascases&quot;</span><span class="p">:</span> <span class="s2">&quot;sasCases&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;TinFactor&quot;</span><span class="p">:</span> <span class="s2">&quot;tinFactor&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;UTOPreactivity&quot;</span><span class="p">:</span> <span class="s2">&quot;utopReactivity&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param10blockstartlocation&quot;</span><span class="p">:</span> <span class="s2">&quot;param10BlockStartLocation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param10Distrib&quot;</span><span class="p">:</span> <span class="s2">&quot;param10Distrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param10name&quot;</span><span class="p">:</span> <span class="s2">&quot;param10Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param10nominalvalue&quot;</span><span class="p">:</span> <span class="s2">&quot;param10NominalValue&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param10Params&quot;</span><span class="p">:</span> <span class="s2">&quot;param10Params&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param1blockstartlocation&quot;</span><span class="p">:</span> <span class="s2">&quot;param1BlockStartLocation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param1Distrib&quot;</span><span class="p">:</span> <span class="s2">&quot;param1Distrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param1name&quot;</span><span class="p">:</span> <span class="s2">&quot;param1Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param1nominalvalue&quot;</span><span class="p">:</span> <span class="s2">&quot;param1NominalValue&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param1Params&quot;</span><span class="p">:</span> <span class="s2">&quot;param1Params&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param2blockstartlocation&quot;</span><span class="p">:</span> <span class="s2">&quot;param2BlockStartLocation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param2Distrib&quot;</span><span class="p">:</span> <span class="s2">&quot;param2Distrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param2name&quot;</span><span class="p">:</span> <span class="s2">&quot;param2Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param2nominalvalue&quot;</span><span class="p">:</span> <span class="s2">&quot;param2NominalValue&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param2Params&quot;</span><span class="p">:</span> <span class="s2">&quot;param2Params&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param3blockstartlocation&quot;</span><span class="p">:</span> <span class="s2">&quot;param3BlockStartLocation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param3Distrib&quot;</span><span class="p">:</span> <span class="s2">&quot;param3Distrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param3name&quot;</span><span class="p">:</span> <span class="s2">&quot;param3Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param3nominalvalue&quot;</span><span class="p">:</span> <span class="s2">&quot;param3NominalValue&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param3Params&quot;</span><span class="p">:</span> <span class="s2">&quot;param3Params&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param4blockstartlocation&quot;</span><span class="p">:</span> <span class="s2">&quot;param4BlockStartLocation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param4Distrib&quot;</span><span class="p">:</span> <span class="s2">&quot;param4Distrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param4name&quot;</span><span class="p">:</span> <span class="s2">&quot;param4Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param4nominalvalue&quot;</span><span class="p">:</span> <span class="s2">&quot;param4NominalValue&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param4Params&quot;</span><span class="p">:</span> <span class="s2">&quot;param4Params&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param5blockstartlocation&quot;</span><span class="p">:</span> <span class="s2">&quot;param5BlockStartLocation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param5Distrib&quot;</span><span class="p">:</span> <span class="s2">&quot;param5Distrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param5name&quot;</span><span class="p">:</span> <span class="s2">&quot;param5Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param5nominalvalue&quot;</span><span class="p">:</span> <span class="s2">&quot;param5NominalValue&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param5Params&quot;</span><span class="p">:</span> <span class="s2">&quot;param5Params&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param6blockstartlocation&quot;</span><span class="p">:</span> <span class="s2">&quot;param6BlockStartLocation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param6Distrib&quot;</span><span class="p">:</span> <span class="s2">&quot;param6Distrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param6name&quot;</span><span class="p">:</span> <span class="s2">&quot;param6Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param6nominalvalue&quot;</span><span class="p">:</span> <span class="s2">&quot;param6NominalValue&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param6Params&quot;</span><span class="p">:</span> <span class="s2">&quot;param6Params&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param7blockstartlocation&quot;</span><span class="p">:</span> <span class="s2">&quot;param7BlockStartLocation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param7Distrib&quot;</span><span class="p">:</span> <span class="s2">&quot;param7Distrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param7name&quot;</span><span class="p">:</span> <span class="s2">&quot;param7Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param7nominalvalue&quot;</span><span class="p">:</span> <span class="s2">&quot;param7NominalValue&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param7Params&quot;</span><span class="p">:</span> <span class="s2">&quot;param7Params&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param8Distrib&quot;</span><span class="p">:</span> <span class="s2">&quot;param8Distrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param8name&quot;</span><span class="p">:</span> <span class="s2">&quot;param8Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param8nominalvalue&quot;</span><span class="p">:</span> <span class="s2">&quot;param8NominalValue&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param8Params&quot;</span><span class="p">:</span> <span class="s2">&quot;param8Params&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param9blockstartlocation&quot;</span><span class="p">:</span> <span class="s2">&quot;param9BlockStartLocation&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param9Distrib&quot;</span><span class="p">:</span> <span class="s2">&quot;param9Distrib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param9name&quot;</span><span class="p">:</span> <span class="s2">&quot;param9Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param9nominalvalue&quot;</span><span class="p">:</span> <span class="s2">&quot;param9NominalValue&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;Param9Params&quot;</span><span class="p">:</span> <span class="s2">&quot;param9Params&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;steadystate.txt&quot;</span><span class="p">:</span> <span class="s2">&quot;steadyState.txt&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;lockrotor.txt&quot;</span><span class="p">:</span> <span class="s2">&quot;lockRotor.txt&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;powerdefect.txt&quot;</span><span class="p">:</span> <span class="s2">&quot;powerDefect.txt&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;control0name&quot;</span><span class="p">:</span> <span class="s2">&quot;control0Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;control0location&quot;</span><span class="p">:</span> <span class="s2">&quot;control0Location&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;control0value&quot;</span><span class="p">:</span> <span class="s2">&quot;control0Value&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;control1name&quot;</span><span class="p">:</span> <span class="s2">&quot;control1Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;control1location&quot;</span><span class="p">:</span> <span class="s2">&quot;control1Location&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;control1value&quot;</span><span class="p">:</span> <span class="s2">&quot;control1Value&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;control2name&quot;</span><span class="p">:</span> <span class="s2">&quot;control2Name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;control2location&quot;</span><span class="p">:</span> <span class="s2">&quot;control2Location&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;control2value&quot;</span><span class="p">:</span> <span class="s2">&quot;control2Value&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;SASdensityCoeff&quot;</span><span class="p">:</span> <span class="s2">&quot;calcSpatialRxCoeffs&quot;</span><span class="p">,</span>
-    <span class="c1"># end of sassys setting rename</span>
-    <span class="s2">&quot;turnOnProfiler&quot;</span><span class="p">:</span> <span class="s2">&quot;profile&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;mc2.path&quot;</span><span class="p">:</span> <span class="s2">&quot;mc2v3.path&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;mc2.minimumFissileFraction&quot;</span><span class="p">:</span> <span class="s2">&quot;minimumFissileFraction&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;DLAYXSFilePath&quot;</span><span class="p">:</span> <span class="s2">&quot;mc2DLAYXSFilePath&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;mc2BucklingConvergence&quot;</span><span class="p">:</span> <span class="s2">&quot;bucklingConvergence&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;inactiveCycles&quot;</span><span class="p">:</span> <span class="s2">&quot;mcnpInactiveCycles&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;mcnpBurnsPerAssem&quot;</span><span class="p">:</span> <span class="s2">&quot;mcnpBurnRegionsPerBlock&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;particlesPerCycle&quot;</span><span class="p">:</span> <span class="s2">&quot;mcnpParticlesPerCycle&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;mcnpCycles&quot;</span><span class="p">:</span> <span class="s2">&quot;mcnpTotalCycles&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;burnTime&quot;</span><span class="p">:</span> <span class="s2">&quot;cycleLength&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;capacityFactor&quot;</span><span class="p">:</span> <span class="s2">&quot;availabilityFactor&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;covarianceFileName&quot;</span><span class="p">:</span> <span class="s2">&quot;covariancePath&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cinderdat&quot;</span><span class="p">:</span> <span class="s2">&quot;mcnpBurnxDepLib&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;loadCycle&quot;</span><span class="p">:</span> <span class="s2">&quot;startCycle&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;loadNode&quot;</span><span class="p">:</span> <span class="s2">&quot;startNode&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;betaComponents&quot;</span><span class="p">:</span> <span class="s2">&quot;beta&quot;</span><span class="p">,</span>
 <span class="p">}</span>
 
 <span class="n">TARGETED_CONVERSIONS</span> <span class="o">=</span> <span class="p">{}</span>
@@ -364,14 +248,15 @@
         <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="rename"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsRules.html#armi.settings.settingsRules.rename">[docs]</a><span class="nd">@include_as_rule</span>
-<span class="k">def</span> <span class="nf">rename</span><span class="p">(</span><span class="n">_cs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">RENAMES</span><span class="p">:</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">&quot;Invalid setting </span><span class="si">{}</span><span class="s2"> found. Renaming to </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">RENAMES</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
-        <span class="p">)</span>
-        <span class="n">name</span> <span class="o">=</span> <span class="n">RENAMES</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+<div class="viewcode-block" id="nullRule"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsRules.html#armi.settings.settingsRules.nullRule">[docs]</a><span class="nd">@include_as_rule</span>
+<span class="k">def</span> <span class="nf">nullRule</span><span class="p">(</span><span class="n">_cs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Pass setting values through.</span>
 
+<span class="sd">    All settings are passed through these settings rules when being read, with the</span>
+<span class="sd">    filtered results actually being used. Therefore, settings that aren&#39;t manipulated</span>
+<span class="sd">    need to be returned by something.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">value</span><span class="p">}</span></div>
 
 
@@ -747,7 +632,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-07-06.
+        Last updated on 2020-07-29.
       </span>
 
     </p>
