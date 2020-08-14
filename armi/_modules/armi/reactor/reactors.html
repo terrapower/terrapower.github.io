@@ -304,6 +304,10 @@
 
     <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">DirectoryChanger</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">,</span> <span class="n">dumpOnException</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="c1"># always construct the core first (for assembly serial number purposes)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The input must define a `core` system, but does not. Update inputs&quot;</span>
+            <span class="p">)</span>
         <span class="n">core</span> <span class="o">=</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span>
         <span class="n">core</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">geom</span><span class="o">=</span><span class="n">geom</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">structure</span> <span class="ow">in</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">:</span>
@@ -391,59 +395,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_circularRingMode</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;circularRingMode&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_circularRingPitch</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;circularRingPitch&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_automaticVariableMesh</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;automaticVariableMesh&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_minMeshSizeRatio</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;minMeshSizeRatio&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_setupEffectiveDelayedNeutronFraction</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span></div>
-
-    <span class="k">def</span> <span class="nf">_setupEffectiveDelayedNeutronFraction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Process the settings for the delayed neutron fraction and precursor decay constants.&quot;&quot;&quot;</span>
-        <span class="c1"># Verify and set the core beta parameters based on the user-supplied settings</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="s2">&quot;Checking for user-supplied `beta` and `decayConstants` settings and attempting to &quot;</span>
-            <span class="n">f</span><span class="s2">&quot;apply them to state of </span><span class="si">{self}</span><span class="s2">.&quot;</span>
-        <span class="p">)</span>
-        <span class="n">beta</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;beta&quot;</span><span class="p">]</span>
-        <span class="n">decayConstants</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;decayConstants&quot;</span><span class="p">]</span>
-
-        <span class="c1"># If beta is interpreted as a float, then assign it to</span>
-        <span class="c1"># the total delayed neutron fraction parameter. Otherwise, setup the</span>
-        <span class="c1"># group-wise delayed neutron fractions and precursor decay constants.</span>
-        <span class="n">reportTableData</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">beta</span>
-            <span class="n">reportTableData</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;Total Delayed Neutron Fraction&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">beta</span><span class="p">))</span>
-
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">decayConstants</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">decayConstants</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="n">f</span><span class="s2">&quot;The values for `beta` (</span><span class="si">{beta}</span><span class="s2">) and `decayConstants` &quot;</span>
-                    <span class="n">f</span><span class="s2">&quot;(</span><span class="si">{decayConstants}</span><span class="s2">) are not consistent lengths.&quot;</span>
-                <span class="p">)</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">betaComponents</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">betaDecayConstants</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">decayConstants</span><span class="p">)</span>
-
-            <span class="n">reportTableData</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;Total Delayed Neutron Fraction&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">beta</span><span class="p">))</span>
-            <span class="n">reportTableData</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="p">(</span><span class="s2">&quot;Group-wise Delayed Neutron Fractions&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">betaComponents</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">reportTableData</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="p">(</span><span class="s2">&quot;Group-wise Precursor Decay Constants&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">betaDecayConstants</span><span class="p">)</span>
-            <span class="p">)</span>
-
-        <span class="c1"># Report to the user the values were not applied.</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">reportTableData</span> <span class="ow">and</span> <span class="p">(</span><span class="n">beta</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">decayConstants</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="n">f</span><span class="s2">&quot;Delayed neutron fraction(s) - </span><span class="si">{beta}</span><span class="s2"> and decay constants - </span><span class="si">{decayConstants}</span><span class="s2"> have not been applied.&quot;</span>
-            <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="n">tabulate</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span>
-                    <span class="n">tabular_data</span><span class="o">=</span><span class="n">reportTableData</span><span class="p">,</span>
-                    <span class="n">headers</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Component&quot;</span><span class="p">,</span> <span class="s2">&quot;Value&quot;</span><span class="p">],</span>
-                    <span class="n">tablefmt</span><span class="o">=</span><span class="s2">&quot;armi&quot;</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_minMeshSizeRatio</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;minMeshSizeRatio&quot;</span><span class="p">]</span></div>
 
 <div class="viewcode-block" id="Core.__getstate__"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.__getstate__">[docs]</a>    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Applies a settings and parent to the core and components. &quot;&quot;&quot;</span>
@@ -531,7 +483,24 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">refAssem</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getFirstAssembly</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">getFirstAssembly</span><span class="p">()</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the &quot;reference&quot; assembly for this Core.</span>
+
+<span class="sd">        The reference assembly is defined as the center-most assembly with a FUEL flag,</span>
+<span class="sd">        if any are present, or the center-most of any assembly otherwise.</span>
+
+<span class="sd">        Warnings</span>
+<span class="sd">        ========</span>
+<span class="sd">        The convenience of this property should be weighed against it&#39;s somewhat</span>
+<span class="sd">        arbitrary nature for any particular client. The center-most fueled assembly is</span>
+<span class="sd">        not particularly representative of the state of the core as a whole.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()</span>
+        <span class="n">assems</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">sortKey</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">assems</span><span class="p">:</span>
+            <span class="n">assems</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">sortKey</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">assems</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
 <div class="viewcode-block" id="Core.summarizeReactorStats"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.summarizeReactorStats">[docs]</a>    <span class="k">def</span> <span class="nf">summarizeReactorStats</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Writes a summary of the reactor to check the mass and volume of all of the blocks.&quot;&quot;&quot;</span>
@@ -625,7 +594,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">removeAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">processLoading</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">getMasterCs</span><span class="p">())</span></div>
 
-    <span class="k">def</span> <span class="nf">_removeListFromAuxiliaries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assembly</span><span class="p">):</span>
+<div class="viewcode-block" id="Core._removeListFromAuxiliaries"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core._removeListFromAuxiliaries">[docs]</a>    <span class="k">def</span> <span class="nf">_removeListFromAuxiliaries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assembly</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Remove an assembly from all auxiliary reference tables and lists</span>
 
@@ -643,7 +612,7 @@
                     <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">b</span><span class="p">),</span>
                     <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="n">label</span><span class="o">=</span><span class="s2">&quot;cannot dereference: lost block&quot;</span><span class="p">,</span>
-                <span class="p">)</span>
+                <span class="p">)</span></div>
 
 <div class="viewcode-block" id="Core.removeAllAssemblies"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.removeAllAssemblies">[docs]</a>    <span class="k">def</span> <span class="nf">removeAllAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">discharge</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1158,7 +1127,7 @@
             <span class="n">resultsEnergyCorrected</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fissPower</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="o">/</span> <span class="n">totEnergy</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nuclides</span><span class="p">,</span> <span class="n">resultsEnergyCorrected</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_getAssembliesByName</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Core._getAssembliesByName"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core._getAssembliesByName">[docs]</a>    <span class="k">def</span> <span class="nf">_getAssembliesByName</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        If the assembly name-to-assembly object map is deleted or out of date, then this will </span>
 <span class="sd">        regenerate it.</span>
@@ -1182,7 +1151,7 @@
                 <span class="p">)</span>
                 <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Assembly name collision.&quot;</span><span class="p">)</span>
 
-            <span class="n">assymap</span><span class="p">[</span><span class="n">aName</span><span class="p">]</span> <span class="o">=</span> <span class="n">assem</span>
+            <span class="n">assymap</span><span class="p">[</span><span class="n">aName</span><span class="p">]</span> <span class="o">=</span> <span class="n">assem</span></div>
 
 <div class="viewcode-block" id="Core.getAssemblyByName"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.getAssemblyByName">[docs]</a>    <span class="k">def</span> <span class="nf">getAssemblyByName</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1207,6 +1176,7 @@
 <div class="viewcode-block" id="Core.getAssemblies"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.getAssemblies">[docs]</a>    <span class="k">def</span> <span class="nf">getAssemblies</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">sortKey</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">includeBolAssems</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">includeSFP</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">includeCFP</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -1228,6 +1198,9 @@
 <span class="sd">        ----------</span>
 <span class="sd">        typeSpec : Flags or iterable of Flags, optional</span>
 <span class="sd">            List of assembly types that will be returned</span>
+
+<span class="sd">        sortKey : callable, optional</span>
+<span class="sd">            Sort predicate to use when sorting the assemblies.</span>
 
 <span class="sd">        includeBolAssems : bool, optional</span>
 <span class="sd">            Include the BOL assemblies as well as the ones that are in the core.</span>
@@ -1262,7 +1235,7 @@
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="p">):</span>
             <span class="n">assems</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">assemblies</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-        <span class="n">assems</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="n">assems</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">sortKey</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">includeSFP</span><span class="p">:</span>
             <span class="n">assems</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">())</span>
@@ -1309,11 +1282,11 @@
             <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">assem</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">blocks</span></div>
 
-    <span class="k">def</span> <span class="nf">_genBlocksByName</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Core._genBlocksByName"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core._genBlocksByName">[docs]</a>    <span class="k">def</span> <span class="nf">_genBlocksByName</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;If self.blocksByName is deleted, then this will regenerate it.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">blocksByName</span> <span class="o">=</span> <span class="p">{</span>
             <span class="n">block</span><span class="o">.</span><span class="n">getName</span><span class="p">():</span> <span class="n">block</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">(</span><span class="n">includeAll</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="p">}</span>
+        <span class="p">}</span></div>
 
     <span class="c1">## An idea: wrap this in an &quot;if not self.blocksByLocName:&quot;</span>
     <span class="c1">## This will likely fail, but it will help diagnose why property approach</span>
@@ -1383,6 +1356,15 @@
 <div class="viewcode-block" id="Core.getFirstAssembly"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.getFirstAssembly">[docs]</a>    <span class="k">def</span> <span class="nf">getFirstAssembly</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Gets the first assembly in the reactor.</span>
+
+<span class="sd">        Warnings</span>
+<span class="sd">        --------</span>
+<span class="sd">        This function should be used with great care. There are **very** few</span>
+<span class="sd">        circumstances in which one wants the &quot;first&quot; of a given sort of assembly,</span>
+<span class="sd">        `whichever that may happen to be`. Precisely which assembly is returned is</span>
+<span class="sd">        sensitive to all sorts of implementation details in Grids, etc., which make the</span>
+<span class="sd">        concept of &quot;first&quot; rather slippery. Prefer using some sort of precise logic to</span>
+<span class="sd">        pick a specific assembly from the Core.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1927,7 +1909,7 @@
 
         <span class="k">return</span> <span class="n">neighbors</span></div>
 
-    <span class="k">def</span> <span class="nf">_getReflectiveDuplicateAssembly</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">neighborLoc</span><span class="p">):</span>
+<div class="viewcode-block" id="Core._getReflectiveDuplicateAssembly"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core._getReflectiveDuplicateAssembly">[docs]</a>    <span class="k">def</span> <span class="nf">_getReflectiveDuplicateAssembly</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">neighborLoc</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return duplicate assemblies accross symmetry line.</span>
 
@@ -1949,7 +1931,7 @@
             <span class="k">return</span> <span class="n">duplicates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">elif</span> <span class="n">nDuplicates</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Too many neighbors found!&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
 
 <div class="viewcode-block" id="Core.setMoveList"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.setMoveList">[docs]</a>    <span class="k">def</span> <span class="nf">setMoveList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">oldLoc</span><span class="p">,</span> <span class="n">newLoc</span><span class="p">,</span> <span class="n">enrichList</span><span class="p">,</span> <span class="n">assemblyType</span><span class="p">,</span> <span class="n">assemName</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Tracks the movements in terms of locations and enrichments.&quot;&quot;&quot;</span>
@@ -1994,6 +1976,15 @@
 <span class="sd">        a : Assembly</span>
 <span class="sd">            A new assembly</span>
 
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This and similar fuel shuffle-enabling functionality on the Core are responsible</span>
+<span class="sd">        for coupling between the Core and Blueprints. Technically, it should not be</span>
+<span class="sd">        required to involve Blueprints at all in the construction of a Reactor model.</span>
+<span class="sd">        Therefore in some circumstances, this function will not work. Ultimately, this</span>
+<span class="sd">        should be purely the domain of blueprints themselves, and may be migrated out of</span>
+<span class="sd">        Core in the future.</span>
+
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
 <span class="sd">        armi.fuelHandler.doRepeatShuffle : uses this to repeat shuffling</span>
@@ -2011,7 +2002,7 @@
                 <span class="n">enrichList</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">cycle</span><span class="p">([</span><span class="n">enrichList</span><span class="p">])</span>
             <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">enrichList</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2"> and enrichment list do not have the same number of blocks. Check repeat shuffles file&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2"> and enrichment list do not have the same number of blocks.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                         <span class="n">a</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
@@ -2070,10 +2061,11 @@
             <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">isOnWhichSymmetryLine</span><span class="p">()</span> <span class="o">==</span> <span class="n">symmetryLineID</span><span class="p">:</span>
                 <span class="n">assembliesOnLine</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
 
-        <span class="n">assembliesOnLine</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>  <span class="c1"># in order of innermost to outermost (for averaging)</span>
+        <span class="c1"># in order of innermost to outermost (for averaging)</span>
+        <span class="n">assembliesOnLine</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">assembliesOnLine</span></div>
 
-    <span class="k">def</span> <span class="nf">_addBlockToXsIndex</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">):</span>
+<div class="viewcode-block" id="Core._addBlockToXsIndex"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core._addBlockToXsIndex">[docs]</a>    <span class="k">def</span> <span class="nf">_addBlockToXsIndex</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Build cross section index as required by subdivide.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -2083,7 +2075,7 @@
         <span class="k">for</span> <span class="n">matName</span><span class="p">,</span> <span class="n">volume</span> <span class="ow">in</span> <span class="n">mats</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">volume</span> <span class="o">&gt;</span> <span class="n">mTuple</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
                 <span class="n">mTuple</span> <span class="o">=</span> <span class="p">(</span><span class="n">matName</span><span class="p">,</span> <span class="n">volume</span> <span class="o">/</span> <span class="n">blockVol</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">xsIndex</span><span class="p">[</span><span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span><span class="p">]</span> <span class="o">=</span> <span class="n">mTuple</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xsIndex</span><span class="p">[</span><span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span><span class="p">]</span> <span class="o">=</span> <span class="n">mTuple</span></div>
 
 <div class="viewcode-block" id="Core.buildZones"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.buildZones">[docs]</a>    <span class="k">def</span> <span class="nf">buildZones</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Update the zones on the reactor.&quot;&quot;&quot;</span>
@@ -2182,7 +2174,7 @@
         <span class="c1">#  1. mode: (len(a) for a in self).mode(), or</span>
         <span class="c1">#  2. max: max(len(a) for a in self)</span>
         <span class="c1"># depending on what makes the most sense</span>
-        <span class="n">refAssem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getFirstAssembly</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">getFirstAssembly</span><span class="p">()</span>
+        <span class="n">refAssem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refAssem</span>
 
         <span class="n">avgHeight</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">average1DWithinTolerance</span><span class="p">(</span>
             <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
@@ -2373,7 +2365,7 @@
 
         <span class="k">return</span> <span class="n">targetRing</span><span class="p">,</span> <span class="n">fluxFraction</span></div>
 
-    <span class="k">def</span> <span class="nf">_buildLocationIndexLookup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Core._buildLocationIndexLookup"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core._buildLocationIndexLookup">[docs]</a>    <span class="k">def</span> <span class="nf">_buildLocationIndexLookup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;builds lookup to convert ring/pos to index for MCNP or finding neighbors or</span>
 <span class="sd">        whatever else you may think of. &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">locationIndexLookup</span> <span class="o">=</span> <span class="p">{}</span>
@@ -2399,7 +2391,7 @@
                     <span class="n">dumLoc</span><span class="o">.</span><span class="n">i2</span> <span class="o">=</span> <span class="n">rebPos</span>
                     <span class="n">dumLoc</span><span class="o">.</span><span class="n">makeLabel</span><span class="p">()</span>
                     <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">dumLoc</span><span class="o">.</span><span class="n">indices</span><span class="p">()</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">locationIndexLookup</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">rebusRing</span><span class="p">,</span> <span class="n">rebPos</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">locationIndexLookup</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">rebusRing</span><span class="p">,</span> <span class="n">rebPos</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Core.getAvgTemp"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.getAvgTemp">[docs]</a>    <span class="k">def</span> <span class="nf">getAvgTemp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">blockList</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">flux2Weight</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
@@ -2742,7 +2734,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-07-29.
+        Last updated on 2020-08-13.
       </span>
 
     </p>

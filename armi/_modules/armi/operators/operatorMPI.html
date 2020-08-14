@@ -207,6 +207,7 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">gc</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
 
 <span class="kn">import</span> <span class="nn">armi</span>
 <span class="kn">from</span> <span class="nn">armi.operators.operator</span> <span class="k">import</span> <span class="n">Operator</span>
@@ -279,6 +280,7 @@
                 <span class="p">)</span>
                 <span class="c1"># bcasting quit won&#39;t work if the main is sitting around waiting for a</span>
                 <span class="c1"># different bcast or gather.</span>
+                <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Worker failed&quot;</span><span class="p">)</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
                 <span class="k">raise</span></div>
@@ -356,72 +358,50 @@
                             <span class="n">cmd</span>
                         <span class="p">)</span>
                     <span class="p">)</span>
-
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_workersShouldResetAfter</span><span class="p">(</span><span class="n">cmd</span><span class="p">):</span>
-                <span class="c1"># clear out the reactor on the workers to start anew.</span>
-                <span class="c1"># Note: This should build empty non-core systems too.</span>
-                <span class="n">xsGroups</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;xsGroups&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">xsGroups</span><span class="p">:</span>
-                    <span class="n">xsGroups</span><span class="o">.</span><span class="n">clearRepresentativeBlocks</span><span class="p">()</span>
-                <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">getMasterCs</span><span class="p">()</span>
-                <span class="n">bp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span>
-                <span class="n">spatialGrid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">spatialGrid</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Reactor</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
-                <span class="n">core</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Core</span><span class="p">(</span><span class="s2">&quot;Core&quot;</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">core</span><span class="p">)</span>
-                <span class="n">core</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">spatialGrid</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
+            <span class="n">pm</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">getPluginManager</span><span class="p">()</span>
+            <span class="n">resetFlags</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">hook</span><span class="o">.</span><span class="n">mpiActionRequiresReset</span><span class="p">(</span><span class="n">cmd</span><span class="o">=</span><span class="n">cmd</span><span class="p">)</span>
+            <span class="c1"># only reset if all the plugins agree to reset</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">resetFlags</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_resetWorker</span><span class="p">()</span>
 
             <span class="c1"># might be an mpi action which has a reactor and everything, preventing</span>
             <span class="c1"># garbage collection</span>
             <span class="k">del</span> <span class="n">cmd</span>
             <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span></div>
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_workersShouldResetAfter</span><span class="p">(</span><span class="n">cmd</span><span class="p">):</span>
+<div class="viewcode-block" id="OperatorMPI._resetWorker"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operatorMPI.html#armi.operators.operatorMPI.OperatorMPI._resetWorker">[docs]</a>    <span class="k">def</span> <span class="nf">_resetWorker</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Figure out when to reset the reactor on workers after an mpi action.</span>
+<span class="sd">        Clear out the reactor on the workers to start anew.</span>
 
-<span class="sd">        This only resets the reactor... not the interfaces.</span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This was made to help minimize the amount of RAM that is used during some </span>
+<span class="sd">        gigantic long-running cases. Resetting after building copies of reactors</span>
+<span class="sd">        or transforming their geometry is one approach. We hope to implement</span>
+<span class="sd">        more efficient solutions in the future.</span>
 
-<span class="sd">        * crWorth runs multiple passes often so we need to maintain the state.</span>
-<span class="sd">        * Memory profiling is small enough that we don&#39;t want to reset</span>
-<span class="sd">        * distributing state would be undone by this so we don&#39;t want that.</span>
-<span class="sd">        * Depletion matrices are supposed to stick around for predictor-corrector</span>
-<span class="sd">          (especially in equilibrium)</span>
-
+<span class="sd">        .. warning:: This should build empty non-core systems too.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">shouldReset</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># default</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">whiteListed</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;crWorth-&quot;</span><span class="p">]:</span>
-                <span class="k">if</span> <span class="n">whiteListed</span> <span class="ow">in</span> <span class="n">cmd</span><span class="p">:</span>
-                    <span class="n">shouldReset</span> <span class="o">=</span> <span class="kc">False</span>
-                    <span class="k">break</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="kn">from</span> <span class="nn">terrapower.physics.neutronics.reactivityCoefficients</span> <span class="k">import</span> <span class="p">(</span>
-                <span class="n">rxCoeffAnalyzers</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="kn">from</span> <span class="nn">terrapower.physics.neutronics.mc2</span> <span class="k">import</span> <span class="n">mc2ExecutionAgents</span>
 
-            <span class="n">whiteListed</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">mpiActions</span><span class="o">.</span><span class="n">DistributeStateAction</span><span class="p">,</span>
-                <span class="n">memoryProfiler</span><span class="o">.</span><span class="n">PrintSystemMemoryUsageAction</span><span class="p">,</span>
-                <span class="n">memoryProfiler</span><span class="o">.</span><span class="n">ProfileMemoryUsageAction</span><span class="p">,</span>
-                <span class="n">mpiActions</span><span class="o">.</span><span class="n">DistributionAction</span><span class="p">,</span>
-                <span class="n">rxCoeffAnalyzers</span><span class="o">.</span><span class="n">RxCoeffAnalyzer</span><span class="p">,</span>
-                <span class="n">mc2ExecutionAgents</span><span class="o">.</span><span class="n">_Mc2ExecutionAgent</span><span class="p">,</span>  <span class="c1"># pylint: disable=protected-access</span>
-            <span class="p">)</span>
-            <span class="n">shouldReset</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">whiteListed</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">shouldReset</span>
+        <span class="n">xsGroups</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;xsGroups&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">xsGroups</span><span class="p">:</span>
+            <span class="n">xsGroups</span><span class="o">.</span><span class="n">clearRepresentativeBlocks</span><span class="p">()</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">getMasterCs</span><span class="p">()</span>
+        <span class="n">bp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span>
+        <span class="n">spatialGrid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">spatialGrid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Reactor</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
+        <span class="n">core</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Core</span><span class="p">(</span><span class="s2">&quot;Core&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">core</span><span class="p">)</span>
+        <span class="n">core</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">spatialGrid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="OperatorMPI.workerQuit"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operatorMPI.html#armi.operators.operatorMPI.OperatorMPI.workerQuit">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">workerQuit</span><span class="p">():</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Worker ending&quot;</span><span class="p">)</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>  <span class="c1"># no more messages.</span>
-        <span class="n">armi</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span>
-            <span class="s2">&quot;finished&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span>
-        <span class="p">)</span>  <span class="c1"># wait until all workers are closed so we can delete them.</span></div>
+        <span class="c1"># wait until all workers are closed so we can delete them.</span>
+        <span class="n">armi</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">&quot;finished&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="OperatorMPI.collapseAllStderrs"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operatorMPI.html#armi.operators.operatorMPI.OperatorMPI.collapseAllStderrs">[docs]</a>    <span class="k">def</span> <span class="nf">collapseAllStderrs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Takes all the individual stderr files from each processor and arranges them nicely into one file&quot;&quot;&quot;</span>
@@ -455,7 +435,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-07-29.
+        Last updated on 2020-08-13.
       </span>
 
     </p>

@@ -204,10 +204,13 @@
 <span class="kn">import</span> <span class="nn">os</span>
 
 <span class="kn">import</span> <span class="nn">yamlize</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">import</span> <span class="nn">tabulate</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">plugins</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.const</span> <span class="k">import</span> <span class="n">CONF_CROSS_SECTION</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">directoryChangers</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
 
 
 <div class="viewcode-block" id="NeutronicsPlugin"><a class="viewcode-back" href="../../../.apidocs/armi.physics.neutronics.html#armi.physics.neutronics.NeutronicsPlugin">[docs]</a><span class="k">class</span> <span class="nc">NeutronicsPlugin</span><span class="p">(</span><span class="n">plugins</span><span class="o">.</span><span class="n">ArmiPlugin</span><span class="p">):</span>
@@ -303,7 +306,12 @@
                 <span class="k">lambda</span><span class="p">:</span> <span class="n">migrateCrossSectionsFromBlueprints</span><span class="p">(</span><span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="p">),</span>
             <span class="p">)</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">queries</span></div></div>
+        <span class="k">return</span> <span class="n">queries</span></div>
+
+<div class="viewcode-block" id="NeutronicsPlugin.onProcessCoreLoading"><a class="viewcode-back" href="../../../.apidocs/armi.physics.neutronics.html#armi.physics.neutronics.NeutronicsPlugin.onProcessCoreLoading">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@plugins</span><span class="o">.</span><span class="n">HOOKIMPL</span>
+    <span class="k">def</span> <span class="nf">onProcessCoreLoading</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
+        <span class="n">applyEffectiveDelayedNeutronFractionToCore</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span></div></div>
 
 
 <span class="c1"># Particle types constants</span>
@@ -397,6 +405,55 @@
 <div class="viewcode-block" id="realCalculationRequested"><a class="viewcode-back" href="../../../.apidocs/armi.physics.neutronics.html#armi.physics.neutronics.realCalculationRequested">[docs]</a><span class="k">def</span> <span class="nf">realCalculationRequested</span><span class="p">(</span><span class="n">cs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Return true if a real calculation is requested based on the ``neutronicsType`` type setting.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;neutronicsType&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;real&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="applyEffectiveDelayedNeutronFractionToCore"><a class="viewcode-back" href="../../../.apidocs/armi.physics.neutronics.html#armi.physics.neutronics.applyEffectiveDelayedNeutronFractionToCore">[docs]</a><span class="k">def</span> <span class="nf">applyEffectiveDelayedNeutronFractionToCore</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Process the settings for the delayed neutron fraction and precursor decay constants.&quot;&quot;&quot;</span>
+    <span class="c1"># Verify and set the core beta parameters based on the user-supplied settings</span>
+    <span class="n">beta</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;beta&quot;</span><span class="p">]</span>
+    <span class="n">decayConstants</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;decayConstants&quot;</span><span class="p">]</span>
+
+    <span class="c1"># If beta is interpreted as a float, then assign it to</span>
+    <span class="c1"># the total delayed neutron fraction parameter. Otherwise, setup the</span>
+    <span class="c1"># group-wise delayed neutron fractions and precursor decay constants.</span>
+    <span class="n">reportTableData</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">beta</span>
+        <span class="n">reportTableData</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;Total Delayed Neutron Fraction&quot;</span><span class="p">,</span> <span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">beta</span><span class="p">))</span>
+
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">decayConstants</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">decayConstants</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="n">f</span><span class="s2">&quot;The values for `beta` (</span><span class="si">{beta}</span><span class="s2">) and `decayConstants` &quot;</span>
+                <span class="n">f</span><span class="s2">&quot;(</span><span class="si">{decayConstants}</span><span class="s2">) are not consistent lengths.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+        <span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">betaComponents</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+        <span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">betaDecayConstants</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">decayConstants</span><span class="p">)</span>
+
+        <span class="n">reportTableData</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;Total Delayed Neutron Fraction&quot;</span><span class="p">,</span> <span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">beta</span><span class="p">))</span>
+        <span class="n">reportTableData</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;Group-wise Delayed Neutron Fractions&quot;</span><span class="p">,</span> <span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">betaComponents</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">reportTableData</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">(</span><span class="s2">&quot;Group-wise Precursor Decay Constants&quot;</span><span class="p">,</span> <span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">betaDecayConstants</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Report to the user the values were not applied.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">reportTableData</span> <span class="ow">and</span> <span class="p">(</span><span class="n">beta</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">decayConstants</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="n">f</span><span class="s2">&quot;Delayed neutron fraction(s) - </span><span class="si">{beta}</span><span class="s2"> and decay constants&quot;</span>
+            <span class="s2">&quot; - </span><span class="si">{decayConstants}</span><span class="s2"> have not been applied.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+            <span class="n">tabulate</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span>
+                <span class="n">tabular_data</span><span class="o">=</span><span class="n">reportTableData</span><span class="p">,</span>
+                <span class="n">headers</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Component&quot;</span><span class="p">,</span> <span class="s2">&quot;Value&quot;</span><span class="p">],</span>
+                <span class="n">tablefmt</span><span class="o">=</span><span class="s2">&quot;armi&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div>
 </pre></div>
 
            </div>
@@ -412,7 +469,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-07-29.
+        Last updated on 2020-08-13.
       </span>
 
     </p>

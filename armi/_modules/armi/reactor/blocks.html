@@ -438,18 +438,26 @@
 
 <div class="viewcode-block" id="Block.getSmearDensity"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getSmearDensity">[docs]</a>    <span class="k">def</span> <span class="nf">getSmearDensity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Compute the smear density of this block.</span>
+<span class="sd">        Compute the smear density of pins in this block.</span>
+
+<span class="sd">        Smear density is the area of the fuel divided by the area of the space available</span>
+<span class="sd">        for fuel inside the cladding. Other space filled with solid materials is not</span>
+<span class="sd">        considered available. If all the area is fuel, it has 100% smear density. Lower</span>
+<span class="sd">        smear density allows more room for swelling.</span>
+
+<span class="sd">        .. warning:: This requires circular fuel and circular cladding. Designs that vary</span>
+<span class="sd">            from this will be wrong. It may make sense in the future to put this somewhere a</span>
+<span class="sd">            bit more design specific.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        1 - Smear density is the area of the fuel divided by the area of the space</span>
-<span class="sd">            available for fuel inside the cladding. Other space filled with solid</span>
-<span class="sd">            materials is not considered available. If all the area is fuel, it has 100%</span>
-<span class="sd">            smear density. Lower smear density allows more room for swelling.</span>
-<span class="sd">        2 - Negative areas can exist for void gaps in the fuel pin. A negative area in a</span>
-<span class="sd">            gap represents overlap area between two solid components. To account for</span>
-<span class="sd">            this additional space within the pin cladding the abs(negativeArea) is added</span>
-<span class="sd">            to the inner cladding area.</span>
+<span class="sd">        This only considers circular objects. If you have a cladding that is not a circle,</span>
+<span class="sd">        it will be ignored.</span>
+
+<span class="sd">        Negative areas can exist for void gaps in the fuel pin. A negative area in a gap</span>
+<span class="sd">        represents overlap area between two solid components. To account for this</span>
+<span class="sd">        additional space within the pin cladding the abs(negativeArea) is added to the</span>
+<span class="sd">        inner cladding area.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        -----------</span>
@@ -466,13 +474,14 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">fuels</span><span class="p">:</span>
             <span class="k">return</span> <span class="mf">0.0</span>  <span class="c1"># Smear density is not computed for non-fuel blocks</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponentsOfShape</span><span class="p">(</span><span class="n">components</span><span class="o">.</span><span class="n">Circle</span><span class="p">):</span>
+        <span class="n">circles</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponentsOfShape</span><span class="p">(</span><span class="n">components</span><span class="o">.</span><span class="n">Circle</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">circles</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot get smear density of </span><span class="si">{}</span><span class="s2">. There are no circular components.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                     <span class="bp">self</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-        <span class="n">clads</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
+        <span class="n">clads</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">))</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">circles</span><span class="p">))</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">clads</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot get smear density of </span><span class="si">{}</span><span class="s2">. There are no clad components.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
@@ -488,7 +497,7 @@
         <span class="n">fuelComponentArea</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">unmovableComponentArea</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">negativeArea</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSortedComponentsInsideOfComponent</span><span class="p">(</span><span class="n">clads</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSortedComponentsInsideOfComponent</span><span class="p">(</span><span class="n">clads</span><span class="o">.</span><span class="n">pop</span><span class="p">()):</span>
             <span class="n">componentArea</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="n">cold</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">isFuel</span><span class="p">():</span>
                 <span class="n">fuelComponentArea</span> <span class="o">+=</span> <span class="n">componentArea</span>
@@ -1051,7 +1060,7 @@
         <span class="n">od</span> <span class="o">=</span> <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">,</span> <span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">clad</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">od</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">value</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_getCladdingComponentToModify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<div class="viewcode-block" id="Block._getCladdingComponentToModify"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block._getCladdingComponentToModify">[docs]</a>    <span class="k">def</span> <span class="nf">_getCladdingComponentToModify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
         <span class="n">clad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">clad</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
@@ -1063,7 +1072,7 @@
                     <span class="n">clad</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">value</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="n">clad</span>
+        <span class="k">return</span> <span class="n">clad</span></div>
 
 <div class="viewcode-block" id="Block.getLocation"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getLocation">[docs]</a>    <span class="k">def</span> <span class="nf">getLocation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return a string representation of the location.&quot;&quot;&quot;</span>
@@ -1255,7 +1264,7 @@
 
         <span class="k">return</span> <span class="n">mass</span></div>
 
-    <span class="k">def</span> <span class="nf">_updateDetailedNdens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frac</span><span class="p">,</span> <span class="n">adjustList</span><span class="p">):</span>
+<div class="viewcode-block" id="Block._updateDetailedNdens"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block._updateDetailedNdens">[docs]</a>    <span class="k">def</span> <span class="nf">_updateDetailedNdens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frac</span><span class="p">,</span> <span class="n">adjustList</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Update detailed number density which is used by hi-fi depleters such as ORIGEN.</span>
 
@@ -1273,7 +1282,7 @@
             <span class="c1"># Other power densities do not need to be updated as they are calculated in</span>
             <span class="c1"># the global flux interface, which occurs after axial expansion from crucible</span>
             <span class="c1"># on the interface stack.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pdensDecay</span> <span class="o">*=</span> <span class="n">frac</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pdensDecay</span> <span class="o">*=</span> <span class="n">frac</span></div>
 
 <div class="viewcode-block" id="Block.completeInitialLoading"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.completeInitialLoading">[docs]</a>    <span class="k">def</span> <span class="nf">completeInitialLoading</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bolBlock</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1511,7 +1520,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_updatePitchComponent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+<div class="viewcode-block" id="Block._updatePitchComponent"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block._updatePitchComponent">[docs]</a>    <span class="k">def</span> <span class="nf">_updatePitchComponent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Update the component that defines the pitch.</span>
 
@@ -1538,7 +1547,7 @@
             <span class="k">return</span>
 
         <span class="k">if</span> <span class="n">componentPitch</span> <span class="ow">and</span> <span class="p">(</span><span class="n">componentPitch</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pitchDefiningComponent</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_pitchDefiningComponent</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">componentPitch</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pitchDefiningComponent</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">componentPitch</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Block.add"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.add">[docs]</a>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
         <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
@@ -2803,9 +2812,10 @@
 <span class="sd">        If this block is not in any grid at all, then there can be no symmetry so return 1.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">grid</span>
-            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span> <span class="o">==</span> <span class="n">geometry</span><span class="o">.</span><span class="n">THIRD_CORE</span> <span class="o">+</span> <span class="n">geometry</span><span class="o">.</span><span class="n">PERIODIC</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">symmetry</span>
+            <span class="o">==</span> <span class="n">geometry</span><span class="o">.</span><span class="n">THIRD_CORE</span> <span class="o">+</span> <span class="n">geometry</span><span class="o">.</span><span class="n">PERIODIC</span>
         <span class="p">):</span>
             <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getCompleteIndices</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">indices</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -2849,7 +2859,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getPinCoordinatesHex</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_getPinCoordinatesHex</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="HexBlock._getPinCoordinatesHex"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock._getPinCoordinatesHex">[docs]</a>    <span class="k">def</span> <span class="nf">_getPinCoordinatesHex</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">coordinates</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">numPins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">()</span>
         <span class="n">numPinRings</span> <span class="o">=</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">numRingsToHoldNumCells</span><span class="p">(</span><span class="n">numPins</span><span class="p">)</span>
@@ -2863,7 +2873,7 @@
                 <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">getIndicesFromRingAndPos</span><span class="p">(</span><span class="n">ring</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">pos</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
                 <span class="n">xyz</span> <span class="o">=</span> <span class="n">grid</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span>
                 <span class="n">coordinates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xyz</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">coordinates</span>
+        <span class="k">return</span> <span class="n">coordinates</span></div>
 
 <div class="viewcode-block" id="HexBlock.getPinCenterFlatToFlat"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.getPinCenterFlatToFlat">[docs]</a>    <span class="k">def</span> <span class="nf">getPinCenterFlatToFlat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cold</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return the flat-to-flat distance between the centers of opposing pins in the outermost ring.&quot;&quot;&quot;</span>
@@ -3057,7 +3067,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-07-29.
+        Last updated on 2020-08-13.
       </span>
 
     </p>
