@@ -1,8 +1,7 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
   <meta charset="utf-8">
   
@@ -12,27 +11,29 @@
   
 
   
+  <link rel="stylesheet" href="../../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+
+  
   
   
   
 
   
-  <script type="text/javascript" src="../../../../../_static/js/modernizr.min.js"></script>
+  <!--[if lt IE 9]>
+    <script src="../../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
-        <script type="text/javascript" src="../../../../../_static/jquery.js"></script>
-        <script type="text/javascript" src="../../../../../_static/underscore.js"></script>
-        <script type="text/javascript" src="../../../../../_static/doctools.js"></script>
-        <script type="text/javascript" src="../../../../../_static/language_data.js"></script>
+        <script src="../../../../../_static/jquery.js"></script>
+        <script src="../../../../../_static/underscore.js"></script>
+        <script src="../../../../../_static/doctools.js"></script>
+        <script src="../../../../../_static/language_data.js"></script>
     
     <script type="text/javascript" src="../../../../../_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="../../../../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../search.html" /> 
 </head>
@@ -48,7 +49,7 @@
           
 
           
-            <a href="../../../../../index.html" class="icon icon-home"> ARMI Dragon Plugin
+            <a href="../../../../../index.html" class="icon icon-home" alt="Documentation Home"> ARMI Dragon Plugin
           
 
           
@@ -71,6 +72,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -79,12 +81,13 @@
             
             
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../dragon.html">The DRAGON Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dragon.html">Introduction</a></li>
 </ul>
 
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -123,7 +126,7 @@
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="../../../../../index.html">Docs</a> &raquo;</li>
+      <li><a href="../../../../../index.html" class="icon icon-home"></a> &raquo;</li>
         
           <li><a href="../../../../index.html">Module code</a> &raquo;</li>
         
@@ -158,24 +161,92 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Executes DRAGON input files during an ARMI run.</span>
+<span class="sd">Write input and execute DRAGON given an ARMI object.</span>
+
+<span class="sd">Currently limited to handling Blocks only.</span>
+
+<span class="sd">This module makes no assumptions about where the block comes from or when the</span>
+<span class="sd">execution is to be performed. </span>
+
+<span class="sd">Scheduling and choosing happens in</span>
+<span class="sd">:py:mod:`terrapower.physics.neutronics/dragon.dragonInterface` in default runs, or</span>
+<span class="sd">in other apps.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">subprocess</span>
 
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">mpiActions</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">directoryChangers</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">outputCache</span>
 <span class="kn">from</span> <span class="nn">armi.localization</span> <span class="k">import</span> <span class="n">exceptions</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">blocks</span>
+<span class="kn">from</span> <span class="nn">armi.settings</span> <span class="k">import</span> <span class="n">caseSettings</span>
+<span class="kn">from</span> <span class="nn">armi.physics</span> <span class="k">import</span> <span class="n">executers</span>
+<span class="kn">from</span> <span class="nn">armi.physics</span> <span class="k">import</span> <span class="n">neutronics</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">dragonWriter</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">settings</span>
+
+<span class="c1"># DRAGON natively names the ISOTXS file &quot;ISOTXS000001&quot;.</span>
+<span class="n">ISOTXS_NAME</span> <span class="o">=</span> <span class="s2">&quot;ISOTXS</span><span class="si">{:06d}</span><span class="s2">&quot;</span>
+<span class="n">THIS_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="DragonExecuter"><a class="viewcode-back" href="../../../../../source/terrapower.physics.neutronics.dragon.html#terrapower.physics.neutronics.dragon.dragonExecutor.DragonExecuter">[docs]</a><span class="k">class</span> <span class="nc">DragonExecuter</span><span class="p">(</span><span class="n">mpiActions</span><span class="o">.</span><span class="n">MpiAction</span><span class="p">):</span>
+<div class="viewcode-block" id="DragonOptions"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonExecutor.html#terrapower.physics.neutronics.dragon.dragonExecutor.DragonOptions">[docs]</a><span class="k">class</span> <span class="nc">DragonOptions</span><span class="p">(</span><span class="n">executers</span><span class="o">.</span><span class="n">ExecutionOptions</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Data structure needed to perform a DRAGON execution.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">executers</span><span class="o">.</span><span class="n">ExecutionOptions</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cacheDir</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nuclides</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">templatePath</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">libDataFile</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">libDataFileShort</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xsID</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">groupStructure</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">xsSettings</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inputFile</span> <span class="o">=</span> <span class="n">f</span><span class="s2">&quot;</span><span class="si">{label}</span><span class="s2">.x2m&quot;</span>
+        <span class="c1"># outputs</span>
+        <span class="c1"># For dragonAA.x2m ---&gt; dragonAA.x2mout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outputFile</span> <span class="o">=</span> <span class="n">f</span><span class="s2">&quot;</span><span class="si">{self.inputFile}</span><span class="s2">out&quot;</span>
+        <span class="c1"># only expecting 1 ISOTXS at the moment</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outputIsotxsName</span> <span class="o">=</span> <span class="n">ISOTXS_NAME</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">templatePath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">THIS_DIR</span><span class="p">,</span> <span class="s2">&quot;resources&quot;</span><span class="p">,</span> <span class="s2">&quot;DRAGON_Template_0D.txt&quot;</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="DragonOptions.fromUserSettings"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonExecutor.html#terrapower.physics.neutronics.dragon.dragonExecutor.DragonOptions.fromUserSettings">[docs]</a>    <span class="k">def</span> <span class="nf">fromUserSettings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">:</span> <span class="n">caseSettings</span><span class="o">.</span><span class="n">Settings</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Load settings from a case settings object&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">executablePath</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="n">settings</span><span class="o">.</span><span class="n">CONF_DRAGON_PATH</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setRunDirFromCaseTitle</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">libDataFile</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="n">settings</span><span class="o">.</span><span class="n">CONF_DRAGON_DATA_PATH</span><span class="p">]</span>
+        <span class="n">_dataPath</span><span class="p">,</span> <span class="n">dataName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">libDataFile</span><span class="p">)</span>
+        <span class="c1"># DRAGON input files can only reference nuclear data files with less</span>
+        <span class="c1"># than this many characters. We take the last x chars rather than the</span>
+        <span class="c1"># first since the library names usually have meaningful info at the end</span>
+        <span class="c1"># like draglibendfb7r1SHEM31Plugin &#39;dense-analysis/ale&#39;5</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">libDataFileShort</span> <span class="o">=</span> <span class="n">dataName</span><span class="p">[</span><span class="o">-</span><span class="n">dragonWriter</span><span class="o">.</span><span class="n">N_CHARS_ALLOWED_IN_LIB_NAME</span> <span class="p">:]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cacheDir</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;outputCacheLocation&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">groupStructure</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;groupStructure&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">xsID</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;You must run `fromBlock` before `fromUserSettings`&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xsSettings</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="n">neutronics</span><span class="o">.</span><span class="n">const</span><span class="o">.</span><span class="n">CONF_CROSS_SECTION</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">xsID</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="DragonOptions.fromReactor"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonExecutor.html#terrapower.physics.neutronics.dragon.dragonExecutor.DragonOptions.fromReactor">[docs]</a>    <span class="k">def</span> <span class="nf">fromReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nuclides</span> <span class="o">=</span> <span class="n">reactor</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span></div>
+
+<div class="viewcode-block" id="DragonOptions.fromBlock"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonExecutor.html#terrapower.physics.neutronics.dragon.dragonExecutor.DragonOptions.fromBlock">[docs]</a>    <span class="k">def</span> <span class="nf">fromBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">blocks</span><span class="o">.</span><span class="n">Block</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Determine specific options from a particular block.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xsID</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="DragonExecuter"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonExecutor.html#terrapower.physics.neutronics.dragon.dragonExecutor.DragonExecuter">[docs]</a><span class="k">class</span> <span class="nc">DragonExecuter</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Responsible for executing DRAGON in parallel.</span>
+<span class="sd">    Execute a DRAGON case.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
@@ -190,112 +261,97 @@
 <span class="sd">    copied over to it for fast execution.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="c1"># DRAGON natively names the ISOTXS file &quot;ISOTXS000001&quot;.</span>
-    <span class="n">ISOTXS_NAME</span> <span class="o">=</span> <span class="s2">&quot;ISOTXS</span><span class="si">{:06d}</span><span class="s2">&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">DragonOptions</span><span class="p">,</span> <span class="n">block</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block</span> <span class="o">=</span> <span class="n">block</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputPath</span><span class="p">,</span> <span class="n">xsId</span><span class="p">):</span>
-        <span class="n">mpiActions</span><span class="o">.</span><span class="n">MpiAction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-
-        <span class="c1"># The input file will be copied to the current working (temporary) directory,</span>
-        <span class="c1"># so only the input name is important.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">armiRunDir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">inputPath</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">xsId</span> <span class="o">=</span> <span class="n">xsId</span>
-
-<div class="viewcode-block" id="DragonExecuter.invokeHook"><a class="viewcode-back" href="../../../../../source/terrapower.physics.neutronics.dragon.html#terrapower.physics.neutronics.dragon.dragonExecutor.DragonExecuter.invokeHook">[docs]</a>    <span class="k">def</span> <span class="nf">invokeHook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="DragonExecuter.run"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonExecutor.html#terrapower.physics.neutronics.dragon.dragonExecutor.DragonExecuter.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Perform DRAGON calculation for the current input file.&quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
             <span class="s2">&quot;Preparing to run DRAGON with executable: &quot;</span>
-            <span class="n">f</span><span class="s2">&quot;</span><span class="si">{self.cs[&#39;dragonExePath&#39;]}</span><span class="s2">, on input: </span><span class="si">{self.inputName}</span><span class="s2">&quot;</span>
+            <span class="n">f</span><span class="s2">&quot;</span><span class="si">{self.options.executablePath}</span><span class="s2">, on input: </span><span class="si">{self.options.inputFile}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">writeInput</span><span class="p">()</span>
 
-        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">_tempDir</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_setupDir</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_runCase</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_copyResults</span><span class="p">()</span>
+        <span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collectIONames</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">:</span>
-            <span class="c1"># Not sending anything back since no parameters were changed.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">gather</span><span class="p">()</span></div>
+        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">ForcedCreationDirectoryChanger</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">runDir</span><span class="p">,</span> <span class="n">filesToMove</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">filesToRetrieve</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_execute</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_setupDir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Copy input file, exe, and nuclear data file (DRAGLIB) to run directory.&quot;&quot;&quot;</span>
-        <span class="n">targetsToCopy</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dragonExePath&quot;</span><span class="p">],</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armiRunDir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputName</span><span class="p">),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dragonDataPath&quot;</span><span class="p">],</span>
+    <span class="k">def</span> <span class="nf">_collectIONames</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">inputFile</span><span class="p">,</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">libDataFile</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">libDataFileShort</span><span class="p">),</span>
         <span class="p">)</span>
-        <span class="k">for</span> <span class="n">targetPath</span> <span class="ow">in</span> <span class="n">targetsToCopy</span><span class="p">:</span>
-            <span class="c1"># copy not move since this dir will be deleted.</span>
-            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">targetPath</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">targetPath</span><span class="p">))</span>
+        <span class="n">outputs</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">outputFile</span><span class="p">,</span>
+            <span class="c1"># rename isotxs on way back to the shared directory</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">outputIsotxsName</span><span class="p">,</span> <span class="n">f</span><span class="s2">&quot;ISO</span><span class="si">{self.options.xsID}</span><span class="s2">&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span>
 
-    <span class="k">def</span> <span class="nf">_getOutputFileNames</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="DragonExecuter.writeInput"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonExecutor.html#terrapower.physics.neutronics.dragon.dragonExecutor.DragonExecuter.writeInput">[docs]</a>    <span class="k">def</span> <span class="nf">writeInput</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Write the input file.&quot;&quot;&quot;</span>
+        <span class="n">inWriterCls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_chooseInputWriter</span><span class="p">()</span>
+        <span class="n">inputWriter</span> <span class="o">=</span> <span class="n">inWriterCls</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">)</span>
+        <span class="n">inputWriter</span><span class="o">.</span><span class="n">write</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_chooseInputWriter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># pylint: disable=no-self-use; useful in override</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return the output file names.</span>
+<span class="sd">        Select an input writer class.</span>
+<span class="sd">        </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Intended to be customized via subclassing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">dragonWriter</span><span class="o">.</span><span class="n">DragonWriter</span>
+
+    <span class="k">def</span> <span class="nf">_execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Execute the DRAGON input.</span>
+<span class="sd">        </span>
+<span class="sd">        The nuclear data and input are now in current working directory.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        The author is uncertain what the standard output file extension is for DRAGON.</span>
-<span class="sd">        The standard extension for input files are `.x2m`,</span>
-<span class="sd">        so the output files are using `.x2mout`. If there is a more standard extension,</span>
-<span class="sd">        it is an opportunity for improvement.</span>
+<span class="sd">        This makes use of an output caching utility, which can make execution</span>
+<span class="sd">        nearly instantaneously if the input has been executed before.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">isotxsName</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ISOTXS_NAME</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># only expecting 1 ISOTXS at the moment</span>
-        <span class="c1"># For dragonAA.x2m ---&gt; dragonAA.x2mout</span>
-        <span class="n">dragonOutName</span> <span class="o">=</span> <span class="n">f</span><span class="s2">&quot;</span><span class="si">{self.inputName}</span><span class="s2">out&quot;</span>
-        <span class="k">return</span> <span class="p">(</span><span class="n">dragonOutName</span><span class="p">,</span> <span class="n">isotxsName</span><span class="p">)</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+            <span class="n">f</span><span class="s2">&quot;Executing </span><span class="si">{self.options.executablePath}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="n">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">Input: </span><span class="si">{self.options.inputFile}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="n">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">Output: </span><span class="si">{self.options.outputFile}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="n">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">Working dir: </span><span class="si">{self.options.runDir}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_runCase</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Execute the DRAGON input.&quot;&quot;&quot;</span>
-        <span class="c1"># the Exe, nuclear data, and input are now in current working directory.</span>
-        <span class="n">exe</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dragonExePath&quot;</span><span class="p">])</span>
-
-        <span class="c1"># DRAGON input files can only reference nuclear data files with less than</span>
-        <span class="c1"># this many characters.</span>
-        <span class="n">dragonData</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dragonDataPath&quot;</span><span class="p">])</span>
-        <span class="n">shortName</span> <span class="o">=</span> <span class="n">dragonData</span><span class="p">[</span><span class="o">-</span><span class="n">dragonWriter</span><span class="o">.</span><span class="n">N_CHARS_ALLOWED_IN_LIB_NAME</span> <span class="p">:]</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">dragonData</span><span class="p">,</span> <span class="n">shortName</span><span class="p">)</span>
         <span class="c1"># Note that nuclear data files is considered an input for cacheCall().</span>
-        <span class="n">inputPaths</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputName</span><span class="p">,</span> <span class="n">shortName</span><span class="p">)</span>
+        <span class="n">inputPaths</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">inputFile</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">libDataFileShort</span><span class="p">)</span>
+        <span class="n">outputPaths</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">outputFile</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">outputIsotxsName</span><span class="p">)</span>
 
-        <span class="n">outputFileNames</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getOutputFileNames</span><span class="p">()</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">outputFileNames</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outputF</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputName</span><span class="p">)</span> <span class="k">as</span> <span class="n">inputF</span><span class="p">:</span>
-
-            <span class="k">def</span> <span class="nf">exectuteDragon</span><span class="p">():</span>
+        <span class="k">def</span> <span class="nf">executeDragon</span><span class="p">():</span>
+            <span class="sd">&quot;&quot;&quot;Helper function to work with output caching&quot;&quot;&quot;</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">outputFile</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outputF</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">inputFile</span>
+            <span class="p">)</span> <span class="k">as</span> <span class="n">inputF</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">(</span>
-                        <span class="n">exe</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">inputF</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">outputF</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">executablePath</span><span class="p">,</span>
+                        <span class="n">stdin</span><span class="o">=</span><span class="n">inputF</span><span class="p">,</span>
+                        <span class="n">stdout</span><span class="o">=</span><span class="n">outputF</span><span class="p">,</span>
+                        <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">STDOUT</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">XSGenerationError</span><span class="p">()</span> <span class="kn">from</span> <span class="nn">err</span>
 
-            <span class="c1"># This can make execution nearly instantaneous if the input has</span>
-            <span class="c1"># been executed before.</span>
-            <span class="n">outputCache</span><span class="o">.</span><span class="n">cacheCall</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">exe</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">outputFileNames</span><span class="p">,</span> <span class="n">exectuteDragon</span>
-            <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_copyResults</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Copy the output and ISOTXS back to the ARMI run location.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        The input does not need to be copied since it was copied over from the original</span>
-<span class="sd">        ARMI run location, and still resides there.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">dragonOutName</span><span class="p">,</span> <span class="n">isotoxName</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getOutputFileNames</span><span class="p">()</span>
-
-        <span class="k">try</span><span class="p">:</span>
-            <span class="c1"># Move instead of copy since temp dir is about to be removed</span>
-            <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">dragonOutName</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armiRunDir</span><span class="p">,</span> <span class="n">dragonOutName</span><span class="p">))</span>
-            <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">isotoxName</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armiRunDir</span><span class="p">,</span> <span class="n">f</span><span class="s2">&quot;ISO</span><span class="si">{self.xsId}</span><span class="s2">&quot;</span><span class="p">))</span>
-        <span class="k">except</span><span class="p">:</span>
-            <span class="c1"># outFileName will always exist, but ISOTXS is typically made at the very</span>
-            <span class="c1"># end of the run. Alternatively, the return code of subprocess could also</span>
-            <span class="c1"># possible be examined.</span>
-            <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">XSGenerationError</span><span class="p">(</span>
-                <span class="n">f</span><span class="s2">&quot;DRAGON run on </span><span class="si">{self.inputName}</span><span class="s2"> failed.&quot;</span>
-            <span class="p">)</span></div>
+        <span class="n">outputCache</span><span class="o">.</span><span class="n">cacheCall</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">cacheDir</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">executablePath</span><span class="p">,</span>
+            <span class="n">inputPaths</span><span class="p">,</span>
+            <span class="n">outputPaths</span><span class="p">,</span>
+            <span class="n">executeDragon</span><span class="p">,</span>
+        <span class="p">)</span></div>
 </pre></div>
 
            </div>
@@ -308,11 +364,19 @@
 
   <div role="contentinfo">
     <p>
+        
         &copy; Copyright 2019, TerraPower, LLC
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
 
@@ -323,7 +387,6 @@
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {

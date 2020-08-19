@@ -1,14 +1,9 @@
+Introduction
+============
 
-=====================
-The DRAGON Interface
-=====================
-
-Software Description
-============================================
-
-The :py:class:`DRAGON Interface <terrapower.physics.neutronics.dragon.dragonInterface.DragonInterface>`
-is responsible for writing DRAGON input files, executing them,
-and producing microscopic cross sections in the form of ISOTXS files.
+This plugin uses data contained in the ARMI reactor model to 
+write DRAGON input files and execute DRAGON on them,
+thereby producing microscopic cross sections in the form of ISOTXS files.
 
 
 Capabilities

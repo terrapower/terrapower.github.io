@@ -1,8 +1,7 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
   <meta charset="utf-8">
   
@@ -12,27 +11,29 @@
   
 
   
+  <link rel="stylesheet" href="../../../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+
+  
   
   
   
 
   
-  <script type="text/javascript" src="../../../../../_static/js/modernizr.min.js"></script>
+  <!--[if lt IE 9]>
+    <script src="../../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
-        <script type="text/javascript" src="../../../../../_static/jquery.js"></script>
-        <script type="text/javascript" src="../../../../../_static/underscore.js"></script>
-        <script type="text/javascript" src="../../../../../_static/doctools.js"></script>
-        <script type="text/javascript" src="../../../../../_static/language_data.js"></script>
+        <script src="../../../../../_static/jquery.js"></script>
+        <script src="../../../../../_static/underscore.js"></script>
+        <script src="../../../../../_static/doctools.js"></script>
+        <script src="../../../../../_static/language_data.js"></script>
     
     <script type="text/javascript" src="../../../../../_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="../../../../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../search.html" /> 
 </head>
@@ -48,7 +49,7 @@
           
 
           
-            <a href="../../../../../index.html" class="icon icon-home"> ARMI Dragon Plugin
+            <a href="../../../../../index.html" class="icon icon-home" alt="Documentation Home"> ARMI Dragon Plugin
           
 
           
@@ -71,6 +72,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -79,12 +81,13 @@
             
             
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../dragon.html">The DRAGON Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dragon.html">Introduction</a></li>
 </ul>
 
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -123,7 +126,7 @@
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="../../../../../index.html">Docs</a> &raquo;</li>
+      <li><a href="../../../../../index.html" class="icon icon-home"></a> &raquo;</li>
         
           <li><a href="../../../../index.html">Module code</a> &raquo;</li>
         
@@ -158,105 +161,62 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Writes DRAGON inputs during an ARMI run.</span>
+<span class="sd">Write DRAGON inputs based on data contained in ARMI objects.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">os</span>
 
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">interfaces</span>
+<span class="kn">from</span> <span class="nn">jinja2</span> <span class="k">import</span> <span class="n">Template</span>
+
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">units</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="k">import</span> <span class="n">nuclideBases</span>
-<span class="kn">from</span> <span class="nn">armi.physics</span> <span class="k">import</span> <span class="n">neutronics</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">pathTools</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="k">import</span> <span class="n">Flags</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">dragonTemplateHelper</span>
 
 <span class="n">N_CHARS_ALLOWED_IN_LIB_NAME</span> <span class="o">=</span> <span class="mi">8</span>
 
 
-<div class="viewcode-block" id="DragonWriter"><a class="viewcode-back" href="../../../../../source/terrapower.physics.neutronics.dragon.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter">[docs]</a><span class="k">class</span> <span class="nc">DragonWriter</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">InputWriter</span><span class="p">):</span>
+<div class="viewcode-block" id="DragonWriter"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter">[docs]</a><span class="k">class</span> <span class="nc">DragonWriter</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Responsible for writing DRAGON input files based on a template.</span>
+<span class="sd">    Write DRAGON input file based on a template.</span>
+
+<span class="sd">    Makes a 0D cross section case by default.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    By default points to the only template provided with the DRAGON plugin. User</span>
-<span class="sd">    can optionally point to a template helper module, which will allow pointing to</span>
-<span class="sd">    other templates, and customization of &quot;bookkeeping&quot; code to execute to augment</span>
-<span class="sd">    the template data before rendering the template. This can be helpful since almost</span>
-<span class="sd">    all but the simplest new templates will likely need some sort of new values to </span>
-<span class="sd">    insert into the template.</span>
+<span class="sd">    Customize the template and the template data collecting for more sophisticated cases.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">nucsToModel</span><span class="p">,</span> <span class="n">xsId</span><span class="p">,</span> <span class="n">fuelTempInK</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="n">options</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize a writer for this block.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        o : Operator</span>
-<span class="sd">            The ARMI operator instance. This is not used anywhere within the writer.</span>
-<span class="sd">            Only included to send to the DragonTemplateHelper for maximum flexibility.</span>
 <span class="sd">        block : Block</span>
 <span class="sd">            The ARMI block object to process into template data.</span>
-<span class="sd">        cs : Settings</span>
-<span class="sd">            The case settings of the current ARMI run.</span>
-<span class="sd">        nucsToModel : list of str</span>
-<span class="sd">            Strings that are keys of nuclideBases.byName to get the</span>
-<span class="sd">        xsId : string</span>
-<span class="sd">            A two character string representing the cross section identification. The</span>
-<span class="sd">            first character typically represents the cross section group, and the </span>
-<span class="sd">            second is the burnup group. Burnup group is a charactor that represents a</span>
-<span class="sd">            range of burnup values which are considered to be similar enough enough</span>
-<span class="sd">            to use the same microscopic cross sections (ISOTXS file). For example,</span>
-<span class="sd">            burnup group a is the lowest burnup group, so it might be 0 to 2% burnup.</span>
-<span class="sd">        fuelTempInK : float</span>
-<span class="sd">            The temperature of the fuel in Kelvin.</span>
+<span class="sd">        options : DragonOptions</span>
+<span class="sd">            Data structure that contains execution and modeling controls</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">interfaces</span><span class="o">.</span><span class="n">InputWriter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="n">cs</span><span class="p">)</span>
-        <span class="c1"># o should not be used by this class.</span>
-        <span class="c1"># Only included to pass on to DragonTemplateHelper, so that template creators</span>
-        <span class="c1"># have access to everything.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_o</span> <span class="o">=</span> <span class="n">o</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">=</span> <span class="n">block</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">nucsToModel</span> <span class="o">=</span> <span class="n">nucsToModel</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">xsId</span> <span class="o">=</span> <span class="n">xsId</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">xsSettings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">neutronics</span><span class="o">.</span><span class="n">const</span><span class="o">.</span><span class="n">CONF_CROSS_SECTION</span><span class="p">][</span><span class="n">xsId</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fuelTempInK</span> <span class="o">=</span> <span class="n">fuelTempInK</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span>
 
-<div class="viewcode-block" id="DragonWriter.write"><a class="viewcode-back" href="../../../../../source/terrapower.physics.neutronics.dragon.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fName</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="DragonWriter.write"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Write a DRAGON input file.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        fName : str</span>
-<span class="sd">            The (optional) name of the input to write.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        inputName : inputName</span>
-<span class="sd">            Name of input file produced.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="n">f</span><span class="s2">&quot;Writing DRAGON input for xsID: </span><span class="si">{self.xsId}</span><span class="s2"> based on block: </span><span class="si">{self.b}</span><span class="s2">&quot;</span>
-        <span class="p">)</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Writing DRAGON input based on: </span><span class="si">{self.b}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="n">Klass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getTemplateHelperClass</span><span class="p">()</span>  <span class="c1"># pylint: disable=invalid-name</span>
-        <span class="c1"># give the helper everything the writer has access to.</span>
-        <span class="n">templateHelper</span> <span class="o">=</span> <span class="n">Klass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_o</span><span class="p">)</span>
-        <span class="c1"># This allows for custom template data definition as needed by users.</span>
-        <span class="n">templateData</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buildBasicTemplateData</span><span class="p">()</span>
-        <span class="n">templateData</span> <span class="o">=</span> <span class="n">templateHelper</span><span class="o">.</span><span class="n">updateTemplateData</span><span class="p">(</span><span class="n">templateData</span><span class="p">)</span>
+        <span class="n">templateData</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buildTemplateData</span><span class="p">()</span>
+        <span class="n">template</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_readTemplate</span><span class="p">()</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">inputFile</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">dragonInput</span><span class="p">:</span>
+            <span class="n">dragonInput</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">template</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="o">**</span><span class="n">templateData</span><span class="p">))</span></div>
 
-        <span class="n">template</span> <span class="o">=</span> <span class="n">templateHelper</span><span class="o">.</span><span class="n">readTemplate</span><span class="p">()</span>
-        <span class="n">inputName</span> <span class="o">=</span> <span class="n">fName</span> <span class="ow">or</span> <span class="n">f</span><span class="s2">&quot;dragon</span><span class="si">{self.xsId}</span><span class="s2">.x2m&quot;</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">inputName</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">dragonInput</span><span class="p">:</span>
-            <span class="n">dragonInput</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">template</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="o">**</span><span class="n">templateData</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">_readTemplate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Read the template file.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">templatePath</span><span class="p">)</span> <span class="k">as</span> <span class="n">templateFormat</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Template</span><span class="p">(</span><span class="n">templateFormat</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
 
-        <span class="k">return</span> <span class="n">inputName</span></div>
-
-    <span class="k">def</span> <span class="nf">_buildBasicTemplateData</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_buildTemplateData</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return a dictionary to be sent to the template to produce the DRAGON input.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -275,22 +235,19 @@
         <span class="c1"># DRAGON only needs inner boundaries it assumes lowest boundary is 0 ev</span>
         <span class="c1"># and the upper most boundary is the highest energy fine group boundary in the</span>
         <span class="c1"># specified library.</span>
-        <span class="n">innerBoundaries</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">GROUP_STRUCTURE</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;groupStructure&quot;</span><span class="p">]][</span><span class="mi">1</span><span class="p">:]</span>
-        <span class="n">dragonLibName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dragonDataPath&quot;</span><span class="p">])</span>
+        <span class="n">innerBoundaries</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">GROUP_STRUCTURE</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">groupStructure</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span>
 
         <span class="c1"># a data class could be used here, but considering an external python script</span>
         <span class="c1"># will augment this, a simple dictionary is more flexible.</span>
         <span class="n">templateData</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;xsId&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">xsId</span><span class="p">,</span>
-            <span class="c1"># Last chars of default library name are typically more meaningful.</span>
-            <span class="c1"># EG: draglibendfb7r1SHEM361</span>
-            <span class="s2">&quot;nucData&quot;</span><span class="p">:</span> <span class="n">dragonLibName</span><span class="p">[</span><span class="o">-</span><span class="n">N_CHARS_ALLOWED_IN_LIB_NAME</span><span class="p">:],</span>
-            <span class="s2">&quot;nucDataComment&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dragonDataPath&quot;</span><span class="p">],</span>  <span class="c1"># full path</span>
-            <span class="s2">&quot;tempFuelInKelvin&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fuelTempInK</span><span class="p">,</span>
+            <span class="s2">&quot;xsId&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">xsID</span><span class="p">,</span>
+            <span class="s2">&quot;nucData&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">libDataFileShort</span><span class="p">,</span>
+            <span class="s2">&quot;nucDataComment&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">libDataFile</span><span class="p">,</span>  <span class="c1"># full path</span>
+            <span class="s2">&quot;tempFuelInKelvin&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getFuelTempInK</span><span class="p">(),</span>
             <span class="s2">&quot;blockNDensCard&quot;</span><span class="p">:</span> <span class="n">blockNDensCard</span><span class="p">,</span>
             <span class="s2">&quot;tempComponentsInKelvin&quot;</span><span class="p">:</span> <span class="n">componentTemp</span><span class="p">,</span>
             <span class="s2">&quot;componentNDensCard&quot;</span><span class="p">:</span> <span class="n">componentNDensCard</span><span class="p">,</span>
-            <span class="s2">&quot;buckling&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">xsSettings</span><span class="o">.</span><span class="n">criticalBuckling</span><span class="p">,</span>
+            <span class="s2">&quot;buckling&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">xsSettings</span><span class="o">.</span><span class="n">criticalBuckling</span><span class="p">,</span>
             <span class="s2">&quot;groupStructure&quot;</span><span class="p">:</span> <span class="n">innerBoundaries</span><span class="p">,</span>
             <span class="s2">&quot;components&quot;</span><span class="p">:</span> <span class="n">orderedComponents</span><span class="p">,</span>
             <span class="s2">&quot;block&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span>  <span class="c1"># include block so that templates have some flexibility</span>
@@ -307,12 +264,17 @@
 <span class="sd">            The ARMI object to write data for. ArmiObject, and anything that inherits</span>
 <span class="sd">            from it implements density and getNuclideNumberDensities.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">nucs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nucsToModel</span>
+        <span class="n">nucs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">nuclides</span>
 
         <span class="n">nDensCardData</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">mixtureMassDensity</span> <span class="o">=</span> <span class="n">armiObj</span><span class="o">.</span><span class="n">density</span><span class="p">()</span>
         <span class="n">numberDensities</span> <span class="o">=</span> <span class="n">armiObj</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">nucs</span><span class="p">)</span>
         <span class="n">totalADensityModeled</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">numberDensities</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">totalADensityModeled</span><span class="p">:</span>
+            <span class="c1"># This is an empty armiObj. Can happen with zero-volume dummy components.</span>
+            <span class="c1"># This this writer&#39;s job is to accurately reflect the state of the reactor,</span>
+            <span class="c1"># we simply return an emtpy set of number densities.</span>
+            <span class="k">return</span> <span class="n">nDensCardData</span>
         <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">nDens</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nucs</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">):</span>
             <span class="n">nuclideBase</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
@@ -342,7 +304,7 @@
             <span class="c1"># This density may be 0.0, and DRAGON will run fine.</span>
             <span class="n">nDensCardData</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="p">(</span>
-                    <span class="n">f</span><span class="s2">&quot;</span><span class="si">{nuclideBase.label}{self.xsId}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">f</span><span class="s2">&quot;</span><span class="si">{nuclideBase.label}{self.options.xsID}</span><span class="s2">&quot;</span><span class="p">,</span>
                     <span class="n">dragonId</span><span class="p">,</span>
                     <span class="n">nDens</span><span class="p">,</span>
                     <span class="n">selfShieldingFilterData</span><span class="p">,</span>
@@ -350,7 +312,7 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">nDensCardData</span>
 
-<div class="viewcode-block" id="DragonWriter.getDragLibNucID"><a class="viewcode-back" href="../../../../../source/terrapower.physics.neutronics.dragon.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter.getDragLibNucID">[docs]</a>    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="DragonWriter.getDragLibNucID"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter.getDragLibNucID">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">getDragLibNucID</span><span class="p">(</span><span class="n">nucBase</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the DRAGLIB isotope name for this nuclide.</span>
@@ -373,20 +335,33 @@
             <span class="n">dragLibId</span> <span class="o">+=</span> <span class="s2">&quot;m&quot;</span>
         <span class="k">return</span> <span class="n">dragLibId</span></div>
 
-    <span class="k">def</span> <span class="nf">_getTemplateHelperClass</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return a user customized template helper based on DragonTemplateHelper.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dragonTemplateHelper&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">dragonTemplateHelper</span><span class="o">.</span><span class="n">DragonTemplateHelper</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">mod</span><span class="p">,</span> <span class="n">className</span> <span class="o">=</span> <span class="n">pathTools</span><span class="o">.</span><span class="n">separateModuleAndAttribute</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dragonTemplateHelper&quot;</span><span class="p">]</span>
-            <span class="p">)</span>
-            <span class="n">userSpecifiedHelperModule</span> <span class="o">=</span> <span class="n">pathTools</span><span class="o">.</span><span class="n">importCustomPyModule</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-                <span class="n">f</span><span class="s2">&quot;Was not able to import </span><span class="si">{self.cs[&#39;dragonTemplateHelper&#39;]}</span><span class="s2">.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="nn">err</span>
-        <span class="k">return</span> <span class="n">userSpecifiedHelperModule</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">className</span><span class="p">]</span></div>
+    <span class="k">def</span> <span class="nf">_getFuelTempInK</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the fuel temperature in Kelvin.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Only 1 temperature can be specified per mixture in DRAGON. For this 0-D</span>
+<span class="sd">        case, the temperature of the fuel component is used for the entire</span>
+<span class="sd">        mixture. </span>
+
+<span class="sd">        For heterogeneous models, component temperature should be used.</span>
+<span class="sd">        Component temperature may not work well yet for non BOL cases since </span>
+
+<span class="sd">        .. warning:: </span>
+<span class="sd">            The ARMI cross section group manager does not currently set the</span>
+<span class="sd">            fuel component temperature to the average component temperatures</span>
+<span class="sd">            when making a representative block. Thus, for the time being, </span>
+<span class="sd">            fuel temperature of an arbitrary block in each representative </span>
+<span class="sd">            block&#39;s parents will be obtained.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">avgNum</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">avgDenom</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">fuel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">getChildrenWithFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
+            <span class="n">vol</span> <span class="o">=</span> <span class="n">fuel</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
+            <span class="n">avgNum</span> <span class="o">+=</span> <span class="n">fuel</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">*</span> <span class="n">vol</span>
+            <span class="n">avgDenom</span> <span class="o">+=</span> <span class="n">vol</span>
+        <span class="k">return</span> <span class="n">units</span><span class="o">.</span><span class="n">getTk</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="n">avgNum</span> <span class="o">/</span> <span class="n">avgDenom</span><span class="p">)</span></div>
 </pre></div>
 
            </div>
@@ -399,11 +374,19 @@
 
   <div role="contentinfo">
     <p>
+        
         &copy; Copyright 2019, TerraPower, LLC
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
 
@@ -414,7 +397,6 @@
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {
