@@ -243,8 +243,6 @@
 <span class="sd">    Blocks are stacked together to form assemblies.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="c1"># nuclides that will be put in A.NIP3 but not A.bURN (these will not deplete!)</span>
-    <span class="n">inerts</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">uniqID</span> <span class="o">=</span> <span class="mi">0</span>
 
     <span class="c1"># dimension used to determine which component defines the block&#39;s pitch</span>
@@ -281,15 +279,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">IndexLocation</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">orientation</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">nuclides</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="p">[]</span>
-        <span class="p">)</span>  <span class="c1"># TODO: list of nuclides present in this block (why not just density.keys()?)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">macros</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">numLfpLast</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># for FGremoval</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># memory of shuffle locations</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">lastkInf</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># for tracking k-inf vs. time slope.</span>
 
         <span class="c1"># flag to indicated when DerivedShape children must be updated.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">derivedMustUpdate</span> <span class="o">=</span> <span class="kc">False</span>
@@ -394,18 +385,6 @@
 <span class="sd">        Just creates a new location object based on current spatialLocator.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getLocationObject</span><span class="p">()</span>
-
-    <span class="nd">@location</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">location</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Set spatialLocator based on a (old-style) location object.</span>
-
-<span class="sd">        Patch to keep code working while location system is refactored to use spatialLocators.</span>
-
-<span class="sd">        Blocks only have 1-D grid info so we only look at the axial portion.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">k</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">axial</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span>
 
 <div class="viewcode-block" id="Block.makeName"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.makeName">[docs]</a>    <span class="k">def</span> <span class="nf">makeName</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assemNum</span><span class="p">,</span> <span class="n">axialIndex</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -528,77 +507,6 @@
 
         <span class="k">return</span> <span class="n">smearDensity</span></div>
 
-<div class="viewcode-block" id="Block.getTemperature"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getTemperature">[docs]</a>    <span class="k">def</span> <span class="nf">getTemperature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return the best temperature for key in degrees C.</span>
-
-<span class="sd">        Uses thInterface values if they exist</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        key : str</span>
-<span class="sd">            a key identifying the object we want the temperature of. Options include</span>
-<span class="sd">            cladOD, cladID,</span>
-
-<span class="sd">        sigma : int</span>
-<span class="sd">            Specification of which sigma-value we want. 0-sigma is nominal, 1-sigma is + 1 std.dev, etc.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        tempInC : float</span>
-<span class="sd">            temperature in C</span>
-
-<span class="sd">        SingleWarnings will be issued if a non-zero sigma value is requested but does not exist.</span>
-<span class="sd">        Nominal Thermo values will be returned in that case.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;cladOD&quot;</span><span class="p">:</span>
-            <span class="n">options</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;TH</span><span class="si">{0}</span><span class="s2">SigmaCladODT&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sigma</span><span class="p">),</span> <span class="s2">&quot;TH0SigmaCladODT&quot;</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;cladID&quot;</span><span class="p">:</span>
-            <span class="n">options</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;TH</span><span class="si">{0}</span><span class="s2">SigmaCladIDT&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sigma</span><span class="p">),</span> <span class="s2">&quot;TH0SigmaCladIDT&quot;</span><span class="p">]</span>
-
-        <span class="c1"># return the first non-zero value</span>
-        <span class="k">for</span> <span class="n">okey</span> <span class="ow">in</span> <span class="n">options</span><span class="p">:</span>
-            <span class="n">tempInC</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">okey</span><span class="p">]</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">tempInC</span> <span class="ow">and</span> <span class="s2">&quot;Sigma&quot;</span> <span class="ow">in</span> <span class="n">okey</span> <span class="ow">and</span> <span class="n">sigma</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;No </span><span class="si">{0}</span><span class="s2">-sigma temperature available for </span><span class="si">{1}</span><span class="s2">. Run subchan. Returning nominal&quot;</span>
-                    <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="bp">self</span><span class="p">),</span>
-                    <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;no </span><span class="si">{0}</span><span class="s2">-sigma temperature&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sigma</span><span class="p">),</span>
-                <span class="p">)</span>
-            <span class="k">if</span> <span class="n">tempInC</span><span class="p">:</span>
-                <span class="k">break</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> has no non-zero </span><span class="si">{}</span><span class="s2">-sigma </span><span class="si">{}</span><span class="s2"> temperature. Check T/H results.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">key</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">tempInC</span></div>
-
-<div class="viewcode-block" id="Block.getEnrichment"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getEnrichment">[docs]</a>    <span class="k">def</span> <span class="nf">getEnrichment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return the mass enrichment of the fuel in the block.</span>
-
-<span class="sd">        If multiple fuel components exist, this returns the average enrichment.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">enrichment</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
-            <span class="n">fuels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fuels</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="c1"># short circuit to avoid expensive mass read.</span>
-                <span class="k">return</span> <span class="n">fuels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">getMassEnrichment</span><span class="p">()</span>
-            <span class="n">hm</span> <span class="o">=</span> <span class="mf">0.0</span>
-            <span class="n">fissile</span> <span class="o">=</span> <span class="mf">0.0</span>
-            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">fuels</span><span class="p">:</span>
-                <span class="n">hmMass</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getHMMass</span><span class="p">()</span>
-                <span class="n">fissile</span> <span class="o">+=</span> <span class="n">c</span><span class="o">.</span><span class="n">getMassEnrichment</span><span class="p">()</span> <span class="o">*</span> <span class="n">hmMass</span>
-                <span class="n">hm</span> <span class="o">+=</span> <span class="n">hmMass</span>
-            <span class="n">enrichment</span> <span class="o">=</span> <span class="n">fissile</span> <span class="o">/</span> <span class="n">hm</span>
-        <span class="k">return</span> <span class="n">enrichment</span></div>
-
 <div class="viewcode-block" id="Block.getMgFlux"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getMgFlux">[docs]</a>    <span class="k">def</span> <span class="nf">getMgFlux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">adjoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">average</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">volume</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the multigroup neutron flux in [n/cm^2/s]</span>
@@ -695,37 +603,6 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinMgFluxes</span> <span class="o">=</span> <span class="n">pinFluxes</span></div>
 
-<div class="viewcode-block" id="Block.getPowerPinName"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getPowerPinName">[docs]</a>    <span class="k">def</span> <span class="nf">getPowerPinName</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Determine the component name where the power is being produced.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        powerPin : str</span>
-<span class="sd">            The name of the pin that is producing power, if any. could be &#39;fuel&#39; or &#39;control&#39;, or</span>
-<span class="sd">            anything else.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        If there is fuel and control, this will return fuel based on hard-coded priorities.</span>
-
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; b.getPowerPinName()</span>
-<span class="sd">        &#39;fuel&#39;</span>
-
-<span class="sd">        &gt;&gt;&gt; b.getPowerPinName()</span>
-<span class="sd">        &#39;control&#39;</span>
-
-<span class="sd">        &gt;&gt;&gt; b.getPowerPinName()</span>
-<span class="sd">        None</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">candidate</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">candidate</span></div>
-
 <div class="viewcode-block" id="Block.getMicroSuffix"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getMicroSuffix">[docs]</a>    <span class="k">def</span> <span class="nf">getMicroSuffix</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the microscopic library suffix (e.g. &#39;AB&#39;) for this block.</span>
@@ -754,71 +631,6 @@
             <span class="k">return</span> <span class="n">xsType</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">xsType</span> <span class="o">+</span> <span class="n">bu</span></div>
-
-<div class="viewcode-block" id="Block.setNumberDensity"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.setNumberDensity">[docs]</a>    <span class="k">def</span> <span class="nf">setNumberDensity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">newHomogNDens</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Adds an isotope to the material or changes an existing isotope&#39;s number density</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        nuc : str</span>
-<span class="sd">            a nuclide name like U235, PU240, FE</span>
-<span class="sd">        newHomogNDens : float</span>
-<span class="sd">            number density to set in units of atoms/barn-cm, which are equal to</span>
-<span class="sd">            atoms/cm^3*1e24</span>
-
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        getNumberDensity : gets the density of a nuclide</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">newHomogNDens</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">setNDensParam</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">newHomogNDens</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="Block.setNumberDensities"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.setNumberDensities">[docs]</a>    <span class="k">def</span> <span class="nf">setNumberDensities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Update number densities.</span>
-
-<span class="sd">        Any nuclide in the block but not in numberDensities will be set to zero.</span>
-
-<span class="sd">        Special behavior for blocks: update block-level params for DB viewing/loading.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">setNumberDensities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">():</span>
-            <span class="c1"># make sure to clear out any non-listed number densities</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setNDensParam</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">numberDensities</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span></div>
-
-<div class="viewcode-block" id="Block.updateNumberDensities"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.updateNumberDensities">[docs]</a>    <span class="k">def</span> <span class="nf">updateNumberDensities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set one or more multiple number densities. Leaves unlisted number densities alone.&quot;&quot;&quot;</span>
-        <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">updateNumberDensities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">ndens</span> <span class="ow">in</span> <span class="n">numberDensities</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setNDensParam</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">ndens</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="Block.buildNumberDensityParams"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.buildNumberDensityParams">[docs]</a>    <span class="k">def</span> <span class="nf">buildNumberDensityParams</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucNames</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Copy homogenized density onto self.p for storing in the DB.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        Recall that actual number densities are not the same as the number</span>
-<span class="sd">        density params (they&#39;re really stored on the components). These</span>
-<span class="sd">        params are still useful for plotting block-level number density</span>
-<span class="sd">        information in database viewers, etc.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">nucNames</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">nucNames</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
-        <span class="n">nucBases</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nn</span><span class="p">]</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">nucNames</span><span class="p">]</span>
-        <span class="n">nucDensities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">nucNames</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">nb</span><span class="p">,</span> <span class="n">ndens</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nucBases</span><span class="p">,</span> <span class="n">nucDensities</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">nb</span><span class="o">.</span><span class="n">getDatabaseName</span><span class="p">()]</span> <span class="o">=</span> <span class="n">ndens</span></div>
-
-<div class="viewcode-block" id="Block.setNDensParam"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.setNDensParam">[docs]</a>    <span class="k">def</span> <span class="nf">setNDensParam</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">ndens</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Set a block-level param with the homog. number density of a nuclide.</span>
-
-<span class="sd">        This can be read by the database in restart runs.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">n</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">getDatabaseName</span><span class="p">()]</span> <span class="o">=</span> <span class="n">ndens</span></div>
 
 <div class="viewcode-block" id="Block.setMass"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.setMass">[docs]</a>    <span class="k">def</span> <span class="nf">setMass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -944,18 +756,6 @@
 
         <span class="k">return</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getFlowAreaPerPin</span><span class="p">()</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">getWettedPerimeter</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Block.getCladdingOR"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getCladdingOR">[docs]</a>    <span class="k">def</span> <span class="nf">getCladdingOR</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">clad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span></div>
-
-<div class="viewcode-block" id="Block.getCladdingIR"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getCladdingIR">[docs]</a>    <span class="k">def</span> <span class="nf">getCladdingIR</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">clad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span></div>
-
-<div class="viewcode-block" id="Block.getFuelRadius"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getFuelRadius">[docs]</a>    <span class="k">def</span> <span class="nf">getFuelRadius</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">fuel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">fuel</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span></div>
-
 <div class="viewcode-block" id="Block.adjustUEnrich"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.adjustUEnrich">[docs]</a>    <span class="k">def</span> <span class="nf">adjustUEnrich</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">newEnrich</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Adjust U-235/U-238 mass ratio to a mass enrichment</span>
@@ -980,99 +780,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="s2">&quot;U235&quot;</span><span class="p">,</span> <span class="n">tU</span> <span class="o">*</span> <span class="n">newEnrich</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="s2">&quot;U238&quot;</span><span class="p">,</span> <span class="n">tU</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">newEnrich</span><span class="p">))</span>
 
-        <span class="c1"># fix up the params and burnup tracking.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">buildNumberDensityParams</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">completeInitialLoading</span><span class="p">()</span></div>
-
-<div class="viewcode-block" id="Block.adjustSmearDensity"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.adjustSmearDensity">[docs]</a>    <span class="k">def</span> <span class="nf">adjustSmearDensity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">bolBlock</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        modifies the *cold* smear density of a fuel pin by adding or removing fuel dimension.</span>
-
-<span class="sd">        Adjusts fuel dimension while keeping cladding ID constant</span>
-
-<span class="sd">        sd = fuel_r**2/clad_ir**2  =(fuel_od/2)**2 / (clad_id/2)**2 = fuel_od**2 / clad_id**2</span>
-<span class="sd">        new fuel_od = sqrt(sd*clad_id**2)</span>
-
-<span class="sd">        useful for optimization cases</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-
-<span class="sd">        value : float</span>
-<span class="sd">            new smear density as a fraction.  This fraction must</span>
-<span class="sd">            evaluate between 0.0 and 1.0</span>
-
-<span class="sd">        bolBlock : Block, optional</span>
-<span class="sd">            See completeInitialLoading. Required for ECPT cases</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="mf">0.0</span> <span class="o">&gt;=</span> <span class="n">value</span> <span class="ow">or</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="mf">1.0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot modify smear density of </span><span class="si">{0}</span><span class="s2"> to </span><span class="si">{1}</span><span class="s2">. Must be a positive fraction&quot;</span>
-                <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
-            <span class="p">)</span>
-        <span class="n">fuel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">fuel</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot modify smear density of </span><span class="si">{0}</span><span class="s2"> because it is not fuel&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="bp">self</span>
-                <span class="p">),</span>
-                <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">label</span><span class="o">=</span><span class="s2">&quot;adjust smear density&quot;</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">return</span>
-
-        <span class="n">clad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
-        <span class="n">cladID</span> <span class="o">=</span> <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">fuelID</span> <span class="o">=</span> <span class="n">fuel</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">fuelID</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>  <span class="c1"># Annular fuel (Adjust fuel ID to get new smear density)</span>
-            <span class="n">fuelOD</span> <span class="o">=</span> <span class="n">fuel</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">,</span> <span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">newID</span> <span class="o">=</span> <span class="n">fuelOD</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">value</span><span class="p">)</span>
-            <span class="n">fuel</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">newID</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>  <span class="c1"># Slug fuel (Adjust fuel OD to get new smear density)</span>
-            <span class="n">newOD</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">value</span> <span class="o">*</span> <span class="n">cladID</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
-            <span class="n">fuel</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">,</span> <span class="n">newOD</span><span class="p">)</span>
-
-        <span class="c1"># update things like hm at BOC and smear density parameters.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">buildNumberDensityParams</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">completeInitialLoading</span><span class="p">(</span><span class="n">bolBlock</span><span class="o">=</span><span class="n">bolBlock</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="Block.adjustCladThicknessByOD"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.adjustCladThicknessByOD">[docs]</a>    <span class="k">def</span> <span class="nf">adjustCladThicknessByOD</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Modifies the cladding thickness by adjusting the cladding outer diameter.&quot;&quot;&quot;</span>
-        <span class="n">clad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getCladdingComponentToModify</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">clad</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span>
-        <span class="n">innerDiam</span> <span class="o">=</span> <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">clad</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">,</span> <span class="n">innerDiam</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">value</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="Block.adjustCladThicknessByID"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.adjustCladThicknessByID">[docs]</a>    <span class="k">def</span> <span class="nf">adjustCladThicknessByID</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Modifies the cladding thickness by adjusting the cladding inner diameter.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        This WILL adjust the fuel smear density</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">clad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getCladdingComponentToModify</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">clad</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span>
-        <span class="n">od</span> <span class="o">=</span> <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">,</span> <span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">clad</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">od</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">value</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="Block._getCladdingComponentToModify"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block._getCladdingComponentToModify">[docs]</a>    <span class="k">def</span> <span class="nf">_getCladdingComponentToModify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="n">clad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">clad</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> does not have a cladding component to modify.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-            <span class="p">)</span>
-        <span class="k">if</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot modify </span><span class="si">{}</span><span class="s2"> on </span><span class="si">{}</span><span class="s2"> due to a negative modifier </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="n">clad</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">value</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="n">clad</span></div>
 
 <div class="viewcode-block" id="Block.getLocation"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getLocation">[docs]</a>    <span class="k">def</span> <span class="nf">getLocation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return a string representation of the location.&quot;&quot;&quot;</span>
@@ -1325,7 +1033,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">smearDensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSmearDensity</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">pass</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">enrichmentBOL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getEnrichment</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">enrichmentBOL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getFissileMassEnrich</span><span class="p">()</span>
         <span class="n">massHmBOL</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">sf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSymmetryFactor</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
@@ -1559,14 +1267,6 @@
             <span class="c1"># this may be a little wasteful, but we can fix it later...</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBuByPin</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">mult</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_updatePitchComponent</span><span class="p">(</span><span class="n">c</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="Block.addComponent"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.addComponent">[docs]</a>    <span class="k">def</span> <span class="nf">addComponent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;adds a component for component-based blocks.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="Block.removeComponent"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.removeComponent">[docs]</a>    <span class="k">def</span> <span class="nf">removeComponent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot; Removes a component from the component-based blocks.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">c</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Block.removeAll"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.removeAll">[docs]</a>    <span class="k">def</span> <span class="nf">removeAll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recomputeAreaFractions</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getChildren</span><span class="p">():</span>
@@ -1944,18 +1644,6 @@
             <span class="p">)</span>
             <span class="k">return</span> <span class="mf">0.0</span></div>
 
-<div class="viewcode-block" id="Block.getCoolantMaterial"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getCoolantMaterial">[docs]</a>    <span class="k">def</span> <span class="nf">getCoolantMaterial</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">COOLANT</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">getProperties</span><span class="p">()</span></div>
-
-<div class="viewcode-block" id="Block.getCladMaterial"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getCladMaterial">[docs]</a>    <span class="k">def</span> <span class="nf">getCladMaterial</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">getProperties</span><span class="p">()</span></div>
-
-<div class="viewcode-block" id="Block.getFuelMaterial"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getFuelMaterial">[docs]</a>    <span class="k">def</span> <span class="nf">getFuelMaterial</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">getProperties</span><span class="p">()</span></div>
-
 <div class="viewcode-block" id="Block.verifyBlockDims"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.verifyBlockDims">[docs]</a>    <span class="k">def</span> <span class="nf">verifyBlockDims</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Optional dimension checking.&quot;&quot;&quot;</span>
         <span class="k">return</span></div>
@@ -2110,7 +1798,7 @@
                 <span class="n">largestComponent</span> <span class="o">=</span> <span class="n">c</span>
         <span class="k">return</span> <span class="n">largestComponent</span></div>
 
-<div class="viewcode-block" id="Block.setPitch"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.setPitch">[docs]</a>    <span class="k">def</span> <span class="nf">setPitch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">updateBolParams</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">updateNumberDensityParams</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="Block.setPitch"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.setPitch">[docs]</a>    <span class="k">def</span> <span class="nf">setPitch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">updateBolParams</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Sets outer pitch to some new value.</span>
 
@@ -2135,10 +1823,7 @@
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No pitch-defining component on block </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">updateBolParams</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">completeInitialLoading</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">updateNumberDensityParams</span><span class="p">:</span>
-            <span class="c1"># may not want to do this if you will do it shortly thereafter.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">buildNumberDensityParams</span><span class="p">()</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">completeInitialLoading</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="Block.getMfp"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getMfp">[docs]</a>    <span class="k">def</span> <span class="nf">getMfp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;calculates the mean free path for neutron or gammas in this block.</span>
@@ -2390,7 +2075,7 @@
             <span class="n">newC</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">fuel</span><span class="p">)</span>
             <span class="n">newC</span><span class="o">.</span><span class="n">setName</span><span class="p">(</span><span class="s2">&quot;fuel</span><span class="si">{0:03d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>  <span class="c1"># start with 002.</span>
             <span class="n">newC</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNum</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">2</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">addComponent</span><span class="p">(</span><span class="n">newC</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">newC</span><span class="p">)</span>
 
         <span class="c1"># update moles at BOL for each pin</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOLByPin</span> <span class="o">=</span> <span class="p">[]</span>
@@ -2870,7 +2555,7 @@
         <span class="n">grid</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">HexGrid</span><span class="o">.</span><span class="n">fromPitch</span><span class="p">(</span><span class="n">pinPitch</span><span class="p">,</span> <span class="n">numPinRings</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">pointedEndUp</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">numPinRings</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">pos</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">hexagon</span><span class="o">.</span><span class="n">numPositionsInRing</span><span class="p">(</span><span class="n">ring</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
-                <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">getIndicesFromRingAndPos</span><span class="p">(</span><span class="n">ring</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">pos</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">getIndicesFromRingAndPos</span><span class="p">(</span><span class="n">ring</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">pos</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
                 <span class="n">xyz</span> <span class="o">=</span> <span class="n">grid</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span>
                 <span class="n">coordinates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xyz</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">coordinates</span></div>
@@ -2941,7 +2626,7 @@
         <span class="n">xw</span><span class="p">,</span> <span class="n">yw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getPitch</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">xw</span> <span class="o">*</span> <span class="n">yw</span></div>
 
-<div class="viewcode-block" id="CartesianBlock.setPitch"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.CartesianBlock.setPitch">[docs]</a>    <span class="k">def</span> <span class="nf">setPitch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">updateBolParams</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">updateNumberDensityParams</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="CartesianBlock.setPitch"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.CartesianBlock.setPitch">[docs]</a>    <span class="k">def</span> <span class="nf">setPitch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">updateBolParams</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
             <span class="s2">&quot;Directly setting the pitch of a cartesian block is currently not supported.&quot;</span>
         <span class="p">)</span></div>
@@ -3067,7 +2752,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-08-14.
+        Last updated on 2020-08-23.
       </span>
 
     </p>
