@@ -63,7 +63,7 @@
     
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
+        <div class="wy-side-nav-search"  style="background: #233C5B" >
           
 
           
@@ -106,9 +106,12 @@
             
             
               <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../user/index.html">User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../developer/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gallery/index.html">Gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user/index.html">User Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/index.html">Developer Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../blog/index.html">News</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../release/index.html">Release Notes</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">API Docs</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="armi.html">armi package</a><ul class="current">
@@ -155,7 +158,7 @@
 
       <div class="wy-nav-content">
         
-        <div class="rst-content">
+        <div class="rst-content style-external-links">
         
           
 
@@ -191,7 +194,9 @@
       <li class="wy-breadcrumbs-aside">
         
             
-            <a href="../_sources/.apidocs/armi.utils.asciimaps.rst.txt" rel="nofollow"> View page source</a>
+            
+              <a href="https://github.com/terrapower/armi/blob/master/doc/.apidocs/armi.utils.asciimaps.rst" class="fa fa-github"> Edit on GitHub</a>
+            
           
         
       </li>
@@ -236,6 +241,21 @@ in input files. This module reads various text and interprets them into meaningf
 data structures.</p>
 <p>We make classes for different geometries to share code. This will eventually be
 expanded for various symmetries that are applicable to cores, assemblies, etc.</p>
+<p>This is as attempted reimplementation of AsciiMaps aiming for simplicity,
+though inherently this work is complex.</p>
+<p>Some vocabulary used here:</p>
+<dl class="simple">
+<dt>column, line</dt><dd><p>column and line numbers in the actual ascii text representation. What
+you would see in a text editor.</p>
+</dd>
+<dt>offset</dt><dd><p>The number of spaces needed at the beginning a line to properly orient
+the ascii representation.</p>
+</dd>
+<dt>i, j</dt><dd><p>Indices in the grid itself. For Cartesian, j is like the line number,
+but in other geometries (like hex), it is a totally different
+coordinate system.</p>
+</dd>
+</dl>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
 <dl class="simple">
@@ -249,180 +269,336 @@ expanded for various symmetries that are applicable to cores, assemblies, etc.</
 </div>
 <dl class="py class">
 <dt id="armi.utils.asciimaps.AsciiMap">
-<em class="property">class </em><code class="sig-prename descclassname">armi.utils.asciimaps.</code><code class="sig-name descname">AsciiMap</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">lattice</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">armi.utils.asciimaps.</code><code class="sig-name descname">AsciiMap</code><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Base class for maps.</p>
-<p>These should be able to read and write ASCII maps.</p>
+<p>These should be able to read and write ASCII maps loaded either from text
+or programatically with i,j / specifiers.</p>
+<dl class="py attribute">
+<dt id="armi.utils.asciimaps.AsciiMap.asciiLines">
+<code class="sig-name descname">asciiLines</code><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.asciiLines" title="Permalink to this definition">¶</a></dt>
+<dd><p>A list of lines, each containing a list of ascii labels for each column. No blanks.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="armi.utils.asciimaps.AsciiMap.asciiOffsets">
+<code class="sig-name descname">asciiOffsets</code><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.asciiOffsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>A list of offsets for each line that will be prepended before the contents of asciiLines</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="armi.utils.asciimaps.AsciiMap.asciiLabelByIndices">
+<code class="sig-name descname">asciiLabelByIndices</code><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.asciiLabelByIndices" title="Permalink to this definition">¶</a></dt>
+<dd><p>A mapping from grid location objects to ascii labels</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="armi.utils.asciimaps.AsciiMap._spacer">
+<code class="sig-name descname">_spacer</code><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._spacer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Individual spacing for one ‘item’ of ascii</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="armi.utils.asciimaps.AsciiMap._placeholder">
+<code class="sig-name descname">_placeholder</code><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._placeholder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Placeholder for blank data. Also holds the size of ascii window for each value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="armi.utils.asciimaps.AsciiMap._ijMax">
+<code class="sig-name descname">_ijMax</code><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._ijMax" title="Permalink to this definition">¶</a></dt>
+<dd><p>Various dimensions of the ascii mesh and data</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="armi.utils.asciimaps.AsciiMap._asciiLinesOffCorner">
+<code class="sig-name descname">_asciiLinesOffCorner</code><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._asciiLinesOffCorner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of ascii lines chopped of corners</p>
+</dd></dl>
+
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMap.readMap">
-<code class="sig-name descname">readMap</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">text</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap.readMap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.readMap" title="Permalink to this definition">¶</a></dt>
-<dd><p>Iterate over an ASCII map and read it into a data structure.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>text</strong> (<em>str</em>) – The ascii lattice input text</p>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>lattice</strong> – A mapping between (i,j) indices and specifiers, which can be
-one or more non-space chars.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>dict</p>
-</dd>
-</dl>
+<dt id="armi.utils.asciimaps.AsciiMap.writeAscii">
+<code class="sig-name descname">writeAscii</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">stream</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap.writeAscii"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.writeAscii" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write out the ascii representation</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMap.readAscii">
+<code class="sig-name descname">readAscii</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">text</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap.readAscii"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.readAscii" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read ascii representation from a stream.</p>
+<p>Update placeholder size according to largest thing read.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMap._updateSlotSizeFromData">
+<code class="sig-name descname">_updateSlotSizeFromData</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap._updateSlotSizeFromData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._updateSlotSizeFromData" title="Permalink to this definition">¶</a></dt>
+<dd><p>After reading data, update slot size for writing.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMap._updateDimensionsFromAsciiLines">
+<code class="sig-name descname">_updateDimensionsFromAsciiLines</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap._updateDimensionsFromAsciiLines"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._updateDimensionsFromAsciiLines" title="Permalink to this definition">¶</a></dt>
+<dd><p>When converting ascii to data we need to infer the ijMax before reading
+the ij indices.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
 <dl class="simple">
-<dt><a class="reference internal" href="armi.reactor.grids.html#module-armi.reactor.grids" title="armi.reactor.grids"><code class="xref py py-meth docutils literal notranslate"><span class="pre">armi.reactor.grids()</span></code></a></dt><dd><p>Grid objects that this information can be turned into</p>
+<dt><a class="reference internal" href="#armi.utils.asciimaps.AsciiMap._updateDimensionsFromData" title="armi.utils.asciimaps.AsciiMap._updateDimensionsFromData"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_updateDimensionsFromData()</span></code></a></dt><dd><p>used to infer this information when loading from i,j data</p>
 </dd>
 </dl>
 </div>
 </dd></dl>
 
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMap.writeMap">
-<code class="sig-name descname">writeMap</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">stream</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap.writeMap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.writeMap" title="Permalink to this definition">¶</a></dt>
-<dd><p>Write an ascii map from the internal lattice structure to a stream.</p>
+<dt id="armi.utils.asciimaps.AsciiMap._updateDimensionsFromData">
+<code class="sig-name descname">_updateDimensionsFromData</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap._updateDimensionsFromData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._updateDimensionsFromData" title="Permalink to this definition">¶</a></dt>
+<dd><p>After data is loaded, figure out the bounds.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#armi.utils.asciimaps.AsciiMap._updateDimensionsFromAsciiLines" title="armi.utils.asciimaps.AsciiMap._updateDimensionsFromAsciiLines"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_updateDimensionsFromAsciiLines()</span></code></a></dt><dd><p>used when reading info from ascii lines</p>
+</dd>
+</dl>
+</div>
 </dd></dl>
 
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMap._getRowBase">
-<em class="property">static </em><code class="sig-name descname">_getRowBase</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">row</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap._getRowBase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._getRowBase" title="Permalink to this definition">¶</a></dt>
+<dt id="armi.utils.asciimaps.AsciiMap.fromReactor">
+<em class="property">static </em><code class="sig-name descname">fromReactor</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">reactor</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap.fromReactor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.fromReactor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Populate mapping from a reactor in preparation of writing out to ascii.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMap.gridContentsToAscii">
+<code class="sig-name descname">gridContentsToAscii</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap.gridContentsToAscii"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.gridContentsToAscii" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a prepared asciiLabelByIndices to ascii lines and offsets.</p>
+<p>This is used when you have i,j/specifier data and want to create a ascii map from it
+as opposed to reading a ascii map from a stream.</p>
+<p>As long as the map knows how to convert lineNum and colNums into ij indices, this
+is universal. In some implementations, this operation is in a different
+method for efficiency.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMap._removeTrailingPlaceholders">
+<code class="sig-name descname">_removeTrailingPlaceholders</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">line</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap._removeTrailingPlaceholders"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._removeTrailingPlaceholders" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMap._getIndices">
-<em class="property">static </em><code class="sig-name descname">_getIndices</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">base</span></em>, <em class="sig-param"><span class="n">col</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap._getIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._getIndices" title="Permalink to this definition">¶</a></dt>
+<dt id="armi.utils.asciimaps.AsciiMap._asciiLinesToIndices">
+<code class="sig-name descname">_asciiLinesToIndices</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap._asciiLinesToIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._asciiLinesToIndices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert read in ASCII lines to a asciiLabelByIndices structure</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMap._getIJFromColRow">
+<code class="sig-name descname">_getIJFromColRow</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">colNum</span><span class="p">:</span> <span class="n">int</span></em>, <em class="sig-param"><span class="n">lineNum</span><span class="p">:</span> <span class="n">int</span></em><span class="sig-paren">)</span> &#x2192; tuple<a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap._getIJFromColRow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._getIJFromColRow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get ij data indices from ascii map text coords.</p>
+<p>lineNum is typically from the bottom of the ascii… I think.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMap.__getitem__">
+<code class="sig-name descname">__getitem__</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">ijKey</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap.__getitem__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.__getitem__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get ascii item by grid i,j index.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMap._makeOffsets">
+<code class="sig-name descname">_makeOffsets</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap._makeOffsets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap._makeOffsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build offsets</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMap.items">
+<code class="sig-name descname">items</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMap.items"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMap.items" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt id="armi.utils.asciimaps.AsciiMapCartesian">
-<em class="property">class </em><code class="sig-prename descclassname">armi.utils.asciimaps.</code><code class="sig-name descname">AsciiMapCartesian</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">lattice</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapCartesian"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapCartesian" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">armi.utils.asciimaps.</code><code class="sig-name descname">AsciiMapCartesian</code><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapCartesian"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapCartesian" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#armi.utils.asciimaps.AsciiMap" title="armi.utils.asciimaps.AsciiMap"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.utils.asciimaps.AsciiMap</span></code></a></p>
-<p>Read a square or rectangular ascii map.</p>
-<p>This may represent a full assembly or core or some symmetry of that.</p>
+<p>Cartesian ascii map.</p>
+<p>Conveniently simple because offsets are always 0</p>
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMapCartesian._getRowBase">
-<em class="property">static </em><code class="sig-name descname">_getRowBase</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">row</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapCartesian._getRowBase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapCartesian._getRowBase" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return the base point for a given row. In Cartesian, this is just the row.</p>
+<dt id="armi.utils.asciimaps.AsciiMapCartesian._asciiLinesToIndices">
+<code class="sig-name descname">_asciiLinesToIndices</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapCartesian._asciiLinesToIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapCartesian._asciiLinesToIndices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert read in ASCII lines to a asciiLabelByIndices structure</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMapCartesian._getIndices">
-<em class="property">static </em><code class="sig-name descname">_getIndices</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">base</span></em>, <em class="sig-param"><span class="n">col</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapCartesian._getIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapCartesian._getIndices" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt id="armi.utils.asciimaps.AsciiMapHexThird">
-<em class="property">class </em><code class="sig-prename descclassname">armi.utils.asciimaps.</code><code class="sig-name descname">AsciiMapHexThird</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">lattice</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThird"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThird" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#armi.utils.asciimaps.AsciiMap" title="armi.utils.asciimaps.AsciiMap"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.utils.asciimaps.AsciiMap</span></code></a></p>
-<p>Read a 1/3-symmetric hex map with flat ends up/down.</p>
-<p>This is often useful for core maps in hex-assembly reactors like VVERs or SFRs.
-This should be missing the overlapping assemblies on the 120-degree line
-like in a nodal DIF3D case.</p>
-<p>This has 2 axes that are at a 60-degree angle. i marches up
-and down the 30-degree ray and j marches up and down the 90-degree
-ray. The center is (0,0). Negative indices are found beyond these
-rays in the 1/3 symmetric map.</p>
-<p>In reading a third core, you just need to figure out what the
-left-hand (i,j) starting point (base) is of any row. Then, as you go across the column
-from left to right, i increments by 2 each time, and j decrements by 1
-each time.</p>
-<p>The base hexes (LHS) as a function of rows from bottom are:
-Row:    0      1      2      3        4      5       6       7       8      9       10      11    12
-Base: (0,0), (1,0)  (0,1),  (1,1),  (0,2), (-1,3), (0,3), (-1,4), (-2,5), (-1,5), (-2,6), (-3,7) (-2,7)</p>
-<p>After the first 3, it’s stepping up the 120-degree ray, two steps left,
-one step right, repeat. Very 3-based.</p>
-<p>First, find which triplet you’re in (beyond the first): row//3</p>
-<p>Triplet: 0        1      2      3       4
-Base:    N/A   (1,1)  (0,3)  (-1,5) (-2,7)
-Pattern (&gt;0):     (2-triplet, triplet*2-1)</p>
-<p>Then stride inside your triplet by position: row%3
-base = (tI-pos, tJ+pos)</p>
-<p>Of course, this breaks down as soon as you roll off the 120-degree
-symmetry line towards the top of the map. Here we either have to make
-whitespace count or insert dummy placeholders. The placeholders
-are going to be less fragile.</p>
-<dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMapHexThird._getRowBase">
-<em class="property">static </em><code class="sig-name descname">_getRowBase</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">row</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThird._getRowBase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThird._getRowBase" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the i,j base of a text row in 1/3 hex.</p>
+<dt id="armi.utils.asciimaps.AsciiMapCartesian._getIJFromColRow">
+<code class="sig-name descname">_getIJFromColRow</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">columNum</span></em>, <em class="sig-param"><span class="n">lineNum</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapCartesian._getIJFromColRow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapCartesian._getIJFromColRow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get ij data indices from ascii map text coords.</p>
+<p>lineNum is typically from the bottom of the ascii… I think.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMapHexThird._getFirstTripletBase">
-<em class="property">static </em><code class="sig-name descname">_getFirstTripletBase</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tripletPos</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThird._getFirstTripletBase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThird._getFirstTripletBase" title="Permalink to this definition">¶</a></dt>
-<dd><p>Handle base for first triplet at center of core.</p>
+<dt id="armi.utils.asciimaps.AsciiMapCartesian._makeOffsets">
+<code class="sig-name descname">_makeOffsets</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapCartesian._makeOffsets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapCartesian._makeOffsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cartesian grids have 0 offset on all lines.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMapHexThird._getIndices">
-<em class="property">static </em><code class="sig-name descname">_getIndices</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">base</span></em>, <em class="sig-param"><span class="n">col</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThird._getIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThird._getIndices" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMapHexThird.writeMap">
-<code class="sig-name descname">writeMap</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">stream</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThird.writeMap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThird.writeMap" title="Permalink to this definition">¶</a></dt>
-<dd><p>Write the lattice to a text stream</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt id="armi.utils.asciimaps.AsciiMapHexFullTipsUp">
-<em class="property">class </em><code class="sig-prename descclassname">armi.utils.asciimaps.</code><code class="sig-name descname">AsciiMapHexFullTipsUp</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">lattice</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullTipsUp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullTipsUp" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#armi.utils.asciimaps.AsciiMap" title="armi.utils.asciimaps.AsciiMap"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.utils.asciimaps.AsciiMap</span></code></a></p>
-<p>Read a full hexagonal ASCII map with tips of hexagons pointing up.</p>
-<p>This is often useful for pins inside a hexagonal assembly that has
-flat ends of the assembly up.</p>
-<p>In this case, the axes are also 60-degrees offset (above x-axis),
-with i incrementing horizontally and j incrementing up along
-the 60-degree ray.</p>
-<p>This reads in a full hex and puts 0,0 at the center point (using a shift).</p>
-<dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMapHexFullTipsUp.readMap">
-<code class="sig-name descname">readMap</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">text</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullTipsUp.readMap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullTipsUp.readMap" title="Permalink to this definition">¶</a></dt>
-<dd><p>Iterate over an ASCII map and read it into a data structure.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>text</strong> (<em>str</em>) – The ascii lattice input text</p>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>lattice</strong> – A mapping between (i,j) indices and specifiers, which can be
-one or more non-space chars.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>dict</p>
-</dd>
-</dl>
+<dt id="armi.utils.asciimaps.AsciiMapCartesian._updateDimensionsFromAsciiLines">
+<code class="sig-name descname">_updateDimensionsFromAsciiLines</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapCartesian._updateDimensionsFromAsciiLines"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapCartesian._updateDimensionsFromAsciiLines" title="Permalink to this definition">¶</a></dt>
+<dd><p>When converting ascii to data we need to infer the ijMax before reading
+the ij indices.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
 <dl class="simple">
-<dt><a class="reference internal" href="armi.reactor.grids.html#module-armi.reactor.grids" title="armi.reactor.grids"><code class="xref py py-meth docutils literal notranslate"><span class="pre">armi.reactor.grids()</span></code></a></dt><dd><p>Grid objects that this information can be turned into</p>
+<dt><code class="xref py py-meth docutils literal notranslate"><span class="pre">_updateDimensionsFromData()</span></code></dt><dd><p>used to infer this information when loading from i,j data</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="armi.utils.asciimaps.AsciiMapHexThirdFlatsUp">
+<em class="property">class </em><code class="sig-prename descclassname">armi.utils.asciimaps.</code><code class="sig-name descname">AsciiMapHexThirdFlatsUp</code><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThirdFlatsUp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThirdFlatsUp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#armi.utils.asciimaps.AsciiMap" title="armi.utils.asciimaps.AsciiMap"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.utils.asciimaps.AsciiMap</span></code></a></p>
+<p>Hex ascii map for 1/3 core flats-up map.</p>
+<p>In all flats-up hex maps, i increments by 2*col for each col
+and j decrements by col from the base.</p>
+<p>These are much more complex maps than the tips up ones because
+there are 2 ascii lines for every j index (jaggedly).</p>
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._asciiLinesToIndices">
+<code class="sig-name descname">_asciiLinesToIndices</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThirdFlatsUp._asciiLinesToIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._asciiLinesToIndices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert read in ASCII lines to a asciiLabelByIndices structure</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._getIJFromColRow">
+<code class="sig-name descname">_getIJFromColRow</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">columNum</span></em>, <em class="sig-param"><span class="n">lineNum</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThirdFlatsUp._getIJFromColRow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._getIJFromColRow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Not used in reading from file b/c slow but required for writing from ij data</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._getIJBaseByAsciiLine">
+<code class="sig-name descname">_getIJBaseByAsciiLine</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">asciiLineNum</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThirdFlatsUp._getIJBaseByAsciiLine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._getIJBaseByAsciiLine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get i,j base (starting point) for a row from bottom.</p>
+<p>For 1/3 symmetric cases, the base is a constant pattern
+vs. row number at least until the top section.</p>
+<p>The base hexes (LHS) as a function of rows from bottom are:</p>
+<p>Row:    0      1      2      3        4      5       6       7       8      9       10      11    12
+Base: (0,0), (1,0)  (0,1),  (1,1),  (0,2), (-1,3), (0,3), (-1,4), (-2,5), (-1,5), (-2,6), (-3,7) (-2,7)</p>
+<p>Looking graphically, there are basically 3 rays going up at 120 degrees.
+So we can find a consistent pattern for each ray and use a modulus to figure
+out which ray we’re on.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._makeOffsets">
+<code class="sig-name descname">_makeOffsets</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThirdFlatsUp._makeOffsets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._makeOffsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>One third hex grids have larger offsets at the bottom.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._updateDimensionsFromAsciiLines">
+<code class="sig-name descname">_updateDimensionsFromAsciiLines</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThirdFlatsUp._updateDimensionsFromAsciiLines"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._updateDimensionsFromAsciiLines" title="Permalink to this definition">¶</a></dt>
+<dd><p>When converting ascii to data we need to infer the ijMax before reading
+the ij indices.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._updateDimensionsFromData" title="armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._updateDimensionsFromData"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_updateDimensionsFromData()</span></code></a></dt><dd><p>used to infer this information when loading from i,j data</p>
 </dd>
 </dl>
 </div>
 </dd></dl>
 
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMapHexFullTipsUp._getRowBase">
-<em class="property">static </em><code class="sig-name descname">_getRowBase</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">row</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullTipsUp._getRowBase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullTipsUp._getRowBase" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the i,j base of a text row full hex.</p>
+<dt id="armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._updateDimensionsFromData">
+<code class="sig-name descname">_updateDimensionsFromData</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexThirdFlatsUp._updateDimensionsFromData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexThirdFlatsUp._updateDimensionsFromData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add flat-hex specific corner truncation detection</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="armi.utils.asciimaps.AsciiMapHexFullFlatsUp">
+<em class="property">class </em><code class="sig-prename descclassname">armi.utils.asciimaps.</code><code class="sig-name descname">AsciiMapHexFullFlatsUp</code><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullFlatsUp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullFlatsUp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#armi.utils.asciimaps.AsciiMapHexThirdFlatsUp" title="armi.utils.asciimaps.AsciiMapHexThirdFlatsUp"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.utils.asciimaps.AsciiMapHexThirdFlatsUp</span></code></a></p>
+<p>Full core flats up.</p>
+<p>Rather than making a consistent base, we switch base angles
+with this one because otherwise there would be a ridiculous
+number of placeholders. This makes this one’s base computation
+more complex.</p>
+<p>We also allow the corners to be cut off on these, further
+complicating things.</p>
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMapHexFullFlatsUp._getIJBaseByAsciiLine">
+<code class="sig-name descname">_getIJBaseByAsciiLine</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">asciiLineNum</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullFlatsUp._getIJBaseByAsciiLine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullFlatsUp._getIJBaseByAsciiLine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get i,j base (starting point) for a row from bottom.</p>
+<p>Starts out in simple pattern and then shifts.</p>
+<p>Recall that there are 2 ascii lines per j index because jagged.</p>
+<p>If hex corners are omitted, we must offset the line num to get
+the base right (complexity!)</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMapHexFullTipsUp._getIndices">
-<em class="property">static </em><code class="sig-name descname">_getIndices</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">base</span></em>, <em class="sig-param"><span class="n">col</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullTipsUp._getIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullTipsUp._getIndices" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dt id="armi.utils.asciimaps.AsciiMapHexFullFlatsUp._makeOffsets">
+<code class="sig-name descname">_makeOffsets</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullFlatsUp._makeOffsets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullFlatsUp._makeOffsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handle offsets for full-hex flat grids.</p>
+<p>Due to the staggered nature, these have 0 or 1 offsets on
+top and and then 0 or 1 + an actual offset on the bottom.</p>
+</dd></dl>
 
 <dl class="py method">
-<dt id="armi.utils.asciimaps.AsciiMapHexFullTipsUp._shiftLattice">
-<em class="property">static </em><code class="sig-name descname">_shiftLattice</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">lattice</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullTipsUp._shiftLattice"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullTipsUp._shiftLattice" title="Permalink to this definition">¶</a></dt>
-<dd><p>Shift lattice indices so 0,0 is in the center rather than the bottom left corner.</p>
-<p>This simply requires shifting down the j-axis.</p>
+<dt id="armi.utils.asciimaps.AsciiMapHexFullFlatsUp._updateDimensionsFromData">
+<code class="sig-name descname">_updateDimensionsFromData</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullFlatsUp._updateDimensionsFromData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullFlatsUp._updateDimensionsFromData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add flat-hex specific corner truncation detection</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="armi.utils.asciimaps.AsciiMapHexFullTipsUp">
+<em class="property">class </em><code class="sig-prename descclassname">armi.utils.asciimaps.</code><code class="sig-name descname">AsciiMapHexFullTipsUp</code><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullTipsUp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullTipsUp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#armi.utils.asciimaps.AsciiMap" title="armi.utils.asciimaps.AsciiMap"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.utils.asciimaps.AsciiMap</span></code></a></p>
+<p>Full hex with tips up of the smaller cells.</p>
+<p>I axis is pure horizontal here
+J axis is 60 degrees up. (upper right corner)</p>
+<p>Frequently used for pins inside hex assemblies.</p>
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMapHexFullTipsUp._asciiLinesToIndices">
+<code class="sig-name descname">_asciiLinesToIndices</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullTipsUp._asciiLinesToIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullTipsUp._asciiLinesToIndices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert read in ASCII lines to a asciiLabelByIndices structure</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMapHexFullTipsUp._getIJFromColRow">
+<code class="sig-name descname">_getIJFromColRow</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">columNum</span></em>, <em class="sig-param"><span class="n">lineNum</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullTipsUp._getIJFromColRow"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullTipsUp._getIJFromColRow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Not used in reading from file b/c slow but required for writing from ij data</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMapHexFullTipsUp._getIJBaseByAsciiLine">
+<code class="sig-name descname">_getIJBaseByAsciiLine</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">asciiLineNum</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullTipsUp._getIJBaseByAsciiLine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullTipsUp._getIJBaseByAsciiLine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get i,j base (starting point) for a row from top.
+Easy and consistent.</p>
+<p>Upper left is shifted by (size-1)//2</p>
+<p>for a 19-line grid, we have the top left as (-18,9)
+and then: (-17, 8), (-16, 7), …</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="armi.utils.asciimaps.AsciiMapHexFullTipsUp._updateDimensionsFromAsciiLines">
+<code class="sig-name descname">_updateDimensionsFromAsciiLines</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/utils/asciimaps.html#AsciiMapHexFullTipsUp._updateDimensionsFromAsciiLines"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.utils.asciimaps.AsciiMapHexFullTipsUp._updateDimensionsFromAsciiLines" title="Permalink to this definition">¶</a></dt>
+<dd><p>When converting ascii to data we need to infer the ijMax before reading
+the ij indices.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><code class="xref py py-meth docutils literal notranslate"><span class="pre">_updateDimensionsFromData()</span></code></dt><dd><p>used to infer this information when loading from i,j data</p>
+</dd>
+</dl>
+</div>
 </dd></dl>
 
 </dd></dl>
@@ -458,7 +634,7 @@ one or more non-space chars.</p>
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-08-23.
+        Last updated on 2020-09-17.
       </span>
 
     </p>

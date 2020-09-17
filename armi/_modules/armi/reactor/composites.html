@@ -54,7 +54,7 @@
     
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
+        <div class="wy-side-nav-search"  style="background: #233C5B" >
           
 
           
@@ -97,9 +97,12 @@
             
             
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../user/index.html">User Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../developer/index.html">Developer Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../gallery/index.html">Gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/index.html">User Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developer/index.html">Developer Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../blog/index.html">News</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../release/index.html">Release Notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../.apidocs/modules.html">API Docs</a></li>
 </ul>
@@ -124,7 +127,7 @@
 
       <div class="wy-nav-content">
         
-        <div class="rst-content">
+        <div class="rst-content style-external-links">
         
           
 
@@ -195,9 +198,6 @@
 <span class="sd">the hierarchy is available from everywhere. This design was chosen because of the close</span>
 <span class="sd">analogy of the model to the physical nature of nuclear reactors.</span>
 
-<span class="sd">These objects are mostly abstract and users should use their subclasses (e.g.</span>
-<span class="sd">:py:mod:`armi.reactor.blocks.Block`) in most cases.</span>
-
 <span class="sd">.. warning:: Because each member of the hierarchy is linked to the entire tree,</span>
 <span class="sd">    it is often unsafe to save references to individual members; it can cause</span>
 <span class="sd">    large and unexpected memory inefficiencies.</span>
@@ -206,7 +206,7 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">timeit</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 <span class="kn">import</span> <span class="nn">tabulate</span>
@@ -224,11 +224,9 @@
 <span class="kn">from</span> <span class="nn">armi.localization</span> <span class="k">import</span> <span class="n">exceptions</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">grids</span>
 
-<span class="kn">from</span> <span class="nn">armi.physics.neutronics.isotopicDepletion.crossSectionTable</span> <span class="k">import</span> <span class="p">(</span>
-    <span class="n">CrossSectionTable</span><span class="p">,</span>
-<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.fissionProductModel</span> <span class="k">import</span> <span class="n">fissionProductModel</span>
 <span class="kn">from</span> <span class="nn">armi.nuclearDataIO</span> <span class="k">import</span> <span class="n">xsCollections</span>
+<span class="kn">from</span> <span class="nn">armi.utils.densityTools</span> <span class="k">import</span> <span class="n">calculateNumberDensity</span>
 
 
 <div class="viewcode-block" id="FlagSerializer"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.FlagSerializer">[docs]</a><span class="k">class</span> <span class="nc">FlagSerializer</span><span class="p">(</span><span class="n">parameters</span><span class="o">.</span><span class="n">Serializer</span><span class="p">):</span>
@@ -376,7 +374,7 @@
 <span class="sd">    * declares the interface for objects in the composition</span>
 <span class="sd">    * implements default behavior for the interface common to all</span>
 <span class="sd">      classes</span>
-<span class="sd">    * Declares and interface for accessing and managing</span>
+<span class="sd">    * Declares an interface for accessing and managing</span>
 <span class="sd">      child objects</span>
 <span class="sd">    * Defines an interface for accessing parents.</span>
 
@@ -392,6 +390,14 @@
 <span class="sd">    all of its parents. A new ``paramCollectionType`` class attribute will be added to</span>
 <span class="sd">    the ArmiObject subclass to reflect which type of parameter collection should be</span>
 <span class="sd">    used.</span>
+
+<span class="sd">    .. warning::</span>
+<span class="sd">        This class has far too many public methods. We are in the midst of a composite</span>
+<span class="sd">        tree cleanup that will likely break these out onto a number of separate functional</span>
+<span class="sd">        classes grouping things like composition, location, shape/dimensions, and</span>
+<span class="sd">        various physics queries. Methods are being collected here from the various</span>
+<span class="sd">        specialized subclasses (Block, Assembly) in preparation for this next step.</span>
+<span class="sd">        As a result, the public API on this method should be considered unstable.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
@@ -418,7 +424,6 @@
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_children</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cached</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_backupCache</span> <span class="o">=</span> <span class="kc">None</span>
@@ -428,11 +433,8 @@
         <span class="c1"># way to either represent them in parameters, or otherwise reliably</span>
         <span class="c1"># recover them.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_lumpedFissionProducts</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">crossSectionTable</span> <span class="o">=</span> <span class="kc">None</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">CoordinateLocation</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">childrenByLocator</span> <span class="o">=</span> <span class="p">{}</span>
 
 <div class="viewcode-block" id="ArmiObject.__lt__"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.__lt__">[docs]</a>    <span class="k">def</span> <span class="nf">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -452,7 +454,9 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">other</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;could not compare </span><span class="si">{}</span><span class="s2"> and </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">))</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;One or more of the compared objects have no spatialLocator&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;One or more of the compared objects have no spatialLocator&quot;</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">other</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">grid</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;could not compare </span><span class="si">{}</span><span class="s2"> and </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">))</span>
@@ -617,6 +621,31 @@
         <span class="sd">&quot;&quot;&quot;Get all children that have given flags.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="ne">NotImplementedError</span></div>
 
+<div class="viewcode-block" id="ArmiObject.getComponents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getComponents">[docs]</a>    <span class="k">def</span> <span class="nf">getComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return all armi.reactor.component.Component within this Composite.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        typeSpec : TypeSpec</span>
+<span class="sd">            Component flags. Will restrict Components to specific ones matching the</span>
+<span class="sd">            flags specified.</span>
+
+<span class="sd">        exact : bool, optional</span>
+<span class="sd">            Only match exact component labels (names). If True, &#39;coolant&#39; will not match</span>
+<span class="sd">            &#39;interCoolant&#39;.  This has no impact if compLabel is None.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of Component</span>
+<span class="sd">            items matching compLabel and exact criteria</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="ArmiObject.iterComponents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.iterComponents">[docs]</a>    <span class="k">def</span> <span class="nf">iterComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Yield components one by one in a generator.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
 <div class="viewcode-block" id="ArmiObject.doChildrenHaveFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.doChildrenHaveFlags">[docs]</a>    <span class="k">def</span> <span class="nf">doChildrenHaveFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Generator that yields True if the next child has given flags.</span>
@@ -703,7 +732,7 @@
 
 <div class="viewcode-block" id="ArmiObject.getParamNames"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getParamNames">[docs]</a>    <span class="k">def</span> <span class="nf">getParamNames</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get a list of block-level parameters keys that are available on this block</span>
+<span class="sd">        Get a list of parameters keys that are available on this object.</span>
 
 <span class="sd">        Will not have any corner, edge, or timenode dependence.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -753,7 +782,7 @@
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        hasFlags : bool</span>
-<span class="sd">            True if this block is in the typeID list.</span>
+<span class="sd">            True if this object is in the typeID list.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -765,7 +794,7 @@
 <span class="sd">        operations.</span>
 
 <span class="sd">        Always returns true if typeID is none and exact is False, allowing for default</span>
-<span class="sd">        parameters to be passed in when the method does not care about the block type.</span>
+<span class="sd">        parameters to be passed in when the method does not care about the object type.</span>
 <span class="sd">        If the typeID is none and exact is True, this will always return False.</span>
 
 <span class="sd">        Examples</span>
@@ -922,7 +951,7 @@
         <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">components</span>  <span class="c1"># avoid circular import</span>
 
         <span class="n">leftover</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">processed</span> <span class="o">=</span> <span class="p">[]</span> <span class="c1"># for input debugging</span>
+        <span class="n">processed</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># for input debugging</span>
         <span class="n">totalVolume</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getChildren</span><span class="p">():</span>
             <span class="c1"># so far, only coolants do this. ThRZBlock&#39;s with these must have</span>
@@ -943,9 +972,17 @@
                     <span class="s2">&quot;Total of others is </span><span class="si">{4}</span><span class="se">\n</span><span class="s2">&quot;</span>
                     <span class="s2">&quot;Processed children include:</span><span class="se">\n</span><span class="si">{5}</span><span class="s2">&quot;</span>
                     <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                        <span class="n">derivedVolume</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">getMaxVolume</span><span class="p">(),</span> <span class="n">totalVolume</span><span class="p">,</span>
-                        <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">f</span><span class="s2">&quot;</span><span class="si">{child:40s}</span><span class="s2">, {child.getArea():.5e}&quot;</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span>
-                            <span class="n">processed</span><span class="p">])</span>
+                        <span class="n">derivedVolume</span><span class="p">,</span>
+                        <span class="n">left</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">getMaxVolume</span><span class="p">(),</span>
+                        <span class="n">totalVolume</span><span class="p">,</span>
+                        <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                            <span class="p">[</span>
+                                <span class="n">f</span><span class="s2">&quot;</span><span class="si">{child:40s}</span><span class="s2">, {child.getArea():.5e}&quot;</span>
+                                <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">processed</span>
+                            <span class="p">]</span>
+                        <span class="p">),</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
                 <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
@@ -971,14 +1008,14 @@
         <span class="k">return</span> <span class="n">derivedVolume</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getMaxArea"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getMaxArea">[docs]</a>    <span class="k">def</span> <span class="nf">getMaxArea</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot; &quot;</span>
 <span class="sd">        The maximum area of this object if it were totally full.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
 <span class="sd">        armi.reactor.blocks.HexBlock.getMaxArea</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getMaxVolume"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getMaxVolume">[docs]</a>    <span class="k">def</span> <span class="nf">getMaxVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -989,7 +1026,7 @@
 <span class="sd">        vol : float</span>
 <span class="sd">            volume in cm^3.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getMass"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getMass">[docs]</a>    <span class="k">def</span> <span class="nf">getMass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nuclideNames</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1006,7 +1043,9 @@
 <span class="sd">        mass : float</span>
 <span class="sd">            The mass in grams.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="n">c</span><span class="o">.</span><span class="n">getMass</span><span class="p">(</span><span class="n">nuclideNames</span><span class="o">=</span><span class="n">nuclideNames</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponents</span><span class="p">()])</span></div>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">getMass</span><span class="p">(</span><span class="n">nuclideNames</span><span class="o">=</span><span class="n">nuclideNames</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">()]</span>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getMassFrac"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getMassFrac">[docs]</a>    <span class="k">def</span> <span class="nf">getMassFrac</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1354,11 +1393,10 @@
 
 <div class="viewcode-block" id="ArmiObject.getNuclideNumberDensities"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getNuclideNumberDensities">[docs]</a>    <span class="k">def</span> <span class="nf">getNuclideNumberDensities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucNames</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return a list of number densities in atoms/barn-cm for the nuc names requested.&quot;&quot;&quot;</span>
-        <span class="n">comps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponents</span><span class="p">()</span>  <span class="c1"># storing as local is speedup</span>
         <span class="n">volumes</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
             <span class="p">[</span>
                 <span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getSymmetryFactor</span><span class="p">()</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">parent</span> <span class="k">else</span> <span class="mf">1.0</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">comps</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">()</span>
             <span class="p">]</span>
         <span class="p">)</span>  <span class="c1"># c x 1</span>
         <span class="n">totalVol</span> <span class="o">=</span> <span class="n">volumes</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
@@ -1367,7 +1405,10 @@
             <span class="k">return</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">nucNames</span><span class="p">)</span>
 
         <span class="n">nucDensForEachComp</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
-            <span class="p">[[</span><span class="n">c</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">)</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nucNames</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">comps</span><span class="p">]</span>
+            <span class="p">[</span>
+                <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">)</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nucNames</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">()</span>
+            <span class="p">]</span>
         <span class="p">)</span>  <span class="c1"># c x n</span>
         <span class="k">return</span> <span class="n">volumes</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">nucDensForEachComp</span><span class="p">)</span> <span class="o">/</span> <span class="n">totalVol</span></div>
 
@@ -2308,11 +2349,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">numerator</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">denominator</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">():</span>
+
+        <span class="n">numDensities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">nDen</span> <span class="ow">in</span> <span class="n">numDensities</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">atomicWeight</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span>
-            <span class="n">ni</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nucName</span><span class="p">)</span>
-            <span class="n">numerator</span> <span class="o">+=</span> <span class="n">atomicWeight</span> <span class="o">*</span> <span class="n">ni</span>
-            <span class="n">denominator</span> <span class="o">+=</span> <span class="n">ni</span>
+            <span class="n">numerator</span> <span class="o">+=</span> <span class="n">atomicWeight</span> <span class="o">*</span> <span class="n">nDen</span>
+            <span class="n">denominator</span> <span class="o">+=</span> <span class="n">nDen</span>
         <span class="k">return</span> <span class="n">numerator</span> <span class="o">/</span> <span class="n">denominator</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getMasses"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getMasses">[docs]</a>    <span class="k">def</span> <span class="nf">getMasses</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -2377,60 +2420,62 @@
 <div class="viewcode-block" id="ArmiObject.removeMass"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.removeMass">[docs]</a>    <span class="k">def</span> <span class="nf">removeMass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">addMass</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="o">-</span><span class="n">mass</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ArmiObject.addMass"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.addMass">[docs]</a>    <span class="k">def</span> <span class="nf">addMass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lumpedFissionProducts</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.addMass"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.addMass">[docs]</a>    <span class="k">def</span> <span class="nf">addMass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        nucName - str</span>
+<span class="sd">        nucName : str</span>
 <span class="sd">            nuclide name e.g. &#39;U235&#39;</span>
 
-<span class="sd">        mass - float</span>
+<span class="sd">        mass : float</span>
 <span class="sd">            mass in grams of nuclide to be added to this armi Object</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div>
+        <span class="n">volume</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+        <span class="n">addedNumberDensity</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">calculateNumberDensity</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">volume</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span>
+            <span class="n">nucName</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nucName</span><span class="p">)</span> <span class="o">+</span> <span class="n">addedNumberDensity</span>
+        <span class="p">)</span></div>
 
-<div class="viewcode-block" id="ArmiObject.addMasses"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.addMasses">[docs]</a>    <span class="k">def</span> <span class="nf">addMasses</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lumpedFissionProducts</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.addMasses"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.addMasses">[docs]</a>    <span class="k">def</span> <span class="nf">addMasses</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">masses</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Adds a vector of masses.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        masses : Dict</span>
+<span class="sd">        masses : dict</span>
 <span class="sd">            a dictionary of masses (g) indexed by nucNames (string)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span> <span class="ow">in</span> <span class="n">masses</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">mass</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">addMass</span><span class="p">(</span>
-                    <span class="n">nucName</span><span class="p">,</span>
-                    <span class="n">mass</span><span class="p">,</span>
-                    <span class="n">density</span><span class="o">=</span><span class="n">density</span><span class="p">,</span>
-                    <span class="n">lumpedFissionProducts</span><span class="o">=</span><span class="n">lumpedFissionProducts</span><span class="p">,</span>
-                <span class="p">)</span></div>
+            <span class="k">if</span> <span class="n">mass</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">addMass</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ArmiObject.setMass"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.setMass">[docs]</a>    <span class="k">def</span> <span class="nf">setMass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lumpedFissionProducts</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.setMass"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.setMass">[docs]</a>    <span class="k">def</span> <span class="nf">setMass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Set the mass of a defined nuclide to the defined mass.</span>
+<span class="sd">        Set the mass in an object by adjusting the ndens of the nuclides.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        nucName - string</span>
-<span class="sd">            armi nuclide name (e.g. U235)</span>
-<span class="sd">        mass - float</span>
-<span class="sd">            this is a dictionary of masses in grams</span>
+<span class="sd">        nucName : str</span>
+<span class="sd">            Nuclide name to set mass of</span>
+<span class="sd">        mass : float</span>
+<span class="sd">            Mass in grams to set.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">calculateNumberDensity</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">getVolume</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ArmiObject.setMasses"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.setMasses">[docs]</a>    <span class="k">def</span> <span class="nf">setMasses</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lumpedFissionProducts</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="ArmiObject.setMasses"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.setMasses">[docs]</a>    <span class="k">def</span> <span class="nf">setMasses</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">masses</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Sets a vector of masses.</span>
+<span class="sd">        Set a vector of masses.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        masses : Dict</span>
+<span class="sd">        masses : dict</span>
 <span class="sd">            a dictionary of masses (g) indexed by nucNames (string)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clearNumberDensities</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span> <span class="ow">in</span> <span class="n">masses</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setMass</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="n">density</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setMass</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">mass</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getSymmetryFactor"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getSymmetryFactor">[docs]</a>    <span class="k">def</span> <span class="nf">getSymmetryFactor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -2470,7 +2515,258 @@
             <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;=</span> <span class="n">minK</span><span class="p">:</span>
                 <span class="n">minK</span> <span class="o">=</span> <span class="n">k</span>
 
-        <span class="k">return</span> <span class="p">((</span><span class="n">minI</span><span class="p">,</span> <span class="n">maxI</span><span class="p">),</span> <span class="p">(</span><span class="n">minJ</span><span class="p">,</span> <span class="n">maxJ</span><span class="p">),</span> <span class="p">(</span><span class="n">minK</span><span class="p">,</span> <span class="n">maxK</span><span class="p">))</span></div></div>
+        <span class="k">return</span> <span class="p">((</span><span class="n">minI</span><span class="p">,</span> <span class="n">maxI</span><span class="p">),</span> <span class="p">(</span><span class="n">minJ</span><span class="p">,</span> <span class="n">maxJ</span><span class="p">),</span> <span class="p">(</span><span class="n">minK</span><span class="p">,</span> <span class="n">maxK</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="ArmiObject.getComponentNames"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getComponentNames">[docs]</a>    <span class="k">def</span> <span class="nf">getComponentNames</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get all unique component names of this Composite.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        set or str</span>
+<span class="sd">            A set of all unique component names found in this Composite.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="ArmiObject.getComponentsOfShape"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getComponentsOfShape">[docs]</a>    <span class="k">def</span> <span class="nf">getComponentsOfShape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shapeClass</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return list of components in this block of a particular shape.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        shapeClass : Component</span>
+<span class="sd">            The class of component, e.g. Circle, Helix, Hexagon, etc.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        param : list</span>
+<span class="sd">            List of components in this block that are of the given shape.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">shapeClass</span><span class="p">)]</span></div>
+
+<div class="viewcode-block" id="ArmiObject.getComponentsOfMaterial"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getComponentsOfMaterial">[docs]</a>    <span class="k">def</span> <span class="nf">getComponentsOfMaterial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">materialName</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return list of components in this block that are made of a particular material</span>
+
+<span class="sd">        Only one of the selectors may be used</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        material : Material object, optional</span>
+<span class="sd">            The material to match</span>
+<span class="sd">        materialName : str, optional</span>
+<span class="sd">            The material name to match.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        componentsWithThisMat : list</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">materialName</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">materialName</span> <span class="o">=</span> <span class="n">material</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="n">material</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="p">),</span> <span class="s2">&quot;Cannot call with more than one selector. Choose one or the other.&quot;</span>
+
+        <span class="n">componentsWithThisMat</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">getProperties</span><span class="p">()</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span> <span class="o">==</span> <span class="n">materialName</span><span class="p">:</span>
+                <span class="n">componentsWithThisMat</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">componentsWithThisMat</span></div>
+
+<div class="viewcode-block" id="ArmiObject.hasComponents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.hasComponents">[docs]</a>    <span class="k">def</span> <span class="nf">hasComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">TypeSpec</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">TypeSpec</span><span class="p">]],</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return true if components matching all TypeSpec exist in this object.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        typeSpec : Flags or iterable of Flags</span>
+<span class="sd">            Component flags to check for</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Wrap the typeSpec in a tuple if we got a scalar</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">typeSpec</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="n">typeSpec</span> <span class="o">=</span> <span class="p">(</span><span class="n">typeSpec</span><span class="p">,)</span>
+
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">typeSpec</span><span class="p">:</span>
+            <span class="c1"># loop b/c getComponents is a OR operation on the flags, but we need AND</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">exact</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="ArmiObject.getComponentByName"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getComponentByName">[docs]</a>    <span class="k">def</span> <span class="nf">getComponentByName</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gets a particular component from this object, based on its name</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            The blueprint name of the component to return</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">()</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">]</span>
+        <span class="n">nComp</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">nComp</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">nComp</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;More than one component named &#39;</span><span class="si">{}</span><span class="s2">&#39; in </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">components</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="ArmiObject.getComponent"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getComponent">[docs]</a>    <span class="k">def</span> <span class="nf">getComponent</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">returnNull</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">quiet</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get a particular component from this object.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        typeSpec : flags.Flags or list of Flags</span>
+<span class="sd">            The type specification of the component to return</span>
+
+<span class="sd">        exact : boolean, optional</span>
+<span class="sd">            Demand that the component flags be exactly equal to the typespec. Default: False</span>
+
+<span class="sd">        quiet : boolean, optional</span>
+<span class="sd">            Warn if the component is not found. Default: False</span>
+
+<span class="sd">        Careful with multiple similar names in one object</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Component : The component that matches the critera or None</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="n">exact</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">quiet</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;No component matched </span><span class="si">{0}</span><span class="s2"> in </span><span class="si">{1}</span><span class="s2">. Returning None&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">typeSpec</span><span class="p">,</span> <span class="bp">self</span>
+                    <span class="p">),</span>
+                    <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;None component returned instead of </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Multiple components match in </span><span class="si">{}</span><span class="s2"> match typeSpec </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">results</span>
+                <span class="p">)</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ArmiObject.getNumComponents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getNumComponents">[docs]</a>    <span class="k">def</span> <span class="nf">getNumComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the number of components that have these flags, taking into account multiplicity. Useful</span>
+<span class="sd">        for getting nPins even when there are pin detailed cases.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        typeSpec : Flags</span>
+<span class="sd">            Expected flags of the component to get. e.g. Flags.FUEL</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        total : int</span>
+<span class="sd">            the number of components of this type in this object, including multiplicity.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="p">):</span>
+            <span class="n">total</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">total</span></div>
+
+<div class="viewcode-block" id="ArmiObject.setComponentDimensionsReport"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.setComponentDimensionsReport">[docs]</a>    <span class="k">def</span> <span class="nf">setComponentDimensionsReport</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Makes a summary of the dimensions of the components in this object.&quot;&quot;&quot;</span>
+        <span class="n">reportGroups</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">():</span>
+            <span class="n">reportGroups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">setDimensionReport</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="n">reportGroups</span></div>
+
+<div class="viewcode-block" id="ArmiObject.printDensities"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.printDensities">[docs]</a>    <span class="k">def</span> <span class="nf">printDensities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expandFissionProducts</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get lines that have the number densities of a object.&quot;&quot;&quot;</span>
+        <span class="n">numberDensities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">(</span>
+            <span class="n">expandFissionProducts</span><span class="o">=</span><span class="n">expandFissionProducts</span>
+        <span class="p">)</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">nucDens</span> <span class="ow">in</span> <span class="n">numberDensities</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{0:6s}</span><span class="s2"> </span><span class="si">{1:.7E}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">nucDens</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">lines</span></div>
+
+<div class="viewcode-block" id="ArmiObject.expandAllElementalsToIsotopics"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.expandAllElementalsToIsotopics">[docs]</a>    <span class="k">def</span> <span class="nf">expandAllElementalsToIsotopics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">reactorNucs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">elemental</span> <span class="ow">in</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">nb</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nb</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">NaturalNuclideBase</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">nb</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">reactorNucs</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">expandElementalToIsotopics</span><span class="p">(</span><span class="n">elemental</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ArmiObject.expandElementalToIsotopics"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.expandElementalToIsotopics">[docs]</a>    <span class="k">def</span> <span class="nf">expandElementalToIsotopics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">elementalNuclide</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Expands the density of a specific elemental nuclides to its natural isotopics.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        elementalNuclide : :class:`armi.nucDirectory.nuclideBases.NaturalNuclide`</span>
+<span class="sd">            natural nuclide to replace.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">natName</span> <span class="o">=</span> <span class="n">elementalNuclide</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">():</span>
+            <span class="n">elementalDensity</span> <span class="o">=</span> <span class="n">component</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">natName</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">elementalDensity</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">component</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="n">natName</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>  <span class="c1"># clear the elemental</span>
+            <span class="k">del</span> <span class="n">component</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">numberDensities</span><span class="p">[</span><span class="n">natName</span><span class="p">]</span>
+            <span class="c1"># add in isotopics</span>
+            <span class="k">for</span> <span class="n">natNuc</span> <span class="ow">in</span> <span class="n">elementalNuclide</span><span class="o">.</span><span class="n">getNaturalIsotopics</span><span class="p">():</span>
+                <span class="n">component</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span>
+                    <span class="n">natNuc</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">elementalDensity</span> <span class="o">*</span> <span class="n">natNuc</span><span class="o">.</span><span class="n">abundance</span>
+                <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ArmiObject.getAverageTempInC"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getAverageTempInC">[docs]</a>    <span class="k">def</span> <span class="nf">getAverageTempInC</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the average temperature of the ArmiObject in C by averaging all components</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tempNumerator</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">totalVol</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="p">):</span>
+            <span class="n">vol</span> <span class="o">=</span> <span class="n">component</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+            <span class="n">tempNumerator</span> <span class="o">+=</span> <span class="n">component</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">*</span> <span class="n">vol</span>
+            <span class="n">totalVol</span> <span class="o">+=</span> <span class="n">vol</span>
+
+        <span class="k">return</span> <span class="n">tempNumerator</span> <span class="o">/</span> <span class="n">totalVol</span></div>
+
+<div class="viewcode-block" id="ArmiObject.getDominantMaterial"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getDominantMaterial">[docs]</a>    <span class="k">def</span> <span class="nf">getDominantMaterial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the first sample of the most dominant material (by volume) in this object.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        typeSpec : Flags or iterable of Flags, optional</span>
+<span class="sd">            The types of components to consider (e.g. ``[Flags.FUEL, Flags.CONTROL]``)</span>
+<span class="sd">        exact : bool, optional</span>
+<span class="sd">            Whether or not the TypeSpec is exact</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        mat : Material</span>
+<span class="sd">             the first instance of the most dominant material (by volume) in this object.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        getComponentsOfMaterial</span>
+<span class="sd">            Gets components that are made of a particular material</span>
+<span class="sd">        gatherMaterialsByVolume</span>
+<span class="sd">            Classifies all materials by volume</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">getDominantMaterial</span><span class="p">([</span><span class="bp">self</span><span class="p">],</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="Composite"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite">[docs]</a><span class="k">class</span> <span class="nc">Composite</span><span class="p">(</span><span class="n">ArmiObject</span><span class="p">):</span>
@@ -2518,6 +2814,11 @@
 <span class="sd">    reactors.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="n">ArmiObject</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">childrenByLocator</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_children</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_children</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
@@ -2602,7 +2903,9 @@
         <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Composite.getChildren"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.getChildren">[docs]</a>    <span class="k">def</span> <span class="nf">getChildren</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">generationNum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">includeMaterials</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="Composite.getChildren"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.getChildren">[docs]</a>    <span class="k">def</span> <span class="nf">getChildren</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">generationNum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">includeMaterials</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">predicate</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the children objects of this composite.</span>
 
@@ -2619,18 +2922,32 @@
 <span class="sd">        includeMaterials : bool, optional</span>
 <span class="sd">            Include the material properties</span>
 
+<span class="sd">        predicate : callable, optional</span>
+<span class="sd">            An optional unary predicate to use for filtering results. This can be used</span>
+<span class="sd">            to request children of specific types, or with desired attributes. Not all</span>
+<span class="sd">            ArmiObjects have the same methods and members, so care should be taken to</span>
+<span class="sd">            make sure that the predicate executes gracefully in all cases (e.g., use</span>
+<span class="sd">            ``getattr(obj, &quot;attribute&quot;, None)`` to access instance attributes). Failure</span>
+<span class="sd">            to meet the predicate only affects the object in question; children will</span>
+<span class="sd">            still be considered.</span>
+
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
 <span class="sd">        &gt;&gt;&gt; obj.getChildren()</span>
 <span class="sd">        [child1, child2, child3]</span>
 
-<span class="sd">        &gt;&gt;&gt;obj.getChildren(generationNum=2)</span>
+<span class="sd">        &gt;&gt;&gt; obj.getChildren(generationNum=2)</span>
 <span class="sd">        [grandchild1, grandchild2, grandchild3]</span>
 
 <span class="sd">        &gt;&gt;&gt; obj.getChildren(deep=True)</span>
 <span class="sd">        [child1, child2, child3, grandchild1, grandchild2, grandchild3]</span>
 
+<span class="sd">        # Assuming that grandchild1 and grandchild3 are Component objects</span>
+<span class="sd">        &gt;&gt;&gt; obj.getChildren(deep=True, predicate=lambda o: isinstance(o, Component))</span>
+<span class="sd">        [grandchild1, grandchild3]</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_pred</span> <span class="o">=</span> <span class="n">predicate</span> <span class="ow">or</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">deep</span> <span class="ow">and</span> <span class="n">generationNum</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot get children with a generation number set and the deep flag set&quot;</span>
@@ -2639,7 +2956,8 @@
         <span class="n">children</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_children</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">generationNum</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">deep</span><span class="p">:</span>
-                <span class="n">children</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">_pred</span><span class="p">(</span><span class="n">child</span><span class="p">):</span>
+                    <span class="n">children</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">generationNum</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">deep</span><span class="p">:</span>
                 <span class="n">children</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
@@ -2647,6 +2965,7 @@
                         <span class="n">deep</span><span class="o">=</span><span class="n">deep</span><span class="p">,</span>
                         <span class="n">generationNum</span><span class="o">=</span><span class="n">generationNum</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>
                         <span class="n">includeMaterials</span><span class="o">=</span><span class="n">includeMaterials</span><span class="p">,</span>
+                        <span class="n">predicate</span><span class="o">=</span><span class="n">predicate</span><span class="p">,</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
         <span class="k">if</span> <span class="n">includeMaterials</span><span class="p">:</span>
@@ -2673,36 +2992,7 @@
         <span class="k">return</span> <span class="n">children</span></div>
 
 <div class="viewcode-block" id="Composite.getComponents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.getComponents">[docs]</a>    <span class="k">def</span> <span class="nf">getComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return all armi.reactor.component.Component within this Composite.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        typeSpec : TypeSpec</span>
-<span class="sd">            Component flags. Will restrict Components to specific ones matching the</span>
-<span class="sd">            flags specified.</span>
-
-<span class="sd">        exact : bool, optional</span>
-<span class="sd">            Only match exact component labels (names). If True, &#39;coolant&#39; will not match</span>
-<span class="sd">            &#39;interCoolant&#39;.  This has no impact if compLabel is None.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        list of Component</span>
-<span class="sd">            items matching compLabel and exact criteria</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="p">))</span></div>
-
-<div class="viewcode-block" id="Composite.getComponentNames"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.getComponentNames">[docs]</a>    <span class="k">def</span> <span class="nf">getComponentNames</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get all unique component names of this Composite.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        set or str</span>
-<span class="sd">            A set of all unique component names found in this Composite.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="Composite.iterComponents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.iterComponents">[docs]</a>    <span class="k">def</span> <span class="nf">iterComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -3006,70 +3296,6 @@
 
         <span class="k">return</span> <span class="n">rxnRates</span></div>
 
-<div class="viewcode-block" id="Composite.getCrossSectionTable"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.getCrossSectionTable">[docs]</a>    <span class="k">def</span> <span class="nf">getCrossSectionTable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nuclides</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return `self.crossSectionTable` if it exists. Otherwise, generate</span>
-<span class="sd">        the cross-section table for given nuclides (or the result of</span>
-<span class="sd">        self.getNuclides() if nuclides is not specified).</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        nuclides : list, optional</span>
-<span class="sd">            list of nuclide names for which to generate the cross-section table.</span>
-<span class="sd">            If absent, use all nuclides obtained by self.getNuclides().</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        self.crossSectionTable : armi.physics.neutronics.isotopicDepletion.crossSectionTable.CrossSectionTable</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        In an earlier implementation, self.getNuclides() was always called if no</span>
-<span class="sd">        nuclides argument was passed, even if self.crossSectionTable had already been</span>
-<span class="sd">        generated and, therefore, nuclides was not used. This has been modified so that</span>
-<span class="sd">        self.getNuclides() is only called if its result is actually used.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">crossSectionTable</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">nuclides</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">nuclides</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">makeCrossSectionTable</span><span class="p">(</span><span class="n">nuclides</span><span class="o">=</span><span class="n">nuclides</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">crossSectionTable</span></div>
-
-<div class="viewcode-block" id="Composite.makeCrossSectionTable"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.makeCrossSectionTable">[docs]</a>    <span class="k">def</span> <span class="nf">makeCrossSectionTable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nuclides</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        armi.physics.neutronics.isotopicDepletion.isotopicDepletionInterface.CrossSectionTable</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="c1"># NOTE: removed default nuclides=None argument since this wouldn&#39;t have</span>
-        <span class="c1"># worked in that case anyway  (for nucName in nuclides: would&#39;ve failed)</span>
-
-        <span class="c1"># initialize the rxRates dict</span>
-        <span class="n">rxRates</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">nucName</span><span class="p">:</span> <span class="p">{</span><span class="n">rxName</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">rxName</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;nG&quot;</span><span class="p">,</span> <span class="s2">&quot;nF&quot;</span><span class="p">,</span> <span class="s2">&quot;n2n&quot;</span><span class="p">,</span> <span class="s2">&quot;nA&quot;</span><span class="p">,</span> <span class="s2">&quot;nP&quot;</span><span class="p">,</span> <span class="s2">&quot;n3n&quot;</span><span class="p">)}</span>
-            <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="n">nuclides</span>
-        <span class="p">}</span>
-
-        <span class="k">for</span> <span class="n">armiObject</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getChildren</span><span class="p">():</span>
-            <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="n">nuclides</span><span class="p">:</span>
-                <span class="n">rxnRates</span> <span class="o">=</span> <span class="n">armiObject</span><span class="o">.</span><span class="n">getReactionRates</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">nDensity</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">rxName</span><span class="p">,</span> <span class="n">rxRate</span> <span class="ow">in</span> <span class="n">rxnRates</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="n">rxRates</span><span class="p">[</span><span class="n">nucName</span><span class="p">][</span><span class="n">rxName</span><span class="p">]</span> <span class="o">+=</span> <span class="n">rxRate</span>
-
-        <span class="n">crossSectionTable</span> <span class="o">=</span> <span class="n">CrossSectionTable</span><span class="p">()</span>
-        <span class="n">crossSectionTable</span><span class="o">.</span><span class="n">setName</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getName</span><span class="p">())</span>
-
-        <span class="n">totalFlux</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getIntegratedMgFlux</span><span class="p">())</span>
-        <span class="k">if</span> <span class="n">totalFlux</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">nucRxRates</span> <span class="ow">in</span> <span class="n">rxRates</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">xSecs</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="n">rxName</span><span class="p">:</span> <span class="n">rxRate</span> <span class="o">/</span> <span class="n">totalFlux</span> <span class="k">for</span> <span class="n">rxName</span><span class="p">,</span> <span class="n">rxRate</span> <span class="ow">in</span> <span class="n">nucRxRates</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-                <span class="p">}</span>
-                <span class="n">crossSectionTable</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="o">**</span><span class="n">xSecs</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">crossSectionTable</span> <span class="o">=</span> <span class="n">crossSectionTable</span></div>
-
 <div class="viewcode-block" id="Composite.printContents"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.printContents">[docs]</a>    <span class="k">def</span> <span class="nf">printContents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">includeNuclides</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Display information about all the comprising children in this object.&quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
@@ -3091,7 +3317,9 @@
 <div class="viewcode-block" id="Leaf"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Leaf">[docs]</a><span class="k">class</span> <span class="nc">Leaf</span><span class="p">(</span><span class="n">Composite</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Defines behavior for primitive objects in the composition.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="Leaf.getChildren"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Leaf.getChildren">[docs]</a>    <span class="k">def</span> <span class="nf">getChildren</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">generationNum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">includeMaterials</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="Leaf.getChildren"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Leaf.getChildren">[docs]</a>    <span class="k">def</span> <span class="nf">getChildren</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">generationNum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">includeMaterials</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">predicate</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return empty list, representing that this object has no children.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[]</span></div>
 
@@ -3154,6 +3382,68 @@
             <span class="n">func</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">paramDef</span> <span class="ow">in</span> <span class="n">paramDefs</span><span class="p">:</span>
             <span class="n">func</span><span class="p">(</span><span class="n">paramDef</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="gatherMaterialsByVolume"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.gatherMaterialsByVolume">[docs]</a><span class="k">def</span> <span class="nf">gatherMaterialsByVolume</span><span class="p">(</span>
+    <span class="n">objects</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ArmiObject</span><span class="p">],</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the total volume of each material in a set of objects and give samples.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    objects : list of ArmiObject</span>
+<span class="sd">        Objects to look within. This argument allows clients to search though some subset</span>
+<span class="sd">        of the three (e.g. when you&#39;re looking for all CLADDING components within FUEL blocks)</span>
+
+<span class="sd">    typeSpec : TypeSpec</span>
+<span class="sd">        Flags for the components to look at</span>
+
+<span class="sd">    exact : bool</span>
+<span class="sd">        Whether or not the TypeSpec is exact</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This helper method is outside the main ArmiObject tree for the special clients that need</span>
+<span class="sd">    to filter both by container type (e.g. Block type) with one set of flags, and Components</span>
+<span class="sd">    with another set of flags.</span>
+
+<span class="sd">    .. warning:: This is a **composition** related helper method that will likely be filed into</span>
+<span class="sd">        classes/modules that deal specifically with the composition of things in the data model.</span>
+<span class="sd">        Thus clients that use it from here should expect to need updates soon.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">volumes</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">samples</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">objects</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="p">):</span>
+            <span class="n">vol</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+            <span class="n">matName</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span>
+            <span class="n">volumes</span><span class="p">[</span><span class="n">matName</span><span class="p">]</span> <span class="o">=</span> <span class="n">volumes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">matName</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">+</span> <span class="n">vol</span>
+            <span class="k">if</span> <span class="n">matName</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
+                <span class="n">samples</span><span class="p">[</span><span class="n">matName</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">material</span>
+    <span class="k">return</span> <span class="n">volumes</span><span class="p">,</span> <span class="n">samples</span></div>
+
+
+<div class="viewcode-block" id="getDominantMaterial"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.getDominantMaterial">[docs]</a><span class="k">def</span> <span class="nf">getDominantMaterial</span><span class="p">(</span>
+    <span class="n">objects</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ArmiObject</span><span class="p">],</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the first sample of the most dominant material (by volume) in a set of objects</span>
+
+<span class="sd">    .. warning:: This is a **composition** related helper method that will likely be filed into</span>
+<span class="sd">        classes/modules that deal specifically with the composition of things in the data model.</span>
+<span class="sd">        Thus clients that use it from here should expect to need updates soon.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">volumes</span><span class="p">,</span> <span class="n">samples</span> <span class="o">=</span> <span class="n">gatherMaterialsByVolume</span><span class="p">(</span><span class="n">objects</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">volumes</span><span class="p">:</span>
+        <span class="c1"># find matName with max volume</span>
+        <span class="n">maxMatName</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">volumes</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">item</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span><span class="o">.</span><span class="n">pop</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># return this material. Note that if this material</span>
+        <span class="c1"># has properties like Zr-frac, enrichment, etc. then this will</span>
+        <span class="c1"># just return one in the batch, not an average.</span>
+        <span class="k">return</span> <span class="n">samples</span><span class="p">[</span><span class="n">maxMatName</span><span class="p">]</span></div>
 </pre></div>
 
            </div>
@@ -3169,7 +3459,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-08-23.
+        Last updated on 2020-09-17.
       </span>
 
     </p>
