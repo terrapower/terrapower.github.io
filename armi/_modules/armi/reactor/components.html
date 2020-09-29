@@ -207,6 +207,7 @@
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
+<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.components.component</span> <span class="k">import</span> <span class="o">*</span>  <span class="c1"># pylint: disable=wildcard-import</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.components.basicShapes</span> <span class="k">import</span> <span class="o">*</span>  <span class="c1"># pylint: disable=wildcard-import</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.components.complexShapes</span> <span class="k">import</span> <span class="o">*</span>  <span class="c1"># pylint: disable=wildcard-import</span>
@@ -405,8 +406,8 @@
         <span class="sd">&quot;&quot;&quot;Get the volume of the component in cm^3.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;userDefinedVolume&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="UnshapedVolumetricComponent.setVolume"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.components.html#armi.reactor.components.UnshapedVolumetricComponent.setVolume">[docs]</a>    <span class="k">def</span> <span class="nf">setVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">volume</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;userDefinedVolume&quot;</span><span class="p">,</span> <span class="n">volume</span><span class="p">)</span>
+<div class="viewcode-block" id="UnshapedVolumetricComponent.setVolume"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.components.html#armi.reactor.components.UnshapedVolumetricComponent.setVolume">[docs]</a>    <span class="k">def</span> <span class="nf">setVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;userDefinedVolume&quot;</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">clearCache</span><span class="p">()</span></div></div>
 
 
@@ -482,10 +483,56 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># area = pi r**2 = pi d**2 / 4  =&gt; d = sqrt(4*area/pi)</span>
             <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponentArea</span><span class="p">()</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span></div>
-
+        
 <div class="viewcode-block" id="DerivedShape.computeVolume"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.components.html#armi.reactor.components.DerivedShape.computeVolume">[docs]</a>    <span class="k">def</span> <span class="nf">computeVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Cannot compute volume until it is derived.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">_deriveUndefinedVolume</span><span class="p">()</span>  <span class="c1"># pylint: disable=protected-access</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deriveVolumeAndArea</span><span class="p">()</span></div>
+    
+<div class="viewcode-block" id="DerivedShape._deriveVolumeAndArea"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.components.html#armi.reactor.components.DerivedShape._deriveVolumeAndArea">[docs]</a>    <span class="k">def</span> <span class="nf">_deriveVolumeAndArea</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Derive the volume and area of ``DerivedShape``s.</span>
+<span class="sd">         </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        If a parent exists, this will iterate over it and then determine</span>
+<span class="sd">        both the volume and area based on its context within the scope</span>
+<span class="sd">        of the parent object by considering the volumes and areas of </span>
+<span class="sd">        the surrounding components.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Cannot compute volume/area of </span><span class="si">{self}</span><span class="s2"> without a parent object.&quot;</span><span class="p">)</span>
+         
+        <span class="c1"># Determine the volume/areas of the non-derived shape components</span>
+        <span class="c1"># within the parent.</span>
+        <span class="n">siblingArea</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">siblingVolume</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">sibling</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getChildren</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">sibling</span> <span class="ow">is</span> <span class="bp">self</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sibling</span><span class="p">,</span> <span class="n">DerivedShape</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="n">f</span><span class="s2">&quot;More than one ``DerivedShape`` component in </span><span class="si">{self.parent}</span><span class="s2"> is not allowed.&quot;</span><span class="p">)</span>
+             
+            <span class="n">siblingArea</span> <span class="o">+=</span> <span class="n">sibling</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
+            <span class="n">siblingVolume</span> <span class="o">+=</span> <span class="n">sibling</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+             
+        <span class="n">remainingArea</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getMaxArea</span><span class="p">()</span> <span class="o">-</span> <span class="n">siblingArea</span>
+        <span class="n">remainingVolume</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getMaxVolume</span><span class="p">()</span> <span class="o">-</span> <span class="n">siblingVolume</span>
+ 
+        <span class="c1"># Check for negative area</span>
+        <span class="k">if</span> <span class="n">remainingArea</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="n">f</span><span class="s2">&quot;The component areas in </span><span class="si">{self.parent}</span><span class="s2"> exceed the maximum &quot;</span>
+                   <span class="n">f</span><span class="s2">&quot;allowable area based on the geometry. Check that the &quot;</span>
+                   <span class="n">f</span><span class="s2">&quot;geometry is defined correctly.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                   <span class="n">f</span><span class="s2">&quot;Maximum allowable area: {self.parent.getMaxArea()} cm^2</span><span class="se">\n</span><span class="s2">&quot;</span>
+                   <span class="n">f</span><span class="s2">&quot;Area of all non-derived shape components: </span><span class="si">{siblingArea}</span><span class="s2"> cm^2</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Negative area/volume errors occurred for </span><span class="si">{self.parent}</span><span class="s2">. &quot;</span>
+                             <span class="s2">&quot;Check log for errors.&quot;</span><span class="p">)</span>
+ 
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">area</span> <span class="o">=</span> <span class="n">remainingArea</span>    
+        <span class="k">return</span> <span class="n">remainingVolume</span></div>
 
 <div class="viewcode-block" id="DerivedShape.getVolume"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.components.html#armi.reactor.components.DerivedShape.getVolume">[docs]</a>    <span class="k">def</span> <span class="nf">getVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -538,7 +585,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-09-17.
+        Last updated on 2020-09-29.
       </span>
 
     </p>
