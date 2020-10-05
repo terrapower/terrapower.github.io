@@ -505,8 +505,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_applySettings</span><span class="p">(</span><span class="n">settingName</span><span class="p">,</span> <span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">])</span></div>
 
 <div class="viewcode-block" id="SettingsReader._applySettings"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsReader._applySettings">[docs]</a>    <span class="k">def</span> <span class="nf">_applySettings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
-        <span class="n">nameToSet</span><span class="p">,</span> <span class="n">renamed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_renamer</span><span class="o">.</span><span class="n">renameSetting</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-
+        <span class="n">nameToSet</span><span class="p">,</span> <span class="n">_wasRenamed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_renamer</span><span class="o">.</span><span class="n">renameSetting</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
         <span class="n">settingsToApply</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">applyConversions</span><span class="p">(</span><span class="n">nameToSet</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">settingName</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">settingsToApply</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">settingName</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">settings</span><span class="p">:</span>
@@ -516,13 +515,10 @@
                 <span class="n">settingObj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">settings</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span>
                 <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
                     <span class="n">value</span> <span class="o">=</span> <span class="n">applyTypeConversions</span><span class="p">(</span><span class="n">settingObj</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">value</span> <span class="o">=</span> <span class="n">settingObj</span><span class="o">.</span><span class="n">schema</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-                <span class="k">except</span><span class="p">:</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                        <span class="n">f</span><span class="s2">&quot;Validation error with setting: </span><span class="si">{settingName}</span><span class="s2"> = {repr(value)}&quot;</span>
-                    <span class="p">)</span>
-                    <span class="k">raise</span>
+
+                <span class="c1"># The value is automatically coerced into the</span>
+                <span class="c1"># expected type when set using either the default or </span>
+                <span class="c1"># user-defined schema</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span></div>
 
 <div class="viewcode-block" id="SettingsReader.applyConversions"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsReader.applyConversions">[docs]</a>    <span class="k">def</span> <span class="nf">applyConversions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
@@ -594,8 +590,8 @@
 
         <span class="k">for</span> <span class="n">settingObj</span><span class="p">,</span> <span class="n">settingDatum</span> <span class="ow">in</span> <span class="n">settingData</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">settingNode</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">SubElement</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">settingObj</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">attribName</span><span class="p">,</span> <span class="n">attribValue</span> <span class="ow">in</span> <span class="n">settingDatum</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">settingNode</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">attribName</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">attribValue</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">attribName</span> <span class="ow">in</span> <span class="n">settingDatum</span><span class="p">:</span>
+                <span class="n">settingNode</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">attribName</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">settingObj</span><span class="o">.</span><span class="n">dump</span><span class="p">()))</span>
 
         <span class="n">stream</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;&lt;?xml version=&quot;1.0&quot; ?&gt;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
         <span class="n">stream</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prettyPrintXmlRecursively</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">getroot</span><span class="p">(),</span> <span class="n">spacing</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span></div>
@@ -621,8 +617,7 @@
         <span class="k">for</span> <span class="n">settingObj</span><span class="p">,</span> <span class="n">settingDatum</span> <span class="ow">in</span> <span class="n">settingData</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="s2">&quot;value&quot;</span> <span class="ow">in</span> <span class="n">settingDatum</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">settingDatum</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="c1"># ok to flatten</span>
-                <span class="n">val</span> <span class="o">=</span> <span class="n">settingObj</span><span class="o">.</span><span class="n">dump</span><span class="p">()</span>
-                <span class="n">cleanedData</span><span class="p">[</span><span class="n">settingObj</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">cleanedData</span><span class="p">[</span><span class="n">settingObj</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">settingObj</span><span class="o">.</span><span class="n">dump</span><span class="p">()</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">cleanedData</span><span class="p">[</span><span class="n">settingObj</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">settingDatum</span>
 
@@ -766,7 +761,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-09-29.
+        Last updated on 2020-10-05.
       </span>
 
     </p>

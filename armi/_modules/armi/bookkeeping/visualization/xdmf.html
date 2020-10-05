@@ -214,6 +214,7 @@
 
 <span class="kn">import</span> <span class="nn">io</span>
 <span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span>
 <span class="kn">import</span> <span class="nn">xml.etree.ElementTree</span> <span class="k">as</span> <span class="nn">ET</span>
 
@@ -311,6 +312,15 @@
                 <span class="s2">&quot;No input database name was given, so only an XMDF mesh will be created&quot;</span>
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_inputName</span> <span class="o">=</span> <span class="n">inputName</span>
+
+        <span class="c1"># Check that the inputName is a relative path. XDMF doesn&#39;t seem to like</span>
+        <span class="c1"># absolute paths; at least on windows with ParaView</span>
+        <span class="k">if</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">inputName</span><span class="p">)</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;XDMF tools tend not to like absolute paths; provide a &quot;</span>
+                <span class="s2">&quot;relative path to the input database.&quot;</span>
+            <span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_meshH5</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_inputDb</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_times</span> <span class="o">=</span> <span class="p">[]</span>
@@ -367,7 +377,10 @@
             <span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">attrib</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;GridType&quot;</span><span class="p">:</span> <span class="s2">&quot;Collection&quot;</span><span class="p">,</span> <span class="s2">&quot;CollectionType&quot;</span><span class="p">:</span> <span class="s2">&quot;Temporal&quot;</span><span class="p">}</span>
         <span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">aGrid</span><span class="p">,</span> <span class="n">bGrid</span><span class="p">,</span> <span class="n">time</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_assemGrids</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_blockGrids</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_times</span><span class="p">):</span>
+        <span class="c1"># make sure all times are unique. Paraview will crash if they are not</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dedupTimes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_times</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">aGrid</span><span class="p">,</span> <span class="n">bGrid</span><span class="p">,</span> <span class="n">time</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_assemGrids</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_blockGrids</span><span class="p">,</span> <span class="n">times</span><span class="p">):</span>
             <span class="n">timeElement</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">Element</span><span class="p">(</span>
                 <span class="s2">&quot;Time&quot;</span><span class="p">,</span> <span class="n">attrib</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;TimeType&quot;</span><span class="p">:</span> <span class="s2">&quot;Single&quot;</span><span class="p">,</span> <span class="s2">&quot;Value&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="p">)}</span>
             <span class="p">)</span>
@@ -397,6 +410,44 @@
             <span class="n">dom</span> <span class="o">=</span> <span class="n">xml</span><span class="o">.</span><span class="n">dom</span><span class="o">.</span><span class="n">minidom</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_baseName</span> <span class="o">+</span> <span class="n">typ</span> <span class="o">+</span> <span class="s2">&quot;.xdmf&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dom</span><span class="o">.</span><span class="n">toprettyxml</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="XdmfDumper._dedupTimes"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.visualization.xdmf.html#armi.bookkeeping.visualization.xdmf.XdmfDumper._dedupTimes">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_dedupTimes</span><span class="p">(</span><span class="n">times</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Make sure that no two times are the same.</span>
+
+<span class="sd">        Duplicates will be resolved by bumping each subsequent duplicate time forward by</span>
+<span class="sd">        some epsilon, cascading following duplicates by the same amount until no</span>
+<span class="sd">        duplicates remain. This will fail in the case where there are already times that</span>
+<span class="sd">        are within Ndup*epsilon of each other. In such cases, this function probably</span>
+<span class="sd">        isn&#39;t valid anyways.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="n">a</span> <span class="o">&lt;=</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">times</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="p">),</span> <span class="s2">&quot;Input list must be sorted&quot;</span>
+
+        <span class="c1"># This should be used as a multiplicative epsilon, to avoid precision issues</span>
+        <span class="c1"># with large times</span>
+        <span class="n">_EPS</span> <span class="o">=</span> <span class="mf">1.0e-9</span>
+
+        <span class="c1"># ...except when close enough to 0. Floating-point is a pain</span>
+        <span class="n">mapZeroToOne</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="k">if</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="n">_EPS</span> <span class="k">else</span> <span class="mf">1.0</span>
+
+        <span class="n">dups</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
+
+        <span class="c1"># We iterate in reverse so that each entry in dups will contain the number of</span>
+        <span class="c1"># duplicate entries that **precede** it</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">))):</span>
+            <span class="n">ti</span> <span class="o">=</span> <span class="n">times</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">nDup</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">times</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="n">ti</span><span class="p">:</span>
+                    <span class="n">nDup</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">break</span>
+            <span class="n">dups</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">nDup</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="n">t</span> <span class="o">+</span> <span class="n">dups</span> <span class="o">*</span> <span class="n">_EPS</span> <span class="o">*</span> <span class="n">mapZeroToOne</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">dups</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">dups</span><span class="p">,</span> <span class="n">times</span><span class="p">)]</span></div>
 
 <div class="viewcode-block" id="XdmfDumper.dumpState"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.visualization.xdmf.html#armi.bookkeeping.visualization.xdmf.XdmfDumper.dumpState">[docs]</a>    <span class="k">def</span> <span class="nf">dumpState</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -626,7 +677,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-09-29.
+        Last updated on 2020-10-05.
       </span>
 
     </p>
