@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.reactor.blueprints.reactorBlueprint &mdash; ARMI 0.1.4 documentation</title>
+  <title>armi.reactor.blueprints.reactorBlueprint &mdash; ARMI 0.1.5 documentation</title>
   
 
   
@@ -71,7 +71,7 @@
             
             
               <div class="version">
-                0.1.4
+                0.1.5
               </div>
             
           
@@ -192,49 +192,52 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Definitions of top-level reactor arrangements like the Core (default), SFP, etc.</span>
 
-<span class="sd">Each structure is defined by a name and a geometry xml file.</span>
+<span class="sd">See documentation of blueprints in :doc:`/user/inputs/blueprints` for more context. See</span>
+<span class="sd">example in :py:mod:`armi.reactor.blueprints.tests.test_reactorBlueprints`.</span>
 
-<span class="sd">See documentation of blueprints in :doc:`/user/inputs/blueprints`.</span>
-<span class="sd">See example in :py:mod:`armi.reactor.blueprints.tests.test_reactorBlueprints`.</span>
+<span class="sd">This was built to replace the old system that loaded the core geometry from the</span>
+<span class="sd">cs[&#39;geometry&#39;] setting. Until the geom file-based input is completely removed, this</span>
+<span class="sd">system will attempt to migrate the core layout from geom files. When geom files are</span>
+<span class="sd">used, explicitly specifying a ``core`` system will result in an error.</span>
 
-<span class="sd">Lattices will form tightly to the pitch of their children by default</span>
-<span class="sd">but you can spread them out by adding the optional ``lattice pitch`` key.</span>
-<span class="sd">This can be useful for adding grids with lots of spacing between objects.</span>
-
-<span class="sd">This was built on top of an existing system that loaded the core geometry from the</span>
-<span class="sd">global setting cs[&#39;geometry&#39;]. This system will still allow that to exist</span>
-<span class="sd">but will error out if you define ``core`` here and there at the same time.</span>
+<span class="sd">System Blueprints are a big step in the right direction to generalize user input, but</span>
+<span class="sd">was still mostly adapted from the old Core layout input. As such, they still only really</span>
+<span class="sd">support Core-like systems. Future work should generalize the concept of &quot;system&quot; to more</span>
+<span class="sd">varied scenarios.</span>
 
 <span class="sd">See Also</span>
 <span class="sd">--------</span>
-<span class="sd">armi.reactor.geometry.SystemLayoutInput : reads the individual face-map xml files.</span>
+<span class="sd">armi.reactor.blueprints.gridBlueprints : Method for storing system assembly layouts.</span>
+<span class="sd">armi.reactor.geometry.SystemLayoutInput : Deprecated method for reading the individual</span>
+<span class="sd">face-map xml files.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">tabulate</span>
 <span class="kn">import</span> <span class="nn">yamlize</span>
 
 <span class="kn">import</span> <span class="nn">armi</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">geometry</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">grids</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.blueprints.gridBlueprint</span> <span class="k">import</span> <span class="n">Triplet</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.localization</span> <span class="kn">import</span> <span class="n">exceptions</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">geometry</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.blueprints.gridBlueprint</span> <span class="kn">import</span> <span class="n">Triplet</span>
 
 
 <div class="viewcode-block" id="SystemBlueprint"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.reactorBlueprint.html#armi.reactor.blueprints.reactorBlueprint.SystemBlueprint">[docs]</a><span class="k">class</span> <span class="nc">SystemBlueprint</span><span class="p">(</span><span class="n">yamlize</span><span class="o">.</span><span class="n">Object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    The reactor-level structure input blueprint.</span>
 
-<span class="sd">    .. note:: We use strings to link grids to things that use</span>
-<span class="sd">        them rather than YAML anchors in this part of the input.</span>
-<span class="sd">        This seems inconsistent with how blocks are referred to</span>
-<span class="sd">        in assembly blueprints but this is part of a transition</span>
-<span class="sd">        away from YAML anchors.</span>
+<span class="sd">    .. note:: We use string keys to link grids to objects that use them. This differs</span>
+<span class="sd">        from how blocks/assembies are specified, which use YAML anchors. YAML anchors</span>
+<span class="sd">        have proven to be problematic and difficult to work with</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">typ</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;core&quot;</span><span class="p">)</span>
     <span class="n">gridName</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;grid name&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
     <span class="n">origin</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;origin&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">Triplet</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gridName</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gridName</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        A Reactor Level Structure like a core or SFP.</span>
 
@@ -247,12 +250,36 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">gridName</span> <span class="o">=</span> <span class="n">gridName</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">origin</span> <span class="o">=</span> <span class="n">origin</span>
 
+<div class="viewcode-block" id="SystemBlueprint._resolveSystemType"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.reactorBlueprint.html#armi.reactor.blueprints.reactorBlueprint.SystemBlueprint._resolveSystemType">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_resolveSystemType</span><span class="p">(</span><span class="n">typ</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="c1"># avoid circular import, though ideally reactors shouldnt depend on blueprints!</span>
+        <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">reactors</span>
+        <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblyLists</span>
+
+        <span class="c1"># TODO: This is far from the the perfect place for this; most likely plugins</span>
+        <span class="c1"># will need to be able to extend it. Also, the concept of &quot;system&quot; will need to</span>
+        <span class="c1"># be well-defined, and most systems will probably need their own, rather</span>
+        <span class="c1"># dissimilar Blueprints. We may need to break with yamlize unfortunately.</span>
+        <span class="n">_map</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;core&quot;</span><span class="p">:</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Core</span><span class="p">,</span> <span class="s2">&quot;sfp&quot;</span><span class="p">:</span> <span class="n">assemblyLists</span><span class="o">.</span><span class="n">SpentFuelPool</span><span class="p">}</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">cls</span> <span class="o">=</span> <span class="n">_map</span><span class="p">[</span><span class="n">typ</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Could not determine an appropriate class for handling a &quot;</span>
+                <span class="s2">&quot;system of type `</span><span class="si">{}</span><span class="s2">`. Supported types are </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">typ</span><span class="p">,</span> <span class="n">_map</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span></div>
+
 <div class="viewcode-block" id="SystemBlueprint.construct"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.reactorBlueprint.html#armi.reactor.blueprints.reactorBlueprint.SystemBlueprint.construct">[docs]</a>    <span class="k">def</span> <span class="nf">construct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">,</span> <span class="n">reactor</span><span class="p">,</span> <span class="n">geom</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Build a core/IVS/EVST/whatever and fill it with children.&quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="k">import</span> <span class="n">reactors</span>  <span class="c1"># avoid circular import</span>
+        <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">reactors</span>  <span class="c1"># avoid circular import</span>
 
         <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Constructing the `</span><span class="si">{}</span><span class="s2">`&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">geom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+
+        <span class="c1"># TODO: We should consider removing automatic geom file migration.</span>
+        <span class="k">if</span> <span class="n">geom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;core&quot;</span><span class="p">:</span>
             <span class="n">gridDesign</span> <span class="o">=</span> <span class="n">geom</span><span class="o">.</span><span class="n">toGridBlueprints</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">:</span>
@@ -260,27 +287,51 @@
                     <span class="s2">&quot;The input must define grids to construct a reactor, but &quot;</span>
                     <span class="s2">&quot;does not. Update input.&quot;</span>
                 <span class="p">)</span>
-            <span class="n">gridDesign</span> <span class="o">=</span> <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">gridName</span><span class="p">]</span>
-        <span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">()</span>
-        <span class="n">container</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Core</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-        <span class="n">container</span><span class="o">.</span><span class="n">setOptionsFromCs</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
-        <span class="n">container</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">spatialGrid</span>
-        <span class="n">container</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">armiObject</span> <span class="o">=</span> <span class="n">container</span>
-        <span class="n">reactor</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>  <span class="c1"># need parent before loading assemblies</span>
+            <span class="n">gridDesign</span> <span class="o">=</span> <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gridName</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">system</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolveSystemType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">typ</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># TODO: This could be somewhere better. If system blueprints could be</span>
+        <span class="c1"># subclassed, this could live in the CoreBlueprint. setOptionsFromCS() also isnt</span>
+        <span class="c1"># great to begin with, so ideally it could be removed entirely.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Core</span><span class="p">):</span>
+            <span class="n">system</span><span class="o">.</span><span class="n">setOptionsFromCs</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+
+        <span class="c1"># Some systems may not require a prescribed grid design. Only try to use one if</span>
+        <span class="c1"># it was provided</span>
+        <span class="k">if</span> <span class="n">gridDesign</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">()</span>
+            <span class="n">system</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">spatialGrid</span>
+            <span class="n">system</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">armiObject</span> <span class="o">=</span> <span class="n">system</span>
+
+        <span class="n">reactor</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>  <span class="c1"># need parent before loading assemblies</span>
         <span class="n">spatialLocator</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">CoordinateLocation</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin</span><span class="o">.</span><span class="n">z</span><span class="p">,</span> <span class="kc">None</span>
         <span class="p">)</span>
-        <span class="n">container</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="n">spatialLocator</span>
+        <span class="n">system</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="n">spatialLocator</span>
         <span class="k">if</span> <span class="n">armi</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="c1"># on non-master nodes we don&#39;t bother building up the assemblies</span>
             <span class="c1"># because they will be populated with DistributeState.</span>
-            <span class="c1"># This is intended to optimize speed and minimize ram.</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_loadAssemblies</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">container</span><span class="p">,</span> <span class="n">gridDesign</span><span class="p">,</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">gridContents</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
-        <span class="n">summarizeMaterialData</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_modifyGeometry</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">gridDesign</span><span class="p">)</span>
-        <span class="n">container</span><span class="o">.</span><span class="n">processLoading</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">container</span></div>
+
+        <span class="c1"># TODO: This is also pretty specific to Core-like things. We envision systems</span>
+        <span class="c1"># with non-Core-like structure. Again, probably only doable with subclassing of</span>
+        <span class="c1"># Blueprints</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_loadAssemblies</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">system</span><span class="p">,</span> <span class="n">gridDesign</span><span class="p">,</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">gridContents</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
+
+        <span class="c1"># TODO: This post-construction work is specific to Cores for now. We need to</span>
+        <span class="c1"># generalize this. Things to consider:</span>
+        <span class="c1"># - Should the Core be able to do geom modifications itself, since it already</span>
+        <span class="c1"># has the grid constructed from the grid design?</span>
+        <span class="c1"># - Should the summary be so specifically Material data? Should this be done for</span>
+        <span class="c1"># non-Cores? Like geom modifications, could this just be done in processLoading?</span>
+        <span class="c1"># Should it be invoked higher up, by whatever code is requesting the Reactor be</span>
+        <span class="c1"># built from Blueprints?</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Core</span><span class="p">):</span>
+            <span class="n">summarizeMaterialData</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_modifyGeometry</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">gridDesign</span><span class="p">)</span>
+            <span class="n">system</span><span class="o">.</span><span class="n">processLoading</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">system</span></div>
 
     <span class="c1"># pylint: disable=no-self-use</span>
 <div class="viewcode-block" id="SystemBlueprint._loadAssemblies"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.reactorBlueprint.html#armi.reactor.blueprints.reactorBlueprint.SystemBlueprint._loadAssemblies">[docs]</a>    <span class="k">def</span> <span class="nf">_loadAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">container</span><span class="p">,</span> <span class="n">gridDesign</span><span class="p">,</span> <span class="n">gridContents</span><span class="p">,</span> <span class="n">bp</span><span class="p">):</span>
@@ -293,12 +344,11 @@
 
             <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">locationInfo</span>
             <span class="n">loc</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="n">container</span><span class="o">.</span><span class="n">symmetry</span> <span class="o">==</span> <span class="n">geometry</span><span class="o">.</span><span class="n">THIRD_CORE</span> <span class="o">+</span> <span class="n">geometry</span><span class="o">.</span><span class="n">PERIODIC</span>
-                <span class="ow">and</span> <span class="ow">not</span> <span class="n">container</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">isInFirstThird</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="n">includeTopEdge</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">container</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">newAssembly</span><span class="p">,</span> <span class="n">loc</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">SymmetryError</span><span class="p">:</span>
                 <span class="n">badLocations</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">loc</span><span class="p">)</span>
-            <span class="n">container</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">newAssembly</span><span class="p">,</span> <span class="n">loc</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">badLocations</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Geometry core map xml had assemblies outside the &quot;</span>
@@ -311,7 +361,7 @@
 <div class="viewcode-block" id="SystemBlueprint._modifyGeometry"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.reactorBlueprint.html#armi.reactor.blueprints.reactorBlueprint.SystemBlueprint._modifyGeometry">[docs]</a>    <span class="k">def</span> <span class="nf">_modifyGeometry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">container</span><span class="p">,</span> <span class="n">gridDesign</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Perform post-load geometry conversions like full core, edge assems.&quot;&quot;&quot;</span>
         <span class="c1"># all cases should have no edge assemblies. They are added ephemerally when needed</span>
-        <span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="k">import</span> <span class="n">geometryConverters</span>  <span class="c1"># circular imports</span>
+        <span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="kn">import</span> <span class="n">geometryConverters</span>  <span class="c1"># circular imports</span>
 
         <span class="n">runLog</span><span class="o">.</span><span class="n">header</span><span class="p">(</span><span class="s2">&quot;=========== Applying Geometry Modifications ===========&quot;</span><span class="p">)</span>
         <span class="n">converter</span> <span class="o">=</span> <span class="n">geometryConverters</span><span class="o">.</span><span class="n">EdgeAssemblyChanger</span><span class="p">()</span>
@@ -391,7 +441,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-10-05.
+        Last updated on 2020-11-10.
       </span>
 
     </p>

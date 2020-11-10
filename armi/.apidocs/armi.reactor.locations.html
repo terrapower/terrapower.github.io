@@ -9,12 +9,13 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://terrapower.github.io/armi/.apidocs/armi.reactor.locations.html" />
   <meta property="og:site_name" content="Advanced Reactor Modeling Interface" />
-  <meta property="og:description" content="The location module is responsible for identifying the spatial position of objects in the reactor model. It also contains code useful for traversing regular meshes (hexagons, etc.). The Location Ob..." />
+  <meta property="og:description" content="Utility functions to aid in removing old location objects. The location module used to store classes and functions that were used to make sense of where ARMI objects were in space, and relative to ..." />
   <meta property="og:image" content="https://terrapower.github.io/armi/_static/armiSchematicView.png" />
+  <meta property="og:image:alt" content="Advanced Reactor Modeling Interface" />
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.reactor.locations module &mdash; ARMI 0.1.4 documentation</title>
+  <title>armi.reactor.locations module &mdash; ARMI 0.1.5 documentation</title>
   
 
   
@@ -80,7 +81,7 @@
             
             
               <div class="version">
-                0.1.4
+                0.1.5
               </div>
             
           
@@ -235,1176 +236,82 @@
 </style>
 <div class="section" id="module-armi.reactor.locations">
 <span id="armi-reactor-locations-module"></span><h1>armi.reactor.locations module<a class="headerlink" href="#module-armi.reactor.locations" title="Permalink to this headline">¶</a></h1>
-<p>The location module is responsible for identifying the spatial position of objects in the reactor model.</p>
-<p>It also contains code useful for traversing regular meshes (hexagons, etc.).</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>The code in this module is deprecated in favor of the Grid and
-SpatialLocator classes defined in <code class="docutils literal notranslate"><span class="pre">grids.py</span></code>. New code should not be
-implemented against these classes.</p>
-</div>
-<div class="section" id="the-location-object">
-<h2>The Location Object<a class="headerlink" href="#the-location-object" title="Permalink to this headline">¶</a></h2>
-<p>Each ARMI Block (and Assembly) contains a Location object whose purpose it is to identify
-where in the core the structure resides. Location objects are represented as strings when
-printed or written because their original primary usage was to be written directly to
-textual neutronics input files, but they contain much more functionality. An assembly
-location in ARMI is based on the DIF3D region definition and has a somewhat strange
-representation for this reason. The coordinate system is counterclockwise spiral, as seen
-in the figure below.</p>
-<a class="reference internal image-reference" href="../_images/coreMap.png"><img alt="../_images/coreMap.png" src="../_images/coreMap.png" style="width: 100%;" /></a>
-<p>Here are some examples of using a Location object:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">loc</span> <span class="o">=</span>  <span class="n">a</span><span class="o">.</span><span class="n">getLocationObject</span><span class="p">()</span>
-<span class="n">ring</span><span class="p">,</span> <span class="n">pos</span> <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">mainIndices</span><span class="p">()</span>
-<span class="n">x</span><span class="p">,</span><span class="n">y</span> <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">coords</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="n">assemPitch</span><span class="p">)</span>
-<span class="n">locStr</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">getLocation</span><span class="p">()</span> <span class="c1"># the string representation of a location object</span>
-</pre></div>
-</div>
-</div>
-<div class="section" id="thetarz-location-objects">
-<h2>ThetaRZ Location Objects<a class="headerlink" href="#thetarz-location-objects" title="Permalink to this headline">¶</a></h2>
-<p>ARMI can use theta-r-z objects to help it understand cylindrical systems – as
-opposed to hexagonal systems. However, the radial segment discretizations of a
-cylindrical mesh are less structured than a hexagonal array. Therefore, to
-these ThetaRZ location objects use a mesh object to translate integer
-coordinates to spatial dimensions. Location objects as implemented
-are best suited for structured grids (e.g. triangular, hexagonal, Cartesian).</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Theta-RZ is used instead of the more common RZ-Theta because the DIF3D code
-uses this convention. In turn, DIF3D uses this convention to allow the same
-numerical solver algorithms to solve all geometry options consistently.
-The numerical methods for X and Y plane solutions are analogous to
-the 2-D theta-R planes, and Z in the final position is consistent between
-XYZ, Triangular-Z, Hex-Z, and TRZ solvers.</p>
-</div>
+<p>Utility functions to aid in removing old location objects.</p>
+<p>The location module used to store classes and functions that were used to make sense of
+where ARMI objects were in space, and relative to each other. This functionality is now
+satisfied by the <a class="reference internal" href="armi.reactor.grids.html#module-armi.reactor.grids" title="armi.reactor.grids"><code class="xref py py-mod docutils literal notranslate"><span class="pre">armi.reactor.grids</span></code></a> module and its Grid and Location objects.</p>
+<p>This module still exists to help satisfy some weird cases where using Grids/Locations
+was not easy. This mostly has to do with the concept of ring and position, which are
+difficult to reason about in the absence of a Grid instance.</p>
+<p>This is pretty weird and nuanced. Cartesian grids need state (<code class="docutils literal notranslate"><span class="pre">throughCenter</span></code>) in
+order to reason about ring/pos. So, for ring/pos to be part of the base Grid
+abstraction, we need to assume that <em>any</em> Grid can only cough up ring/pos information
+through an instance method. HexGrid is sort of the special case, in that it <em>could</em> do
+ring/pos stuff as a static method (notice that it punts the actual implementation to
+<code class="docutils literal notranslate"><span class="pre">hexagon.py</span></code>). There is no similar <code class="docutils literal notranslate"><span class="pre">rectangle.py</span></code> to hold the concept of ring/pos
+for the CartesianGrid case, and to do such a thing would be extra weird, because a
+<code class="docutils literal notranslate"><span class="pre">throughCenter</span></code> doesn’t really mean anything to a simple rectangle; the grid carries
+the meaning of <code class="docutils literal notranslate"><span class="pre">throughCenter</span></code>.</p>
+<p>So in the rare circumstances where we want to know about ring/pos from a block/assembly
+that may or may not actually live in a Grid, we need to just make assumptions and grab
+something. In the hex case, that something can be <code class="docutils literal notranslate"><span class="pre">hexagon.py</span></code>, in the Cartesian
+case that something are the private static methods unique to
+<a class="reference internal" href="armi.reactor.grids.html#armi.reactor.grids.CartesianGrid" title="armi.reactor.grids.CartesianGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.grids.CartesianGrid</span></code></a>.</p>
+<p>Further improvements to the Block and Assembly classes (or more fundamentally with the
+<code class="docutils literal notranslate"><span class="pre">ArmiObject</span></code> class) will likely render this module useless at which point it can and
+should be removed. Namely, there are plans to associate simple shape objects with each
+<code class="docutils literal notranslate"><span class="pre">ArmiObject</span></code>, which would allow for knowing about the Hex/HexGrid-ness of an object
+without it needing to live in a <code class="docutils literal notranslate"><span class="pre">.spatialGrid</span></code>.</p>
+<p>This module also retains the <code class="docutils literal notranslate"><span class="pre">Line</span></code> and <code class="docutils literal notranslate"><span class="pre">Area</span></code> classes, which at the very least
+should be moved somewhere else more relevant.</p>
 <dl class="py function">
-<dt id="armi.reactor.locations.dotProduct">
-<code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">dotProduct</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">v1</span></em>, <em class="sig-param"><span class="n">v2</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#dotProduct"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.dotProduct" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determines the dot product of two vectors.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>v1</strong> (<em>tuple</em>) – Vector represented as an n dimensional tuple</p></li>
-<li><p><strong>v2</strong> (<em>tuple</em>) – Vector represented as an n dimensional tuple</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p></p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>The dot product of two vectors.</p>
-</dd>
-</dl>
+<dt id="armi.reactor.locations.numPositionsInRing">
+<code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">numPositionsInRing</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">obj</span></em>, <em class="sig-param"><span class="n">ring</span><span class="p">:</span> <span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)">int</a></span></em><span class="sig-paren">)</span> &#x2192; <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)">int</a><a class="reference internal" href="../_modules/armi/reactor/locations.html#numPositionsInRing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.numPositionsInRing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the number of positions in a given ring, considering the geometry of the object.</p>
+<p>This is a holdover from the old locations days, and helps in situations where
+ring/pos are relevant, but an object is not guaranteed to be in a grid that can give
+that sort of information. Instead we use the object class to infer the shape of a
+grid that we would expect it to live in to determine the meaning of ring and
+position. We also assume in the Cartesian case that the center location is split,
+since this is the historical interpretation.</p>
+<p>This function can be removed once object get a shape member, which can be used to do
+this sort of thing more cleanly.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt id="armi.reactor.locations.vectorLength">
-<code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">vectorLength</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">v1</span></em>, <em class="sig-param"><span class="n">v2</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#vectorLength"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.vectorLength" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determines the length of a vector</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>v1</strong> (<em>tuple</em>) – Vector represented as an n dimensional tuple</p></li>
-<li><p><strong>v2</strong> (<em>tuple</em>) – Vector represented as an n dimensional tuple</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt id="armi.reactor.locations.angleBetweenVectors">
-<code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">angleBetweenVectors</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">v1</span></em>, <em class="sig-param"><span class="n">v2</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#angleBetweenVectors"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.angleBetweenVectors" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determines the angle between two vectors in radians.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>v1</strong> (<em>tuple</em>) – Vector represented as an n dimensional tuple</p></li>
-<li><p><strong>v2</strong> (<em>tuple</em>) – Vector represented as an n dimensional tuple</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py class">
-<dt id="armi.reactor.locations.Location">
-<em class="property">class </em><code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">Location</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">i1</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">i2</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">axial</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Abstract Location object used a as a base class for other concrete definitions.</p>
-<p>Instantiate a new Location object.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>i1</strong> (<em>int</em><em>, </em><em>optional</em>) – 1st coordinate index in core 2d map (ring number in hexes)</p></li>
-<li><p><strong>i2</strong> (<em>int</em><em>, </em><em>optional</em>) – 2nd coordinate in core map (ring position in hex)</p></li>
-<li><p><strong>axial</strong> (<em>str</em><em>, or </em><em>int optional</em>) – a letter representing axial slab (‘A’, ‘B’, etc.). If no axial is given,
-this is a 2D (radial) location</p></li>
-<li><p><strong>label</strong> (<em>str</em><em>, </em><em>optional</em>) – A label for this location, e.g. ‘ExCore’, ‘SFP’. If in Location-label format,
-i1, i2, and axial will be inherited from it. Otherwise, the location
-will be considered Ex-core</p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.__eq__">
-<code class="sig-name descname">__eq__</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">other</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.__eq__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.__eq__" title="Permalink to this definition">¶</a></dt>
-<dd><p>Check equality between locations.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Because a Location object is mutable, this is NOT guaranteed to be consistent
-for the same two objects.</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.__lt__">
-<code class="sig-name descname">__lt__</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">other</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.__lt__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.__lt__" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compare two locations in a less-than sense. This allows sorting.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.__gt__">
-<code class="sig-name descname">__gt__</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">other</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.__gt__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.__gt__" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compare two locations in a greater-than sense.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.setAxial">
-<code class="sig-name descname">setAxial</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">axialIndexOrChar</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.setAxial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.setAxial" title="Permalink to this definition">¶</a></dt>
-<dd><p>Axial index used to be a letter A_Z but is now a number 0 through N.</p>
-<p>When axial index has to be represented as a single character (e.g. in some global flux solvers),
-ASCII characters listed in <code class="docutils literal notranslate"><span class="pre">locations.AXIAL_CHARS</span></code> are valid.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.__repr__">
-<code class="sig-name descname">__repr__</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.__repr__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.__repr__" title="Permalink to this definition">¶</a></dt>
-<dd><p>Represent the location object as a string.</p>
-<p>An example Location is represented as A5002B. The first two digits represent the ring. A5 is actually
-ring 05. A7 is 07. B3 is 13. The final digit represents the axial location, starting with A at the
-bottom. The representation starts with a letter because DIF3D doesn’t allow region labels to start
-with a numeric character, and the original purpose of Location was to be written directly to DIF3D inputs.
-But you don’t have to convert the name to get the ring number. Just use
-the Location.mainIndices method.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.duplicate">
-<code class="sig-name descname">duplicate</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.duplicate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.duplicate" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.setIndexNames">
-<code class="sig-name descname">setIndexNames</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.setIndexNames"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.setIndexNames" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.isInCore">
-<code class="sig-name descname">isInCore</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.isInCore"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.isInCore" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.makeLabel">
-<code class="sig-name descname">makeLabel</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.makeLabel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.makeLabel" title="Permalink to this definition">¶</a></dt>
-<dd><p>Creates a label based on the location. Something in ring 3, position 10, axial slab 3 will
-get A3010C</p>
-<p>The original purpose of these labels to name DIF3D regions</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.setLabel">
-<code class="sig-name descname">setLabel</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">desc</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.setLabel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.setLabel" title="Permalink to this definition">¶</a></dt>
-<dd><p>Allows for special labels like “discharged” or “fresh”.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.coords">
-<code class="sig-name descname">coords</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">p</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">rotationDegreesCCW</span><span class="o">=</span><span class="default_value">0.0</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.coords"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.coords" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.isInSameStackAs">
-<code class="sig-name descname">isInSameStackAs</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">loc</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.isInSameStackAs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.isInSameStackAs" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determines if another location is stacked with this one (for equivalence testing).</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.uniqueInt">
-<code class="sig-name descname">uniqueInt</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.uniqueInt"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.uniqueInt" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a unique integer based on the location. Good for adding to SQL databases.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.fromUniqueInt">
-<code class="sig-name descname">fromUniqueInt</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">uniqInt</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.fromUniqueInt"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.fromUniqueInt" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a location based on the unique int generated above.</p>
-<p>ring 30, position 174, axial B would be 3017466.</p>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>Limits: No more than 999 positions, 99 axial positions.</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.fromLabel">
-<code class="sig-name descname">fromLabel</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.fromLabel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.fromLabel" title="Permalink to this definition">¶</a></dt>
-<dd><p>Set location parameters from a string label.</p>
-<p>given a label like A2034B, create a location. This allows the reverse of makeLabel to occur.
-Given a region name in REBUS, this can figure out where in the core it is. That’s assuming
-someone set up the REBUS file according to our standards, of course.</p>
-<p>A “location label” is in the format 11222A where 11 represents the i1 index,
-222 represents the i2 index, and A represents the axial signifier.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>label</strong> (<em>str</em>) – The label to process.</p>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">loc</span><span class="o">.</span><span class="n">fromLabel</span><span class="p">(</span><span class="s1">&#39;A2024&#39;</span><span class="p">)</span>
-</pre></div>
-</div>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<dl class="simple">
-<dt><a class="reference internal" href="#armi.reactor.locations.Location.makeLabel" title="armi.reactor.locations.Location.makeLabel"><code class="xref py py-meth docutils literal notranslate"><span class="pre">makeLabel()</span></code></a></dt><dd><p>does the opposite</p>
-</dd>
-</dl>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.getFirstChar">
-<code class="sig-name descname">getFirstChar</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.getFirstChar"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.getFirstChar" title="Permalink to this definition">¶</a></dt>
-<dd><p>Converts a ring number into a character since REBUS can’t handle region names
-that start with numbers.</p>
-<p>1 - 9  -&gt; A
-10- 19 -&gt; B
-20- 29 -&gt; C, etc.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.mainIndices">
-<code class="sig-name descname">mainIndices</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.mainIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.mainIndices" title="Permalink to this definition">¶</a></dt>
-<dd><p>This returns the standard (i1, i2) = (ring, pos) hex indices.
-ring and pos begin with 1 (not 0).
-Note how this is different than HexLocation.indices, which returns MCNP GEODST indices.</p>
-<p>Note that (i, j) refers to (ring, pos) in fluxRecon.py, while (i, j) refers to the MCNP
-GEODST (grid-like) indices in locations.py. Sorry for any confusion!</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>None</strong> – </p>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>self.i1, self.i2</strong> – The value of (i2, i2) = (ring, pos) for the HexLocation object.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>int pair</p>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">loc</span><span class="o">.</span><span class="n">mainIndices</span><span class="p">()</span>
-<span class="go">(4, 5)</span>
-</pre></div>
-</div>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">locations.HexLocation.indices()</span></code></p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.fromIndices">
-<code class="sig-name descname">fromIndices</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">i1</span></em>, <em class="sig-param"><span class="n">i2</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.fromIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.fromIndices" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.getDistanceOfLocationToPoint">
-<code class="sig-name descname">getDistanceOfLocationToPoint</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">targetCoords</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">pitch</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.getDistanceOfLocationToPoint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.getDistanceOfLocationToPoint" title="Permalink to this definition">¶</a></dt>
-<dd><p>Calculates the distance between the current coordinates and the targetCoords.</p>
-<p>This is used to help determine the optimal packing for a core</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>targetCoords</strong> (<em>tuple</em><em> or </em><a class="reference internal" href="#armi.reactor.locations.HexLocation" title="armi.reactor.locations.HexLocation"><em>HexLocation</em></a>) – the x, y coordinates that will be compared to current coords of this location</p></li>
-<li><p><strong>pitch</strong> (<em>float</em>) – the pitch of the assemblies</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.getAngle">
-<code class="sig-name descname">getAngle</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">targetPoint</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">pointOfVectorIntersection</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">pitch</span><span class="o">=</span><span class="default_value">1.0</span></em>, <em class="sig-param"><span class="n">degrees</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.getAngle"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.getAngle" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determines the angle of this location compared to a targetPoint using a vector intersection point.</p>
-<p>The location object coordinates and targetPoint are used with the pointOfVectorIntersection to produce
-vectors.  Using these vectors, the angle between them can be calculated</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>targetPoint</strong> (<em>tuple</em><em>, </em><em>location object</em>) – A tuple of the x, y coordinates to be compared with</p></li>
-<li><p><strong>pointOfVectorIntersection</strong> (<em>tuple</em><em>, </em><em>location object</em>) – A tuple of the x, y coordinates to be compared with</p></li>
-<li><p><strong>degrees</strong> (<em>bool</em><em>, </em><em>optional</em>) – If true, return degrees</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.isOnWhichSymmetryLine">
-<code class="sig-name descname">isOnWhichSymmetryLine</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.isOnWhichSymmetryLine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.isOnWhichSymmetryLine" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return flag for which symmetry line this location is on.</p>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><a class="reference internal" href="#armi.reactor.locations.HexLocation.isOnWhichSymmetryLine" title="armi.reactor.locations.HexLocation.isOnWhichSymmetryLine"><code class="xref py py-meth docutils literal notranslate"><span class="pre">armi.reactor.locations.HexLocation.isOnWhichSymmetryLine()</span></code></a></p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.indices">
-<code class="sig-name descname">indices</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.indices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.indices" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Location.fromLocator">
-<code class="sig-name descname">fromLocator</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">indices</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Location.fromLocator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Location.fromLocator" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt id="armi.reactor.locations.HexLocation">
-<em class="property">class </em><code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">HexLocation</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">i1</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">i2</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">axial</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#armi.reactor.locations.Location" title="armi.reactor.locations.Location"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.locations.Location</span></code></a></p>
-<p>Single location in a regular hexagonal mesh.</p>
-<p>This is mutable. It represents a single location at a given time but any instance
-can be changed to represent any location.</p>
-<p>For this reason, whenever storing data for a single location, a tuple (i1, i2, …)
-should be used instead of the location object.</p>
-<p>Instantiate a new Location object.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>i1</strong> (<em>int</em><em>, </em><em>optional</em>) – 1st coordinate index in core 2d map (ring number in hexes)</p></li>
-<li><p><strong>i2</strong> (<em>int</em><em>, </em><em>optional</em>) – 2nd coordinate in core map (ring position in hex)</p></li>
-<li><p><strong>axial</strong> (<em>str</em><em>, or </em><em>int optional</em>) – a letter representing axial slab (‘A’, ‘B’, etc.). If no axial is given,
-this is a 2D (radial) location</p></li>
-<li><p><strong>label</strong> (<em>str</em><em>, </em><em>optional</em>) – A label for this location, e.g. ‘ExCore’, ‘SFP’. If in Location-label format,
-i1, i2, and axial will be inherited from it. Otherwise, the location
-will be considered Ex-core</p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.setIndexNames">
-<code class="sig-name descname">setIndexNames</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.setIndexNames"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.setIndexNames" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.niceLabel">
-<code class="sig-name descname">niceLabel</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.niceLabel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.niceLabel" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.fromLabel">
-<code class="sig-name descname">fromLabel</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.fromLabel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.fromLabel" title="Permalink to this definition">¶</a></dt>
-<dd><p>Set location parameters from a string label.</p>
-<p>given a label like A2034B, create a location. This allows the reverse of makeLabel to occur.
-Given a region name in REBUS, this can figure out where in the core it is. That’s assuming
-someone set up the REBUS file according to our standards, of course.</p>
-<p>A “location label” is in the format 11222A where 11 represents the i1 index,
-222 represents the i2 index, and A represents the axial signifier.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>label</strong> (<em>str</em>) – The label to process.</p>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">loc</span><span class="o">.</span><span class="n">fromLabel</span><span class="p">(</span><span class="s1">&#39;A2024&#39;</span><span class="p">)</span>
-</pre></div>
-</div>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<dl class="simple">
-<dt><code class="xref py py-meth docutils literal notranslate"><span class="pre">makeLabel()</span></code></dt><dd><p>does the opposite</p>
-</dd>
-</dl>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.isOnWhichSymmetryLine">
-<code class="sig-name descname">isOnWhichSymmetryLine</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.isOnWhichSymmetryLine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.isOnWhichSymmetryLine" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a list of what lines of symmetry this is on. If none, returns []
-If on a line of symmetry in 1/6 geometry, returns a list containing a 6.
-If on a line of symmetry in 1/3 geometry, returns a list containing a 3.
-It seems that only the 1/3 core view geometry is actually coded in here right now.</p>
-<p>Ring  Edge1 Edge2 Edge3
-1       1     1     1
-3       12    2     4
-5       23    3     7
-7       34    4    10
-9       45    5    13</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.coords">
-<code class="sig-name descname">coords</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">p</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">rotationDegreesCCW</span><span class="o">=</span><span class="default_value">0.0</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.coords"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.coords" title="Permalink to this definition">¶</a></dt>
-<dd><p>Figures out x, y coordinates of this location given a hex pitch p.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.indicesAndEdge">
-<code class="sig-name descname">indicesAndEdge</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.indicesAndEdge"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.indicesAndEdge" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return the i, j 0-based indices of a location in a grid as well as the edge.</p>
-<p>Like, for instance, in an MCNP repeated geometry grid…</p>
-<p>These are called MCNP GEODST coordinates.
-They look like oblique (angled or bent) x-y coordinates.</p>
-<p>From the MCNP5 Manual, VOL2: Figure 4-26, pg. 4-36 or so</p>
-<p>So, ring 5, pos 1 becomes (4, 0).
-Ring 6, pos 2 becomes (4, 1)
-Ring 3, pos 12 becomes (2, -1)
-etc.</p>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>This is being replaced by utils.grids.</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.indices">
-<code class="sig-name descname">indices</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.indices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.indices" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return the i, j indices of a location in a grid</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.getSymmetricIdenticalsThird">
-<code class="sig-name descname">getSymmetricIdenticalsThird</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">ring</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">pos</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">locClass</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.getSymmetricIdenticalsThird"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.getSymmetricIdenticalsThird" title="Permalink to this definition">¶</a></dt>
-<dd><p>Find the locations that are symmetric to this one in 1/3 geometry</p>
-<p>The number of positions <span class="math notranslate nohighlight">\(N_i\)</span> in hex ring <span class="math notranslate nohighlight">\(i\)</span> is</p>
-<div class="math notranslate nohighlight">
-\[\begin{split}N_i=
-\begin{cases}
- 1              &amp; \text{if }  i = 0 \\
- 6 \times (i-1) &amp;  \text{if } i &gt; 0
-\end{cases}\end{split}\]</div>
-<p>There are <span class="math notranslate nohighlight">\(\frac{N_i}{3}\)</span> positions between one position and
-its 1/3-symmetric position. The symmetric identical are
-computed accordingly.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>If a position is computed that is greater than
-the maximum number of positions in a ring, the roll-over
-is computed by subtracting the maximum number of positions.</p>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>ring</strong> (<em>int</em><em>, </em><em>optional</em>) – ring number. Defaults to this location’s ring number</p></li>
-<li><p><strong>pos</strong> (<em>int</em><em>, </em><em>optional</em>) – position in ring, defaults to this location’s position number</p></li>
-<li><p><strong>locClass</strong> (<em>Location object</em><em>, </em><em>optional</em>) – The location object to instantiate. Defaults to HexLocation</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>otherAssems</strong></p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>2 other locations that are identical in 1/3 -symmetry</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.getSymmetricIdenticalsSixth">
-<code class="sig-name descname">getSymmetricIdenticalsSixth</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">locClass</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.getSymmetricIdenticalsSixth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.getSymmetricIdenticalsSixth" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns locations that are identical in 1/6 -symmetry</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.getNumPositions">
-<code class="sig-name descname">getNumPositions</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">rings</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.getNumPositions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.getNumPositions" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return The total number of positions in the specified number of rings.</p>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>a single pin counts as 1 ring.</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.getNumPosInRing">
-<code class="sig-name descname">getNumPosInRing</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">ring</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.getNumPosInRing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.getNumPosInRing" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return number of positions in a ring.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.getNumRings">
-<code class="sig-name descname">getNumRings</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">nPins</span></em>, <em class="sig-param"><span class="n">silent</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.getNumRings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.getNumRings" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return the number of rings required to hold a specific number of items, rounding up.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.getNumPinsInLine">
-<code class="sig-name descname">getNumPinsInLine</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">rings</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.getNumPinsInLine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.getNumPinsInLine" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return how many pins in a line fit in the center of a hex w/ this many rings.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.containsWhichFDMeshPoints">
-<code class="sig-name descname">containsWhichFDMeshPoints</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">resolution</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">fullCore</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">rectangular</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.containsWhichFDMeshPoints"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.containsWhichFDMeshPoints" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute the difference mesh points contained in a certain location.</p>
-<p>When building finite different meshes, a lookup table from mesh point to
-block is required. This method returns a list of x, y indices that
-the triangle meshes in this location will have in 1/3 symmetric 120 geometry.</p>
-<p>The mesh indices returned will be 2-d (just x and y) and will start at 1.</p>
-<p>See Figures 2.4 and 2.6 in the DIF3D manual to understand.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>resolution</strong> (<em>int</em><em>, </em><em>optional</em>) – <dl class="simple">
-<dt>How many subdivisions are made in the side of each hex</dt><dd><p>1 means there are 6 triangles.
-2 means there are 6*4 = 24
-3 means there are 6*9 = 54
-4 means there are 6*4*4 = 96, etc.</p>
-</dd>
-</dl>
-</p></li>
-<li><p><strong>fullCore</strong> (<em>bool</em><em>, </em><em>optional</em>) – Makes this relevant for full core with DIFNT (but not DIF3D, which uses “cartesian” triangle meshing)</p></li>
-<li><p><strong>rectangular</strong> (<em>bool</em><em>, </em><em>optional</em>) – Use the rectangular indexing domain instead of the parallelogram domain.</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>DIF3D full core uses a “rectangular” mesh layout while DIFNT full core uses the rhomboid full core mesh layout
-so for full core DIFNT, use this. For full core DIF3D, use <cite>rectangular=True</cite></p>
-<dl class="simple">
-<dt>If a hex side is broken into d divisions, then there are</dt><dd><ul class="simple">
-<li><p>4d-1 triangles along the center of the hex in the i direction</p></li>
-<li><p>2d+1 triangles along the bottom of the hex in the i direction</p></li>
-<li><p>2d stacks of triangles in the j-direction.</p></li>
-</ul>
-</dd>
-</dl>
-<p>The number of triangles in the i-direction between the first triangle above the centerpoint of two
-neighboring hexagons is equal to (num center -1)/2 + (num bottom - 1)/2+1, which reduces to 3d.</p>
-<p>Results should come out left-to-right, top-to-bottom.</p>
-<div class="figure align-center" id="id1">
-<a class="reference external image-reference" href="../_static/triangle_and_hex_mesh.png"><img alt="Finite difference mesh layout diagram" src="../_images/triangle_and_hex_mesh.png" style="width: 50%;" /></a>
-<p class="caption"><span class="caption-text"><strong>Figure 1.</strong> Finite-difference mesh layout of 4 assemblies in locations (1, 1), (2, 1), (2, 2), (2, 6)</span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
-</div>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation._getTopCenterIndices">
-<code class="sig-name descname">_getTopCenterIndices</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">resolution</span></em>, <em class="sig-param"><span class="n">rectangular</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation._getTopCenterIndices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation._getTopCenterIndices" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determine the mesh indices of the top-center mesh point in this location.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation._getDeltaMeshJ">
-<code class="sig-name descname">_getDeltaMeshJ</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">numAxialLevels</span></em>, <em class="sig-param"><span class="n">symLine</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation._getDeltaMeshJ"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation._getDeltaMeshJ" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determine the values of the axial coordinates contained in this hex.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.HexLocation.fromLocator">
-<code class="sig-name descname">fromLocator</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">indices</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#HexLocation.fromLocator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.HexLocation.fromLocator" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt id="armi.reactor.locations.CartesianLocation">
-<em class="property">class </em><code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">CartesianLocation</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">i1</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">i2</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">axial</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#CartesianLocation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.CartesianLocation" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#armi.reactor.locations.Location" title="armi.reactor.locations.Location"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.locations.Location</span></code></a></p>
-<p>Single location in a regular Cartesian grid.</p>
-<p>This is mutable. It represents a single location at a given time but any instance
-can be changed to represent any location.</p>
-<p>For this reason, whenever storing data for a single location, a tuple (i1, i2, …)
-should be used instead of the location object.</p>
-<p>Instantiate a new Location object.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>i1</strong> (<em>int</em><em>, </em><em>optional</em>) – 1st coordinate index in core 2d map (ring number in hexes)</p></li>
-<li><p><strong>i2</strong> (<em>int</em><em>, </em><em>optional</em>) – 2nd coordinate in core map (ring position in hex)</p></li>
-<li><p><strong>axial</strong> (<em>str</em><em>, or </em><em>int optional</em>) – a letter representing axial slab (‘A’, ‘B’, etc.). If no axial is given,
-this is a 2D (radial) location</p></li>
-<li><p><strong>label</strong> (<em>str</em><em>, </em><em>optional</em>) – A label for this location, e.g. ‘ExCore’, ‘SFP’. If in Location-label format,
-i1, i2, and axial will be inherited from it. Otherwise, the location
-will be considered Ex-core</p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py method">
-<dt id="armi.reactor.locations.CartesianLocation.coords">
-<code class="sig-name descname">coords</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">pitchTuple</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">rotationDegreesCCW</span><span class="o">=</span><span class="default_value">0.0</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#CartesianLocation.coords"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.CartesianLocation.coords" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns x, y coords of the center of this location, assuming square if only xw is given.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.CartesianLocation.setIndexNames">
-<code class="sig-name descname">setIndexNames</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#CartesianLocation.setIndexNames"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.CartesianLocation.setIndexNames" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a label based on indices.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.CartesianLocation.getNumPosInRing">
-<code class="sig-name descname">getNumPosInRing</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">ring</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#CartesianLocation.getNumPosInRing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.CartesianLocation.getNumPosInRing" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get number of positions in a ring.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.CartesianLocation.getNumPositions">
-<code class="sig-name descname">getNumPositions</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">rings</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#CartesianLocation.getNumPositions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.CartesianLocation.getNumPositions" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return The total number of positions in the specified number of rings.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.CartesianLocation.getNumRings">
-<code class="sig-name descname">getNumRings</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">nPins</span></em>, <em class="sig-param"><span class="n">silent</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#CartesianLocation.getNumRings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.CartesianLocation.getNumRings" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return the number of rings required to hold a specific number of items, rounding up.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt id="armi.reactor.locations.ThetaRZLocation">
-<em class="property">class </em><code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">ThetaRZLocation</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">i1</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">i2</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">axial</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">ThRZmesh</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#armi.reactor.locations.Location" title="armi.reactor.locations.Location"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.locations.Location</span></code></a></p>
-<p>Location that works in 3-D cylindrical geometry.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>that this location object only works if there is a ThRZmesh
-object with directions labeled (‘R’ and ‘Th’)</p>
-</div>
-<p>ThetaRZ location object names represent their discrete position in the mesh
-object just like in Hexagonal Location Objects. The first two digits represent
-the azimuthal position, the next three digits represent the radial position and
-the last digits represents the axial position. For Example, ThetaRZ location
-A5002B is in the fifth (A5 &gt; 5) azimuthal position, the second radial position (002 &gt; 2) and the
-second axial (B &gt; 2) position.</p>
-<p>use the general location method plus add mesh and Theta RZ specific labels</p>
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.getMeshObject">
-<code class="sig-name descname">getMeshObject</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.getMeshObject"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.getMeshObject" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.duplicate">
-<code class="sig-name descname">duplicate</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.duplicate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.duplicate" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.setIndexNames">
-<code class="sig-name descname">setIndexNames</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.setIndexNames"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.setIndexNames" title="Permalink to this definition">¶</a></dt>
-<dd><p>Set ThetaRZ specific index labels.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.niceLabel">
-<code class="sig-name descname">niceLabel</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.niceLabel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.niceLabel" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.fromLabel">
-<code class="sig-name descname">fromLabel</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.fromLabel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.fromLabel" title="Permalink to this definition">¶</a></dt>
-<dd><p>Transform lable to ThetaRZ coordinates.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.Rcoords">
-<code class="sig-name descname">Rcoords</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.Rcoords"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.Rcoords" title="Permalink to this definition">¶</a></dt>
-<dd><p>Figures out R coordinates of the center of a Theta-R-Z voxel given theta-R mesh object
-parameters.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.ThRcoords">
-<code class="sig-name descname">ThRcoords</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.ThRcoords"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.ThRcoords" title="Permalink to this definition">¶</a></dt>
-<dd><p>Figures out R, theta coordinates of the center of a Theta-R-Z voxel given theta-R mesh
-object parameters</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.ThRZcoords">
-<code class="sig-name descname">ThRZcoords</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.ThRZcoords"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.ThRZcoords" title="Permalink to this definition">¶</a></dt>
-<dd><p>Figures out R, theta and Z coordinates of the center of a Theta-R-Z voxel given theta-R
-mesh object parameters.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.radialInner">
-<code class="sig-name descname">radialInner</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.radialInner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.radialInner" title="Permalink to this definition">¶</a></dt>
-<dd><p>This method returns the inner radial position of a Theta-R-Z voxel given a Theta-R mesh
-object.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.radialOuter">
-<code class="sig-name descname">radialOuter</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.radialOuter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.radialOuter" title="Permalink to this definition">¶</a></dt>
-<dd><p>This method returns the outer radial position of a Theta-R-Z voxel given a Theta-R mesh
-object.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.thetaInner">
-<code class="sig-name descname">thetaInner</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.thetaInner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.thetaInner" title="Permalink to this definition">¶</a></dt>
-<dd><p>This method returns the inner theta position of a Theta-R-Z voxel given a Theta-R mesh
-object.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.axialOuter">
-<code class="sig-name descname">axialOuter</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.axialOuter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.axialOuter" title="Permalink to this definition">¶</a></dt>
-<dd><p>This method returns the outer axial position of a Theta-R-Z voxel given a Theta-R mesh
-object.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.axialInner">
-<code class="sig-name descname">axialInner</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.axialInner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.axialInner" title="Permalink to this definition">¶</a></dt>
-<dd><p>This method returns the inner axial position of a Theta-R-Z voxel given a Theta-R mesh
-object.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.thetaOuter">
-<code class="sig-name descname">thetaOuter</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.thetaOuter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.thetaOuter" title="Permalink to this definition">¶</a></dt>
-<dd><p>This method returns the outer radial position of a Theta-R-Z voxel given a Theta-R mesh
-object.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.coords">
-<code class="sig-name descname">coords</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">p</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">rotationDegreesCCW</span><span class="o">=</span><span class="default_value">0.0</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.coords"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.coords" title="Permalink to this definition">¶</a></dt>
-<dd><p>Figures out x, y coordinates of the center of a Theta-R-Z voxel given theta-R mesh object
-parameters.</p>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>p is a dummy variable only there so this method is consistent with the coords method from
-HexLocation so getDistanceOfLocationToPoint can be defined at the base Location object level</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.getVolume">
-<code class="sig-name descname">getVolume</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">refHeight</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">axial</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.getVolume"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.getVolume" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return the volume of the radial segment.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>refHeight</strong> (<em>float</em>) – the height of a radial node in the same units as the
-locations mesh object</p></li>
-<li><p><strong>axial</strong> (<em>int</em>) – the axial node of the mesh</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>adding an axial node will over write a reference height
-also, there needs to be a ‘Z’-labeled mesh in the mesh object for this
-to define the height, but you knew that already</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.getInnerRArea">
-<code class="sig-name descname">getInnerRArea</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">refHeight</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">axial</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.getInnerRArea"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.getInnerRArea" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return the area normal to the r direction on the inside of the radial segment.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>refHeight</strong> (<em>float</em>) – the height of a radial node in the same units as the
-locations mesh object</p></li>
-<li><p><strong>axial</strong> (<em>int</em>) – the axial node of the mesh</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>adding an axial node will over write a reference height
-also, there needs to be a ‘Z’-labeled mesh in the mesh object for this
-to define the height, but you knew that already</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.getOuterRArea">
-<code class="sig-name descname">getOuterRArea</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">refHeight</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">axial</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.getOuterRArea"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.getOuterRArea" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.ThetaRZLocation.getZArea">
-<code class="sig-name descname">getZArea</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#ThetaRZLocation.getZArea"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.ThetaRZLocation.getZArea" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt id="armi.reactor.locations.Mesh">
-<em class="property">class </em><code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">Mesh</code><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>This object helps ARMI define and pass structured orthogonal meshes (X, Y, Z)
-or (R, Z, Th). When going from X, Y, Z on orthogonal, but non-regular meshes
-(the pitch isn’t constant) you need to know what the mesh is in order to
-determine the cartesian coordinates
-also, you’re not limited to 3 dimensions so this mesh</p>
-<p>Rebase meshes such that index 1 is the first index rather than 0
-This is accomplished by setting 0 as the first index</p>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>This is intended to be replaced with the newer grids.ThetaRZGrid functionality.</p>
-</div>
-<p>Initilizes mesh object.</p>
-<p>self.di dictionary indexed by direction label (‘X’, ‘Y’, etc) of differences
-self.i dictionary indexed by direction label(‘X’, ‘Y’, etc) of positions</p>
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getNumDimensions">
-<code class="sig-name descname">getNumDimensions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getNumDimensions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getNumDimensions" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the number of dimensions in the mesh.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getLabelDimensions">
-<code class="sig-name descname">getLabelDimensions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getLabelDimensions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getLabelDimensions" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the labels of the dimensions in the mesh.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getDiLength">
-<code class="sig-name descname">getDiLength</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getDiLength"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getDiLength" title="Permalink to this definition">¶</a></dt>
-<dd><p>Rreturns the difference in lengths in the mesh in the direction labeled.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>label</strong> (<em>string</em>) – The label of the direction (i.e ‘X’, ‘Y’, ‘Theta’, ‘R’, ‘Z’, ‘E’)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getDi">
-<code class="sig-name descname">getDi</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">n</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getDi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getDi" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the n-th difference in lengths in the mesh in the direction labeled.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>n</strong> (<em>integer</em>) – The index of position with in mesh structure.</p></li>
-<li><p><strong>label</strong> (<em>string</em>) – The label of the direction (i.e ‘X’, ‘Y’, ‘Theta’, ‘R’, ‘Z’, ‘E’)</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getUpper">
-<code class="sig-name descname">getUpper</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">n</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getUpper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getUpper" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the outer position of the n-th element in the mesh in the direction labeled.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>n</strong> (<em>integer</em>) – The index of position with in mesh structure</p></li>
-<li><p><strong>label</strong> (<em>string</em>) – The label of the direction (i.e ‘X’, ‘Y’, ‘Theta’, ‘R’, ‘Z’, ‘E’)</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getUpperLowerFromPosition">
-<code class="sig-name descname">getUpperLowerFromPosition</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">p</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">sigma</span><span class="o">=</span><span class="default_value">1e-07</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getUpperLowerFromPosition"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getUpperLowerFromPosition" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get the upper and lower interface indexes for a given position in a given direction.</p>
-<p>p is the position in the direction labeled label is the string name of the target
-directions label.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.isPositionInMesh">
-<code class="sig-name descname">isPositionInMesh</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">p</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">sigma</span><span class="o">=</span><span class="default_value">0.001</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.isPositionInMesh"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.isPositionInMesh" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getClosestUpperFromPosition">
-<code class="sig-name descname">getClosestUpperFromPosition</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">p</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getClosestUpperFromPosition"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getClosestUpperFromPosition" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the closest position in the mesh in the direction labeled, label.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.addFromDeltas">
-<code class="sig-name descname">addFromDeltas</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">deltas</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">labels</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.addFromDeltas"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.addFromDeltas" title="Permalink to this definition">¶</a></dt>
-<dd><p>Define mesh(s) in the labeled direction(s).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>deltas</strong> (<em>a list</em><em>, </em><em>either a list of lists</em><em> or </em><em>a single list of mesh differences</em><em> (</em><em>like heights in an assembly</em><em>)</em>) – </p></li>
-<li><p><strong>labels</strong> (<em>a string</em><em> or </em><em>list of strings of the labels</em><em> (</em><em>i.e 'X'</em><em>, </em><em>'Y'</em><em>, </em><em>'Theta'</em><em>, </em><em>'R'</em><em>, </em><em>'Z'</em><em>, </em><em>'E'</em><em>) </em><em>of directions</em>) – </p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>If you want to define multiple directions in one command then deltas should be a
-list of lists, and there should be a label for every direction and the order of labels and
-deltas should be lined up.</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.addFromPositions">
-<code class="sig-name descname">addFromPositions</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">positions</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">labels</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.addFromPositions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.addFromPositions" title="Permalink to this definition">¶</a></dt>
-<dd><p>Define mesh(s) in the labeled direction(s).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>positions</strong> (<em>list</em>) – Either a list of lists or a single list of mesh positions</p></li>
-<li><p><strong>labels</strong> (<em>a string</em><em> or </em><em>list of strings of the labels</em><em> (</em><em>i.e 'X'</em><em>, </em><em>'Y'</em><em>, </em><em>'Theta'</em><em>, </em><em>'R'</em><em>, </em><em>'Z'</em><em>, </em><em>'E'</em><em>) </em><em>of directions</em>) – </p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>If you want to define multiple directions in one command then positions should be a list of lists,
-and there should be a label for every direction and the order of labels and positions should be lined up</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.addFromRegularIntervals">
-<code class="sig-name descname">addFromRegularIntervals</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dIs</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">Ns</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">labels</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.addFromRegularIntervals"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.addFromRegularIntervals" title="Permalink to this definition">¶</a></dt>
-<dd><p>Defines regular intervals mesh(s) in the labeled direction(s).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>dIs</strong> (<em>a float</em><em> or </em><em>a list of floats of the regular difference</em><em> (</em><em>think pitch</em><em>)</em>) – </p></li>
-<li><p><strong>labels</strong> (<em>a string</em><em> or </em><em>list of strings of the labels</em><em> (</em><em>i.e 'X'</em><em>, </em><em>'Y'</em><em>, </em><em>'Theta'</em><em>, </em><em>'R'</em><em>, </em><em>'Z'</em><em>, </em><em>'E'</em><em>) </em><em>of directions</em>) – </p></li>
-<li><p><strong>Ns</strong> (<em>a float</em><em> or </em><em>a list of floats of the number of elements in the mesh</em>) – </p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>If you want to define multiple directions in one command then dIs and Ns should be a list,
-and there should be a label for every direction and the order of labels, dIs and Ns should be lined up</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.addFromMaximums">
-<code class="sig-name descname">addFromMaximums</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">Maxs</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">Ns</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">labels</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.addFromMaximums"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.addFromMaximums" title="Permalink to this definition">¶</a></dt>
-<dd><p>Defines regular intervals mesh(s) in the labeled direction(s) from a maximum position and
-number of nodes.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>Maxs</strong> (<em>a float</em><em> or </em><em>a list of floats of the regular difference</em><em> (</em><em>think pitch</em><em>)</em>) – </p></li>
-<li><p><strong>labels</strong> (<em>a string</em><em> or </em><em>list of strings of the labels</em><em> (</em><em>i.e 'X'</em><em>, </em><em>'Y'</em><em>, </em><em>'Theta'</em><em>, </em><em>'R'</em><em>, </em><em>'Z'</em><em>, </em><em>'E'</em><em>) </em><em>of directions</em>) – </p></li>
-<li><p><strong>if you want to define multiple directions in one command then deltas should be a list of lists</strong> (<em>(</em><em>note</em><em>)</em>) – </p></li>
-</ul>
-</dd>
-</dl>
-<p>:param :
-:param and there should be a label for every direction and the order of labels and deltas should be lined up:</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.addOneDirectionFromDeltas">
-<code class="sig-name descname">addOneDirectionFromDeltas</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">deltas</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.addOneDirectionFromDeltas"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.addOneDirectionFromDeltas" title="Permalink to this definition">¶</a></dt>
-<dd><p>Defines regular intervals mesh in a single direction.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>deltas</strong> (<em>a list of mesh differences</em><em> (</em><em>like heights in an assembly</em><em>)</em>) – </p></li>
-<li><p><strong>label</strong> (<em>a string of the labels</em><em> (</em><em>i.e 'X'</em><em>, </em><em>'Y'</em><em>, </em><em>'Theta'</em><em>, </em><em>'R'</em><em>, </em><em>'Z'</em><em>, </em><em>'E'</em><em>) </em><em>of directions</em>) – </p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.addOneDirectionFromPositions">
-<code class="sig-name descname">addOneDirectionFromPositions</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">positions</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.addOneDirectionFromPositions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.addOneDirectionFromPositions" title="Permalink to this definition">¶</a></dt>
-<dd><p>Defines regular intervals mesh in a single direction.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>positions</strong> (<em>a list of mesh positions</em>) – </p></li>
-<li><p><strong>label</strong> (<em>a string of the labels</em><em> (</em><em>i.e 'X'</em><em>, </em><em>'Y'</em><em>, </em><em>'Theta'</em><em>, </em><em>'R'</em><em>, </em><em>'Z'</em><em>, </em><em>'E'</em><em>) </em><em>of directions</em>) – </p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.addOneDirectionFromRegInterval">
-<code class="sig-name descname">addOneDirectionFromRegInterval</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dI</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">N</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.addOneDirectionFromRegInterval"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.addOneDirectionFromRegInterval" title="Permalink to this definition">¶</a></dt>
-<dd><p>Defines regular intervals mesh in a single direction.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>dI</strong> (<em>the standard regular interval</em>) – </p></li>
-<li><p><strong>N</strong> (<em>the number of elements in a mesh</em>) – </p></li>
-<li><p><strong>label</strong> (<em>a string of the labels</em><em> (</em><em>i.e 'X'</em><em>, </em><em>'Y'</em><em>, </em><em>'Theta'</em><em>, </em><em>'R'</em><em>, </em><em>'Z'</em><em>, </em><em>'E'</em><em>) </em><em>of directions</em>) – </p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.addRegDirectionFromMax">
-<code class="sig-name descname">addRegDirectionFromMax</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">L</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">N</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.addRegDirectionFromMax"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.addRegDirectionFromMax" title="Permalink to this definition">¶</a></dt>
-<dd><p>Defines regular intervals mesh in a single direction based on the maximum position.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>Maximum</strong> (<em>the maximum position on a mesh</em><em> (</em><em>think height of an assembly</em><em>)</em>) – </p></li>
-<li><p><strong>N</strong> (<em>the number of elements in a mesh</em>) – </p></li>
-<li><p><strong>label</strong> (<em>a string of the labels</em><em> (</em><em>i.e 'X'</em><em>, </em><em>'Y'</em><em>, </em><em>'Theta'</em><em>, </em><em>'R'</em><em>, </em><em>'Z'</em><em>, </em><em>'E'</em><em>) </em><em>of directions</em>) – </p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.checkMesh">
-<code class="sig-name descname">checkMesh</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.checkMesh"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.checkMesh" title="Permalink to this definition">¶</a></dt>
-<dd><p>This ensures that 0 is included in the mesh.</p>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<p>If the mesh includes both negative and positive values it doesn’t
-need to have a 0 position, otherwise its inferred that you need a 0
-position and this helps you generated it</p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.setIInternal">
-<code class="sig-name descname">setIInternal</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.setIInternal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.setIInternal" title="Permalink to this definition">¶</a></dt>
-<dd><p>If you define a meshes set of differences this updates the positions.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.setDiInternal">
-<code class="sig-name descname">setDiInternal</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.setDiInternal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.setDiInternal" title="Permalink to this definition">¶</a></dt>
-<dd><p>If you define a meshes set of positions this updates the differences.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.appendUpper">
-<code class="sig-name descname">appendUpper</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">p</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.appendUpper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.appendUpper" title="Permalink to this definition">¶</a></dt>
-<dd><p>This method adds an additional position in the I vector to a given direction.</p>
-<p class="rubric">Examples</p>
-<p>If you are defining a grid you can define an additional stack of
-elements with a verticle mesh that doesn’t align with the initial mesh and
-use this method to fill in the gaps and update the differences.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.appendFromBounds">
-<code class="sig-name descname">appendFromBounds</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">p1</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">p2</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">n</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.appendFromBounds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.appendFromBounds" title="Permalink to this definition">¶</a></dt>
-<dd><p>Adds mesh points from bounds (upper and lower) and number of cells between the bounds.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>label</strong> (<em>string</em>) – direction label</p></li>
-<li><p><strong>p1</strong> (<em>float</em>) – inner position</p></li>
-<li><p><strong>p2</strong> (<em>float</em>) – outer position</p></li>
-<li><p><strong>n</strong> (<em>int</em>) – number of cells between the bounds</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">armi.reactor.reactors.findAllAziMeshPoints()</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">armi.reactor.reactors.findAllRadMeshPoints()</span></code></p>
-</div>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getPositions">
-<code class="sig-name descname">getPositions</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getPositions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getPositions" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getDifferences">
-<code class="sig-name descname">getDifferences</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getDifferences"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getDifferences" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getMaximum">
-<code class="sig-name descname">getMaximum</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">label</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getMaximum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getMaximum" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getThRLocations">
-<code class="sig-name descname">getThRLocations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getThRLocations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getThRLocations" title="Permalink to this definition">¶</a></dt>
-<dd><p>This method returns a list of location objects for each node bound by the positions in the
-mesh.</p>
-<blockquote>
-<div><p>———– I[‘R’][r+1]
-|          |
-|          |</p>
-</div></blockquote>
-<dl class="simple">
-<dt>I[‘Th’][t]| Location | I[‘Theta’][t+1]</dt><dd><p><a href="#id2"><span class="problematic" id="id3">|[t+1][r+1]|</span></a>
-|          |
-————I[‘R’][r]</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="armi.reactor.locations.Mesh.getThRZLocationsFromBounds">
-<code class="sig-name descname">getThRZLocationsFromBounds</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">r1</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">r2</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">t1</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">t2</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">z1</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">z2</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">units</span><span class="o">=</span><span class="default_value">'Radians'</span></em>, <em class="sig-param"><span class="n">sigma</span><span class="o">=</span><span class="default_value">0.0001</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Mesh.getThRZLocationsFromBounds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Mesh.getThRZLocationsFromBounds" title="Permalink to this definition">¶</a></dt>
-<dd><p>This method returns a list of locations bounded by defined surfaces.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>r1</strong> (<em>float</em>) – inner radius of control volume</p></li>
-<li><p><strong>r2</strong> (<em>float</em>) – outer radius of control volume</p></li>
-<li><p><strong>t1</strong> (<em>float</em>) – inner azimuthal location of control volume</p></li>
-<li><p><strong>t2</strong> (<em>float</em>) – inner azimuthal of control volume</p></li>
-<li><p><strong>z1</strong> (<em>float</em>) – inner axial location of control volume</p></li>
-<li><p><strong>z2</strong> (<em>float</em>) – inner axial of control volume</p></li>
-<li><p><strong>units</strong> (<em>string</em>) – flag to use either radians (default) or degrees</p></li>
-<li><p><strong>sigma</strong> (<em>float</em>) – acceptable relative error (i.e. if one of the positions in the mesh are within this
-error it’ll act the same if it matches a position in the mesh)</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt id="armi.reactor.locations.Area">
-<em class="property">class </em><code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">Area</code><a class="reference internal" href="../_modules/armi/reactor/locations.html#Area"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Area" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="py method">
-<dt id="armi.reactor.locations.Area.sense">
-<code class="sig-name descname">sense</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">cartesianTuple</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Area.sense"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Area.sense" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
+<dt id="armi.reactor.locations.minimumRings">
+<code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">minimumRings</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">obj</span></em>, <em class="sig-param"><span class="n">positions</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#minimumRings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.minimumRings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the number of rings needed to hold at least <code class="docutils literal notranslate"><span class="pre">positions</span></code> objects.</p>
+<p>This is a holdover from the old locations days, and helps in situations where
+ring/pos are relevant, but an object is not guaranteed to be in a grid that can give
+that sort of information. Instead we use the object class to infer the shape of a
+grid that we would expect it to live in to determine the meaning of ring and
+position. We also assume in the Cartesian case that the center location is split,
+since this is the historical interpretation.</p>
+<p>This function can be removed once object get a shape member, which can be used to do
+this sort of thing more cleanly.</p>
 </dd></dl>
 
 <dl class="py class">
 <dt id="armi.reactor.locations.Line">
 <em class="property">class </em><code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">Line</code><a class="reference internal" href="../_modules/armi/reactor/locations.html#Line"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Line" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>A quadradic equation that represents a line in 2D space</p>
 <dl class="py method">
 <dt id="armi.reactor.locations.Line.sense">
 <code class="sig-name descname">sense</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">cartesian</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Line.sense"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Line.sense" title="Permalink to this definition">¶</a></dt>
 <dd><p>This method returns the ‘sense’ of a cartesian point (x, y) with
 respect to the line. The sense of a point is useful in establishing
-whethor or not a point is within a defined area or volume.</p>
+whethor or not a point is within a defined area or volume.
+:param cartesian: the first element is the x-coordinate and the second element is the y-coordinate
+:type cartesian: tuple-like of float-like</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>cartesian</strong> (<em>tuple-like of float-like</em>) – the first element is the x-coordinate and the second element is the y-coordinate</p>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>sense</strong> – this can be negative (inside) positive (outside) or zero (actually on the line,
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>sense</strong> – this can be negative (inside) positive (outside) or zero (actually on the line,
 the cartesian point satisfies the polynomial equation)</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>float</p>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)">float</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1413,18 +320,17 @@ the cartesian point satisfies the polynomial equation)</p>
 <dt id="armi.reactor.locations.Line.getY">
 <code class="sig-name descname">getY</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span><span class="o">=</span><span class="default_value">0</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Line.getY"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Line.getY" title="Permalink to this definition">¶</a></dt>
 <dd><p>This method returns the a list of y-values that satisfy the polynomial equation of
-this line by using the quadratic formula.</p>
+this line by using the quadratic formula.
+:param x: x-coordinate
+:type x: float-like</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>x</strong> (<em>float-like</em>) – x-coordinate</p>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>sense</strong> – The solutions to the polynomial equation, this method returns [None]
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>sense</strong> – The solutions to the polynomial equation, this method returns [None]
 if there are no real intercepts and ‘inf’ if there are this is a
 constant value line (c=0)</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>[y1, (y2)]</p>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>[y1, (y2)]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1433,18 +339,17 @@ constant value line (c=0)</p>
 <dt id="armi.reactor.locations.Line.getX">
 <code class="sig-name descname">getX</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">y</span><span class="o">=</span><span class="default_value">0</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Line.getX"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Line.getX" title="Permalink to this definition">¶</a></dt>
 <dd><p>This method returns the a list of x-values that satisfy the polynomial equation of
-this line by using the quadratic formula.</p>
+this line by using the quadratic formula.
+:param y: y-coordinate
+:type y: float-like</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>y</strong> (<em>float-like</em>) – y-coordinate</p>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>sense</strong> – The solutions to the polynomial equation, this method returns [None]
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>sense</strong> – The solutions to the polynomial equation, this method returns [None]
 if there are no real intercepts and ‘inf’ if there are this is a
 constant value line (c=0)</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>[x1, (x2)]</p>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>[x1, (x2)]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1452,20 +357,19 @@ constant value line (c=0)</p>
 <dl class="py method">
 <dt id="armi.reactor.locations.Line.quadratic">
 <code class="sig-name descname">quadratic</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">a</span></em>, <em class="sig-param"><span class="n">b</span></em>, <em class="sig-param"><span class="n">c</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Line.quadratic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Line.quadratic" title="Permalink to this definition">¶</a></dt>
-<dd><p>This method solves the quadratic equation (a*x**2 + b*x + c = 0).</p>
+<dd><p>This method solves the quadratic equation (a*x**2 + b*x + c = 0).
+:param a: coefficients in a quadratic equation: (a*x**2 + b*x + c = 0).
+:type a: float-like
+:param b: coefficients in a quadratic equation: (a*x**2 + b*x + c = 0).
+:type b: float-like
+:param c: coefficients in a quadratic equation: (a*x**2 + b*x + c = 0).
+:type c: float-like</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>a</strong> (<em>float-like</em>) – coefficients in a quadratic equation: (a*x**2 + b*x + c = 0).</p></li>
-<li><p><strong>b</strong> (<em>float-like</em>) – coefficients in a quadratic equation: (a*x**2 + b*x + c = 0).</p></li>
-<li><p><strong>c</strong> (<em>float-like</em>) – coefficients in a quadratic equation: (a*x**2 + b*x + c = 0).</p></li>
-</ul>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>[x1, (x2)]</strong> – Solutions to the polynomial.</p>
 </dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>[x1, (x2)]</strong> – Solutions to the polynomial.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>list of floats</p>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>list of floats</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1477,13 +381,17 @@ constant value line (c=0)</p>
 
 </dd></dl>
 
-<dl class="py function">
-<dt id="armi.reactor.locations.locationFactory">
-<code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">locationFactory</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">geomType</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#locationFactory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.locationFactory" title="Permalink to this definition">¶</a></dt>
-<dd><p>Choose a location class.</p>
+<dl class="py class">
+<dt id="armi.reactor.locations.Area">
+<em class="property">class </em><code class="sig-prename descclassname">armi.reactor.locations.</code><code class="sig-name descname">Area</code><a class="reference internal" href="../_modules/armi/reactor/locations.html#Area"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Area" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="py method">
+<dt id="armi.reactor.locations.Area.sense">
+<code class="sig-name descname">sense</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">cartesianTuple</span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/reactor/locations.html#Area.sense"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#armi.reactor.locations.Area.sense" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
-</div>
 </div>
 
 
@@ -1509,7 +417,7 @@ constant value line (c=0)</p>
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-10-05.
+        Last updated on 2020-11-10.
       </span>
 
     </p>

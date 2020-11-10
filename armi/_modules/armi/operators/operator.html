@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.operators.operator &mdash; ARMI 0.1.4 documentation</title>
+  <title>armi.operators.operator &mdash; ARMI 0.1.5 documentation</title>
   
 
   
@@ -71,7 +71,7 @@
             
             
               <div class="version">
-                0.1.4
+                0.1.5
               </div>
             
           
@@ -203,16 +203,17 @@
 <span class="kn">import</span> <span class="nn">os</span>
 
 <span class="kn">import</span> <span class="nn">armi</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="k">import</span> <span class="n">memoryProfiler</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">utils</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">codeTiming</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">pathTools</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">settings</span>
-<span class="kn">from</span> <span class="nn">armi.operators</span> <span class="k">import</span> <span class="n">settingsValidation</span>
-<span class="kn">from</span> <span class="nn">armi.operators</span> <span class="k">import</span> <span class="n">runTypes</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">interfaces</span>
-<span class="kn">from</span> <span class="nn">armi.bookkeeping.report</span> <span class="k">import</span> <span class="n">reportingUtils</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">memoryProfiler</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">utils</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">codeTiming</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">pathTools</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi.operators</span> <span class="kn">import</span> <span class="n">settingsValidation</span>
+<span class="kn">from</span> <span class="nn">armi.operators</span> <span class="kn">import</span> <span class="n">runTypes</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping.report</span> <span class="kn">import</span> <span class="n">reportingUtils</span>
 
 
 <div class="viewcode-block" id="Operator"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator">[docs]</a><span class="k">class</span> <span class="nc">Operator</span><span class="p">:</span>  <span class="c1"># pylint: disable=too-many-public-methods</span>
@@ -254,7 +255,7 @@
 
     <span class="n">inspector</span> <span class="o">=</span> <span class="n">settingsValidation</span><span class="o">.</span><span class="n">Inspector</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Constructor for operator.</span>
 
@@ -281,6 +282,36 @@
 
         <span class="c1"># Create the welcome headers for the case (case, input, machine, and some basic reactor information)</span>
         <span class="n">reportingUtils</span><span class="o">.</span><span class="n">writeWelcomeHeaders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initFastPath</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Operator._initFastPath"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator._initFastPath">[docs]</a>    <span class="k">def</span> <span class="nf">_initFastPath</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create the FAST_PATH directory for fast local operations</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        The FAST_PATH was once created at import-time in order to support modules</span>
+<span class="sd">        that use FAST_PATH without operators (e.g. Database). However, we decided</span>
+<span class="sd">        to leave FAST_PATH as the CWD in INTERACTIVE mode, so this should not</span>
+<span class="sd">        be a problem anymore, and we can safely move FAST_PATH creation</span>
+<span class="sd">        back into the Operator.</span>
+
+<span class="sd">        If the operator is being used interactively (e.g. at a prompt) we will still</span>
+<span class="sd">        use a temporary local fast path (in case the user is working on a slow network path).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">activateLocalFastPath</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">getFastPath</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+            <span class="c1"># If FAST_PATH exists already that generally should be an error because</span>
+            <span class="c1"># different processes will be stepping on each other.</span>
+            <span class="c1"># The exception to this rule is in cases that instantiate multiple operators in one</span>
+            <span class="c1"># process (e.g. unit tests that loadTestReactor). Since the FAST_PATH is set at</span>
+            <span class="c1"># import, these will use the same path multiple times. We pass here for that reason.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">getFastPath</span><span class="p">()):</span>
+                <span class="c1"># if it actually doesn&#39;t exist, that&#39;s an actual error. Raise</span>
+                <span class="k">raise</span></div>
 
 <div class="viewcode-block" id="Operator._getCycleLengths"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator._getCycleLengths">[docs]</a>    <span class="k">def</span> <span class="nf">_getCycleLengths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return the cycle length for each cycle of the system as a list.&quot;&quot;&quot;</span>
@@ -353,14 +384,14 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_loadRestartData</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;&lt;</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;runType&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Operator.__enter__"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.__enter__">[docs]</a>    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Operator.__enter__"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.__enter__">[docs]</a>    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Context manager to enable interface-level error handling hooks.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span></div>
 
-    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exception_type</span><span class="p">,</span> <span class="n">exception_value</span><span class="p">,</span> <span class="n">stacktrace</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exception_type</span><span class="p">,</span> <span class="n">exception_value</span><span class="p">,</span> <span class="n">stacktrace</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">exception_type</span><span class="p">,</span> <span class="n">exception_value</span><span class="p">,</span> <span class="n">stacktrace</span><span class="p">]):</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="sa">r</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">\n</span><span class="si">{}</span><span class="s2">\</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exception_type</span><span class="p">,</span> <span class="n">exception_value</span><span class="p">,</span> <span class="n">stacktrace</span><span class="p">)</span>
@@ -1119,7 +1150,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-10-05.
+        Last updated on 2020-11-10.
       </span>
 
     </p>

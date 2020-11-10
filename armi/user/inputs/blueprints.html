@@ -11,10 +11,11 @@
   <meta property="og:site_name" content="Advanced Reactor Modeling Interface" />
   <meta property="og:description" content="The blueprints input defines the dimensions of structures in the reactor, as well as their material makeup. In a typical case, pin dimensions, isotopic composition, control definitions, coolant typ..." />
   <meta property="og:image" content="https://terrapower.github.io/armi/_static/armiSchematicView.png" />
+  <meta property="og:image:alt" content="Advanced Reactor Modeling Interface" />
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>2.2. The Blueprints Input File &mdash; ARMI 0.1.4 documentation</title>
+  <title>2.2. The Blueprints Input File &mdash; ARMI 0.1.5 documentation</title>
   
 
   
@@ -80,7 +81,7 @@
             
             
               <div class="version">
-                0.1.4
+                0.1.5
               </div>
             
           
@@ -350,7 +351,9 @@ a variety of built-in simple shapes, and plugins can define their own design-spe
 <dt>material</dt><dd><p>The material links the component to a certain set of thermo-physical properties (e.g. temperature-dependent thermal
 expansion coefficients, density, thermal conductivity, etc., which are used in the various physics kernels.
 Natural isotopic composition is determined from this material specification as well (unless custom isotopics are
-supplied). Materials are handled through the <a class="reference internal" href="../../.apidocs/armi.materials.html#module-armi.materials" title="armi.materials"><code class="xref py py-mod docutils literal notranslate"><span class="pre">material</span> <span class="pre">library</span></code></a>.</p>
+supplied). The entry here should either be a class name of a valid material (<code class="docutils literal notranslate"><span class="pre">UZr</span></code>) or a <code class="docutils literal notranslate"><span class="pre">module:className</span></code> pair
+for specifying specific material (e.g. <code class="docutils literal notranslate"><span class="pre">armi.materials.uZr:UZr</span></code>).
+Materials are handled through the <a class="reference internal" href="../../.apidocs/armi.materials.html#module-armi.materials" title="armi.materials"><code class="xref py py-mod docutils literal notranslate"><span class="pre">material</span> <span class="pre">library</span></code></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>TerraPower has a MAT_PROPS project underway at TerraPower that works with the ARMI Material Library.</p>
@@ -555,11 +558,20 @@ cladding as the fuel pins.</p>
 <div class="section" id="flags-and-naming">
 <span id="naming-flags"></span><h2><span class="section-number">2.2.3. </span>Flags and naming<a class="headerlink" href="#flags-and-naming" title="Permalink to this headline">¶</a></h2>
 <p>All objects in the ARMI Reactor Model possess a set of
-<a class="reference internal" href="../../.apidocs/armi.reactor.flags.html#armi.reactor.flags.Flags" title="armi.reactor.flags.Flags"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.flags.Flags</span></code></a>, which affect the way that the various physics
-kernels treat each object. For instance, an object with the <code class="docutils literal notranslate"><span class="pre">DEPLETABLE</span></code> flag set will
-participate in isotopic depletion analysis, whereas objects without the <code class="docutils literal notranslate"><span class="pre">DEPLETION</span></code>
-flag set will not. Some parts of the ARMI ecosystem use the flags like <code class="docutils literal notranslate"><span class="pre">FUEL</span></code>,
-<code class="docutils literal notranslate"><span class="pre">CLAD</span></code>, or <code class="docutils literal notranslate"><span class="pre">WIRE</span></code> to guess at an object’s function.</p>
+<a class="reference internal" href="../../.apidocs/armi.reactor.flags.html#armi.reactor.flags.Flags" title="armi.reactor.flags.Flags"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.flags.Flags</span></code></a>, which can be used to affect the way that the
+various physics kernels treat each object. Most flags are named after common reactor
+components, like <code class="docutils literal notranslate"><span class="pre">FUEL</span></code>, or <code class="docutils literal notranslate"><span class="pre">CLAD</span></code>, and are used to declare <cite>what something is</cite> in the
+reactor model. Various physics or other framework operations can then be
+parameterized to target specific types of things. For instance, the fuel handling code
+can infer that blocks with the <code class="docutils literal notranslate"><span class="pre">GRID_PLATE</span></code> flag should be considered stationary and
+not move them with the rest of the block stack in an assembly.</p>
+<p>Historically, flags have also been used to describe directly <cite>what should be done</cite> with
+an object in the reactor model. For instance, an object with the <code class="docutils literal notranslate"><span class="pre">DEPLETABLE</span></code> flag set
+will participate in isotopic depletion analysis, whereas objects without the
+<code class="docutils literal notranslate"><span class="pre">DEPLETION</span></code> flag set will not. This has led to a lot of confusion, as the meaning of
+various flags is burried deep within the code, and can conflict from place to place. We
+are trying to align around a <cite>what something is</cite> interpretation, and bind those to
+specific behaviors with settings. For more details, see <a class="reference internal" href="../../.apidocs/armi.reactor.flags.html#module-armi.reactor.flags" title="armi.reactor.flags"><code class="xref py py-mod docutils literal notranslate"><span class="pre">armi.reactor.flags</span></code></a>.</p>
 <p>The set of specific flags that should be set on an object can be specified in one of two
 ways for each object defined in the blueprints. The most precise way is to use include a
 <code class="docutils literal notranslate"><span class="pre">flags:</span></code> entry for the object blueprint in question. In the example above, the
@@ -569,224 +581,11 @@ Flags. If it cannot, it will lead to an error when constructing the object.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">flags:</span></code> is empty, or not specified, then the name of the object blueprint will be
 used to infer as many flags as possible. In the above example, the <code class="docutils literal notranslate"><span class="pre">clad</span></code> component
 will get the <code class="docutils literal notranslate"><span class="pre">CLAD</span></code> flag from its name.</p>
-<p>The following special names should be used in the <strong>blueprints</strong> input to achieve
-specific behavior.</p>
-<div class="docutils container">
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 57%" />
-<col style="width: 43%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Keyword</p></th>
-<th class="head"><p>Special use</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>PRIMARY</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>SECONDARY</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>TERTIARY</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>ANNULAR</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>A</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>B</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>C</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>D</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>E</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>HIGH</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>MEDIUM</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>LOW</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>CORE</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>REACTOR</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>MATERIAL</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>FUEL</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>TEST</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>CONTROL</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>ULTIMATE</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>SHUTDOWN</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>SHIELD</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>SHIELD_BLOCK</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>SLUG</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>REFLECTOR</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>DRIVER</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>IGNITER</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>FEED</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>STARTER</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>BLANKET</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>BOOSTER</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>TARGET</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>MOX</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>INNER</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>MIDDLE</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>OUTER</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>RADIAL</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>AXIAL</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>UPPER</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>LOWER</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>DUCT</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>GRID_PLATE</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>HANDLING_SOCKET</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>INLET_NOZZLE</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>PLENUM</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>BOND</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>LINER</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>CLAD</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>PIN</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>GAP</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>WIRE</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>COOLANT</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>INTERCOOLANT</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>ACLP</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>SKID</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>VOID</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>INTERDUCTCOOLANT</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>DSPACERINSIDE</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>GUIDE_TUBE</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>FISSION_CHAMBER</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>MODERATOR</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>CORE_BARREL</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>DUMMY</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>BATCHMASSADDITION</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>POISON</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-even"><td><p>STRUCTURE</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td><p>DEPLETABLE</p></td>
-<td><p>TBD</p></td>
-</tr>
-</tbody>
-</table>
-</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Additional flags may be provided via plugins.</p>
+<p>Additional flags may be specified from plugins, but this should be done with care;
+see the <a class="reference internal" href="../../.apidocs/armi.reactor.flags.html#module-armi.reactor.flags" title="armi.reactor.flags"><code class="xref py py-mod docutils literal notranslate"><span class="pre">armi.reactor.flags</span></code></a> module and
+<a class="reference internal" href="../../.apidocs/armi.plugins.html#armi.plugins.ArmiPlugin.defineFlags" title="armi.plugins.ArmiPlugin.defineFlags"><code class="xref py py-meth docutils literal notranslate"><span class="pre">armi.plugins.ArmiPlugin.defineFlags()</span></code></a> plugin hook for more details.</p>
 </div>
 </div>
 <div class="section" id="assemblies">
@@ -1267,7 +1066,7 @@ in a problem to reduce the user-input burden.</p>
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-10-05.
+        Last updated on 2020-11-10.
       </span>
 
     </p>

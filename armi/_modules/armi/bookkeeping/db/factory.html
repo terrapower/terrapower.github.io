@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.bookkeeping.db.factory &mdash; ARMI 0.1.4 documentation</title>
+  <title>armi.bookkeeping.db.factory &mdash; ARMI 0.1.5 documentation</title>
   
 
   
@@ -71,7 +71,7 @@
             
             
               <div class="version">
-                0.1.4
+                0.1.5
               </div>
             
           
@@ -188,11 +188,11 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Optional</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
 
-<span class="kn">from</span> <span class="nn">armi.bookkeeping.db.database3</span> <span class="k">import</span> <span class="n">Database3</span>
-<span class="kn">from</span> <span class="nn">armi.bookkeeping.db</span> <span class="k">import</span> <span class="n">permissions</span>
-<span class="kn">from</span> <span class="nn">armi.bookkeeping.db.xtviewDB</span> <span class="k">import</span> <span class="n">XTViewDatabase</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping.db.database3</span> <span class="kn">import</span> <span class="n">Database3</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping.db</span> <span class="kn">import</span> <span class="n">permissions</span>
 
 
 <div class="viewcode-block" id="databaseFactory"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.factory.html#armi.bookkeeping.db.databaseFactory">[docs]</a><span class="k">def</span> <span class="nf">databaseFactory</span><span class="p">(</span><span class="n">dbName</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">permission</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
@@ -206,9 +206,9 @@
 <span class="sd">    permission: str</span>
 <span class="sd">        String defining permission, `r` for read only. See armi.bookeeping.db.permissions</span>
 <span class="sd">    version: str, optional</span>
-<span class="sd">        Version of database you want to read or write. In many cases ARMI will </span>
+<span class="sd">        Version of database you want to read or write. In many cases ARMI will</span>
 <span class="sd">        auto-detect. For advanced users.</span>
-<span class="sd">    </span>
+
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
 <span class="sd">    This is not a proper factory, as the different database versions do not present a</span>
@@ -220,37 +220,51 @@
 
     <span class="kn">import</span> <span class="nn">h5py</span>
 
+    <span class="n">dbPath</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">dbName</span><span class="p">)</span>
+
     <span class="c1"># if it&#39;s not an hdf5 file, we dont even know where to start...</span>
-    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">dbName</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;.h5&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">dbPath</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s2">&quot;.h5&quot;</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Unknown database format for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dbName</span><span class="p">))</span>
 
     <span class="k">if</span> <span class="n">permission</span> <span class="ow">in</span> <span class="n">permissions</span><span class="o">.</span><span class="n">Permissions</span><span class="o">.</span><span class="n">read</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot specify version when reading a database.&quot;</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dbPath</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">dbPath</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Database file `</span><span class="si">{}</span><span class="s2">` does not appear to be a &quot;</span> <span class="s2">&quot;file.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dbName</span><span class="p">)</span>
+            <span class="p">)</span>
+
         <span class="c1"># probe for the database version. We started adding these with &quot;database 3&quot;, so if</span>
         <span class="c1"># databaseVersion is not present, assume it&#39;s the &quot;old&quot; version</span>
         <span class="n">version</span> <span class="o">=</span> <span class="s2">&quot;2&quot;</span>
-        <span class="n">tempDb</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">dbName</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span>
+        <span class="n">tempDb</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">dbPath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;databaseVersion&quot;</span> <span class="ow">in</span> <span class="n">tempDb</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
             <span class="n">version</span> <span class="o">=</span> <span class="n">tempDb</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;databaseVersion&quot;</span><span class="p">]</span>
         <span class="k">del</span> <span class="n">tempDb</span>
 
         <span class="n">majorversion</span> <span class="o">=</span> <span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">version</span> <span class="k">else</span> <span class="s2">&quot;2&quot;</span>
         <span class="k">if</span> <span class="n">majorversion</span> <span class="o">==</span> <span class="s2">&quot;2&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">XTViewDatabase</span><span class="p">(</span><span class="n">dbName</span><span class="p">,</span> <span class="n">permission</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;Database version 2 (&quot;XTView database&quot;) is no longer &#39;</span>
+                <span class="s2">&quot;supported. To migrate to a newer version, use version 0.1.5.&quot;</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">majorversion</span> <span class="o">==</span> <span class="s2">&quot;3&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Database3</span><span class="p">(</span><span class="n">dbName</span><span class="p">,</span> <span class="n">permission</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Database3</span><span class="p">(</span><span class="n">dbPath</span><span class="p">,</span> <span class="n">permission</span><span class="p">)</span>
 
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unable to determine Database version for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dbName</span><span class="p">))</span>
 
     <span class="k">elif</span> <span class="n">permission</span> <span class="ow">in</span> <span class="n">permissions</span><span class="o">.</span><span class="n">Permissions</span><span class="o">.</span><span class="n">write</span><span class="p">:</span>
         <span class="n">majorversion</span> <span class="o">=</span> <span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">version</span> <span class="k">else</span> <span class="s2">&quot;3&quot;</span>
         <span class="k">if</span> <span class="n">majorversion</span> <span class="o">==</span> <span class="s2">&quot;2&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">XTViewDatabase</span><span class="p">(</span><span class="n">dbName</span><span class="p">,</span> <span class="n">permission</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s1">&#39;Database version 2 (&quot;XTView database&quot;) is no longer &#39;</span>
+                <span class="s2">&quot;supported. To migrate to a newer version, use version 0.1.5 to &quot;</span>
+                <span class="s2">&quot;migrate.&quot;</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="n">majorversion</span> <span class="o">==</span> <span class="s2">&quot;3&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Database3</span><span class="p">(</span><span class="n">dbName</span><span class="p">,</span> <span class="n">permission</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="n">Database3</span><span class="p">(</span><span class="n">dbPath</span><span class="p">,</span> <span class="n">permission</span><span class="p">)</span></div>
 </pre></div>
 
            </div>
@@ -266,7 +280,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-10-05.
+        Last updated on 2020-11-10.
       </span>
 
     </p>

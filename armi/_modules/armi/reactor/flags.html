@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.reactor.flags &mdash; ARMI 0.1.4 documentation</title>
+  <title>armi.reactor.flags &mdash; ARMI 0.1.5 documentation</title>
   
 
   
@@ -71,7 +71,7 @@
             
             
               <div class="version">
-                0.1.4
+                0.1.5
               </div>
             
           
@@ -188,57 +188,82 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Handles *flags* that trigger behaviors related to reactor parts.</span>
+<span class="sd">Handles *flags* that formally bind certain categories to reactor parts.</span>
 
-<span class="sd">*Flags* are used to trigger certain treatments by the various modules. For instance, if</span>
-<span class="sd">a module needs to separate **reflector** assemblies from **fuel** assemblies, it can use</span>
-<span class="sd">flags.</span>
+<span class="sd">``Flags`` are used to formally categorize the various ``ArmiObject`` objects that make</span>
+<span class="sd">up a reactor model. These categories allow parts of the ARMI system to treat different</span>
+<span class="sd">Assemblies, Blocks, Components, etc. differently.</span>
 
-<span class="sd">Flags are derived from the user-input name. If a valid flag name is included in a</span>
-<span class="sd">assembly/block/component name, then that flag will be applied. Words in names that are</span>
-<span class="sd">not valid flags are ignored from a flags perspective.  Each flag in the name must be</span>
-<span class="sd">space-delimited to be parsed properly.  If a name includes numbers, they are generally</span>
-<span class="sd">ignored to avoid defining hundreds of flags for assemblies with many pins in them (e.g.</span>
-<span class="sd">in pin-level depletion cases). Use ``FUEL A`` or ``FUEL B`` to distinguish if necessary.</span>
+<span class="sd">By default, the specific Flags that are bound to each object are derived by that</span>
+<span class="sd">object&#39;s name when constructed; if the name contains any valid flag names, those Flags</span>
+<span class="sd">will be assigned to the object. However, specific Flags may be specified within</span>
+<span class="sd">blueprints, in which case the name is ignored and only the explicitly-requested Flags</span>
+<span class="sd">are applied (see :doc:`/user/inputs/blueprints` for more details).</span>
 
-<span class="sd">Code modules that check the names of objects must use valid flags only.</span>
+<span class="sd">Individual Flags tend to be various nouns and adjectives that describe common objects</span>
+<span class="sd">that go into a reactor (e.g. &quot;fuel&quot;, &quot;shield&quot;, &quot;control&quot;, &quot;duct&quot;, &quot;plenum&quot;, etc.). In</span>
+<span class="sd">addition, there are some generic Flags (e.g., &quot;A&quot;, &quot;B&quot;, &quot;C&quot;, etc.) that aid in</span>
+<span class="sd">disambiguating between objects that need to be targeted separately but would otherwise</span>
+<span class="sd">have the same Flags. Flags are stored as integer bitfields within the parameter system,</span>
+<span class="sd">allowing them to be combined arbitrarily on any ARMI object. Since they are stored in</span>
+<span class="sd">bitfields, each new flag definition requires widening this bitfield; therefore, the</span>
+<span class="sd">number of defined Flags should be kept relatively small, and each flag should provide</span>
+<span class="sd">maximum utility.</span>
 
-<span class="sd">Things that flags are used for include:</span>
+<span class="sd">Within the code, Flags are usually combined into a &quot;type specification (``TypeSpec``)&quot;,</span>
+<span class="sd">which is either a single combination of Flags, or a list of Flag combinations. More</span>
+<span class="sd">information about how ``TypeSpec`` is interpreted can be found in</span>
+<span class="sd">:py:meth:`armi.reactor.composites.ArmiObject.hasFlags`.</span>
+
+<span class="sd">Flags are intended to describe `what something is`, rather than `what something should</span>
+<span class="sd">do`. Historically, Flags have been used to do both, which has led to confusion. The</span>
+<span class="sd">binding of specific behavior to certain Flags should ideally be controlled through</span>
+<span class="sd">settings with reasonable defaults, rather than being hard-coded. Currently, much of the</span>
+<span class="sd">code still uses hard-coded ``TypeSpecs``, and certain Flags are clearly saying `what</span>
+<span class="sd">something should do` (e.g., ``Flags.DEPLETABLE``).</span>
+
+<span class="sd">.. note::</span>
+<span class="sd">    Flags have a rather storied history. Way back when, code that needed to operate on</span>
+<span class="sd">    specific objects would do substring searches against object names to decide if they</span>
+<span class="sd">    were relevant. This was very prone to error, and led to all sorts of surprising</span>
+<span class="sd">    behavior based on the names used in input files. To improve the situation, Flags</span>
+<span class="sd">    were developed to better formalize which strings mattered, and to define canonical</span>
+<span class="sd">    names for things. Still almost all flag checks were hard-coded, and</span>
+<span class="sd">    aside from up-front error checks, many of the original issues persisted. For</span>
+<span class="sd">    instance, developing a comprehensive manual of which Flags lead to which behavior</span>
+<span class="sd">    was very difficult.</span>
+
+<span class="sd">    Migrating the `meaning` of Flags into settings will allow us to better document how</span>
+<span class="sd">    those Flags/settings affect ARMI&#39;s behavior.</span>
+
+<span class="sd">    As mentioned above, plenty of code still hard-codes Flag ``TypeSpecs``, and certain</span>
+<span class="sd">    Flags do not follow the `what something is` convention. Future work should improve</span>
+<span class="sd">    upon this as possible.</span>
+
+
+<span class="sd">Things that Flags are used for include:</span>
 
 <span class="sd">* **Fuel management**: Different kinds of assemblies (LTAs, fuel, reflectors) have</span>
-<span class="sd">  different shuffling operations and must be distinguished. Often names are good ways to</span>
-<span class="sd">  pick assemblies but details may need a flag (e.g. ``STATIONARY`` for *grid plate*</span>
-<span class="sd">  blocks, though keeping grid plates out of the Assemblies may be a better option in</span>
-<span class="sd">  this case.)</span>
+<span class="sd">  different shuffling operations and must be distinguished. Certain blocks in an</span>
+<span class="sd">  assembly are stationary, and shouldn&#39;t be moved along with the rest of the assembly</span>
+<span class="sd">  when shuffling is performed. Filtering for stationary blocks can also be done using</span>
+<span class="sd">  Flags (e.g., ``Flags.GRID_PLATE``).</span>
 
-<span class="sd">* **Fuel performance**: Knowing what&#39;s fuel and what&#39;s plenum is important to figure out</span>
-<span class="sd">  what things to grow and where to move fission gas to.</span>
-
-<span class="sd">* **Safety**: Test assemblies like LTAs go in their own special channels and must be</span>
-<span class="sd">  identified.  Reflectors, control, shields go into bypass channels.  Handling sockets,</span>
-<span class="sd">  shield blocks, etc.  go in their own axial nodes.</span>
+<span class="sd">* **Fuel performance**: Knowing what&#39;s fuel (``Flags.FUEL``) and what isn&#39;t (e.g.,</span>
+<span class="sd">  ``Flags.PLENUM``) is important to figure out what things to grow and where to move</span>
+<span class="sd">  fission gas to.</span>
 
 <span class="sd">* **Fluid fuel** reactors need to find all the fuel that ever circulates through the</span>
-<span class="sd"> reactor so it can be depleted with the average flux.</span>
+<span class="sd">  reactor so it can be depleted with the average flux.</span>
 
-<span class="sd">* **Mechanical** often needs to know if an object is solid, fluid, or void (material</span>
-<span class="sd"> subclassing can handle this).</span>
+<span class="sd">* **Core Mechanical** analyses often need to know if an object is solid, fluid, or void</span>
+<span class="sd">  (material subclassing can handle this).</span>
 
 <span class="sd">* **T/H** needs to find the pin bundle in different kinds of assemblies (*radial shield*</span>
 <span class="sd">  block in *radial shield* assemblies, *fuel* in *fuel*, etc.). Also needs to generate</span>
 <span class="sd">  3-layer pin models with pin (fuel/control/shield/slug), then gap (liners/gap/bond),</span>
 <span class="sd">  then clad.</span>
 
-<span class="sd">Also:</span>
-
-<span class="sd">  * Object names should explicitly tied to their definition in the input</span>
-
-
-<span class="sd">Notes</span>
-<span class="sd">-----</span>
-
-<span class="sd">The flags used to be based only on the user-input name of the object but there was too</span>
-<span class="sd">much flexibility and inconsistencies arose.</span>
 
 <span class="sd">Examples</span>
 <span class="sd">--------</span>
@@ -256,9 +281,9 @@
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">armi.utils.flags</span> <span class="k">import</span> <span class="n">Flag</span><span class="p">,</span> <span class="n">FlagType</span><span class="p">,</span> <span class="n">auto</span>
+<span class="kn">from</span> <span class="nn">armi.utils.flags</span> <span class="kn">import</span> <span class="n">Flag</span><span class="p">,</span> <span class="n">FlagType</span><span class="p">,</span> <span class="n">auto</span>
 
 
 <span class="c1"># Type alias used for passing type specifications to many of the composite methods. See</span>
@@ -507,7 +532,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-10-05.
+        Last updated on 2020-11-10.
       </span>
 
     </p>

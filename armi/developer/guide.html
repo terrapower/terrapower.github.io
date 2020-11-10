@@ -11,10 +11,11 @@
   <meta property="og:site_name" content="Advanced Reactor Modeling Interface" />
   <meta property="og:description" content="Here we will discuss some big-picture elements of the ARMI architecture. Throughout, links to the API docs will lead to additional details. The Reactor Model: The reactor package is the central rep..." />
   <meta property="og:image" content="https://terrapower.github.io/armi/_static/armiSchematicView.png" />
+  <meta property="og:image:alt" content="Advanced Reactor Modeling Interface" />
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>1. Framework Architecture &mdash; ARMI 0.1.4 documentation</title>
+  <title>1. Framework Architecture &mdash; ARMI 0.1.5 documentation</title>
   
 
   
@@ -80,7 +81,7 @@
             
             
               <div class="version">
-                0.1.4
+                0.1.5
               </div>
             
           
@@ -113,9 +114,10 @@
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Developer Docs</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">1. Framework Architecture</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#the-reactor-model">1.1. The Reactor Model</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#parameters">1.1.1. Parameters</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#converters">1.1.2. Converters</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#blueprints">1.1.3. Blueprints</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#finding-objects-in-a-model">1.1.1. Finding objects in a model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#parameters">1.1.2. Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#converters">1.1.3. Converters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#blueprints">1.1.4. Blueprints</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#operators">1.2. Operators</a><ul>
@@ -131,11 +133,11 @@
 <li class="toctree-l4"><a class="reference internal" href="#entry-points">1.3.1. Entry Points</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#finding-assemblies">1.4. Finding assemblies</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="making_armi_based_apps.html">2. Making ARMI-based Apps</a></li>
-<li class="toctree-l2"><a class="reference internal" href="documenting.html">3. Documenting ARMI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="entrypoints.html">3. Entry Points</a></li>
+<li class="toctree-l2"><a class="reference internal" href="documenting.html">4. Documenting ARMI</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../blog/index.html">News</a></li>
@@ -271,8 +273,46 @@ through time to any given point. This information also constitutes the majority 
 gets written to the database for evaluation and/or follow-on analysis.</p>
 <p>Review the <a class="reference internal" href="../tutorials/data_model.html"><span class="doc">Hands-on at the ARMI Terminal</span></a> section for examples
 exploring a populated instance of the <strong>Reactor</strong> model.</p>
+<div class="section" id="finding-objects-in-a-model">
+<h3><span class="section-number">1.1.1. </span>Finding objects in a model<a class="headerlink" href="#finding-objects-in-a-model" title="Permalink to this headline">¶</a></h3>
+<p>Under most circumstances a <a class="reference internal" href="../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Reactor" title="armi.reactor.reactors.Reactor"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.reactors.Reactor</span></code></a> instance will have a
+<code class="docutils literal notranslate"><span class="pre">.core</span></code> attribute, which is an instance of <a class="reference internal" href="../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core" title="armi.reactor.reactors.Core"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.reactors.Core</span></code></a>. While the
+Composite pattern discussed above can be used very generally, the <code class="docutils literal notranslate"><span class="pre">Core</span></code> class
+enforces a couple of constrains that can be very useful:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>A <code class="docutils literal notranslate"><span class="pre">Core</span></code> is a 2-D arrangement of <a class="reference internal" href="../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly" title="armi.reactor.assemblies.Assembly"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.assemblies.Assembly</span></code></a>
+objects.</p></li>
+<li><p>Each <code class="docutils literal notranslate"><span class="pre">Assembly</span></code> is a 1-D arrangement of <a class="reference internal" href="../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block" title="armi.reactor.blocks.Block"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.blocks.Block</span></code></a>
+objects.</p></li>
+<li><p>Blocks are <a class="reference internal" href="../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite" title="armi.reactor.composites.Composite"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.composites.Composite</span></code></a> objects with some extra
+parameter bindings, utility functions, and other implementation details that let
+them play nicely with their containing <code class="docutils literal notranslate"><span class="pre">Assembly</span></code>.</p></li>
+</ul>
+</div></blockquote>
+<p>In many scenarios, one wants to access specific assemblies or blocks from a core. There
+are a few ways to get the objects that you’re interested in.</p>
+<blockquote>
+<div><ul>
+<li><p>The <cite>r.core.childrenByLocator</cite> dictionary maps
+<a class="reference internal" href="../.apidocs/armi.reactor.grids.html#armi.reactor.grids.IndexLocation" title="armi.reactor.grids.IndexLocation"><code class="xref py py-class docutils literal notranslate"><span class="pre">armi.reactor.grids.IndexLocation</span></code></a> objects to whichever assembly is at
+that location. For example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">loc</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">childrenByLocator</span><span class="p">[</span><span class="n">loc</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>To access the <code class="docutils literal notranslate"><span class="pre">k</span></code> -th block in an assembly, try:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+</pre></div>
+</div>
+</li>
+<li><p><cite>r.core.getAssemblies()</cite> loops through all assemblies in the core for when you
+need to do something to all assemblies.</p></li>
+</ul>
+</div></blockquote>
+</div>
 <div class="section" id="parameters">
-<h3><span class="section-number">1.1.1. </span>Parameters<a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h3>
+<h3><span class="section-number">1.1.2. </span>Parameters<a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h3>
 <p>One of the main benefits to ARMI is that it enables simple interfaces to extract data
 from the reactor, do something with it, and add new results to the reactor. This enables
 specialized developers to write code that uses ARMI as input and output.</p>
@@ -282,7 +322,7 @@ interactions, and therefore it will also be loaded when a database is loaded.</p
 <p>Details of the use and design can be found at <a class="reference internal" href="../.apidocs/armi.reactor.parameters.html#module-armi.reactor.parameters" title="armi.reactor.parameters"><code class="xref py py-mod docutils literal notranslate"><span class="pre">parameters</span></code></a>.</p>
 </div>
 <div class="section" id="converters">
-<h3><span class="section-number">1.1.2. </span>Converters<a class="headerlink" href="#converters" title="Permalink to this headline">¶</a></h3>
+<h3><span class="section-number">1.1.3. </span>Converters<a class="headerlink" href="#converters" title="Permalink to this headline">¶</a></h3>
 <p>The <a class="reference internal" href="../.apidocs/armi.reactor.converters.html#module-armi.reactor.converters" title="armi.reactor.converters"><code class="xref py py-mod docutils literal notranslate"><span class="pre">converters</span></code></a> subpackage contains a variety of utilities that
 can convert a reactor model in various ways. Some converters change designs at the block
 level, adjusting pin dimensions or fuel composition. Others adjust the reactor geometry
@@ -295,7 +335,7 @@ coupling in a core/reflector interface. The converters are used heavily in these
 operations.</p>
 </div>
 <div class="section" id="blueprints">
-<h3><span class="section-number">1.1.3. </span>Blueprints<a class="headerlink" href="#blueprints" title="Permalink to this headline">¶</a></h3>
+<h3><span class="section-number">1.1.4. </span>Blueprints<a class="headerlink" href="#blueprints" title="Permalink to this headline">¶</a></h3>
 <p>As seen in the User Guide, <a class="reference internal" href="../.apidocs/armi.reactor.blueprints.html#module-armi.reactor.blueprints" title="armi.reactor.blueprints"><code class="xref py py-mod docutils literal notranslate"><span class="pre">blueprints</span></code></a> are how reactor models are
 defined. During a run, they can be used to create new instances of reactor model pieces,
 such as when a new assembly is fabricated during a fuel management operation in a later
@@ -453,25 +493,6 @@ main ARMI analysis loop and its interface stack is looped over as indicated by u
 input.</p>
 </div>
 </div>
-<div class="section" id="finding-assemblies">
-<h2><span class="section-number">1.4. </span>Finding assemblies<a class="headerlink" href="#finding-assemblies" title="Permalink to this headline">¶</a></h2>
-<p>There are a few ways to get the assemblies you’re interested in.</p>
-<blockquote>
-<div><ul class="simple">
-<li><p><cite>r.core.whichAssemblyIsIn(ring,position)</cite> returns whichever assembly is in
-(ring,position)</p></li>
-<li><p><cite>r.core.getLocationContents(locList)</cite> returns the assemblies or blocks that correspond
-to the location list. This can be much faster that <cite>whichAssemblyIsIn</cite> if you need
-many assemblies</p></li>
-<li><p><cite>r.core.getAssemblies()</cite> loops through all assemblies in the core for when you need to
-do something to all assemblies</p></li>
-<li><p><cite>hist.getDetailAssemblies()</cite> use the <cite>HistoryInterface</cite> to find the assemblies
-that the user has specifically designated “detail assemblies”, meaning assemblies
-that will receive special analysis. This is useful for doing limiting analyses
-that would be too time consuming or otherwise wasteful to apply to all assemblies.</p></li>
-</ul>
-</div></blockquote>
-</div>
 </div>
 
 
@@ -497,7 +518,7 @@ that would be too time consuming or otherwise wasteful to apply to all assemblie
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-10-05.
+        Last updated on 2020-11-10.
       </span>
 
     </p>

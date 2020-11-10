@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>armi.physics.fuelCycle.fuelHandlers &mdash; ARMI 0.1.4 documentation</title>
+  <title>armi.physics.fuelCycle.fuelHandlers &mdash; ARMI 0.1.5 documentation</title>
   
 
   
@@ -71,7 +71,7 @@
             
             
               <div class="version">
-                0.1.4
+                0.1.5
               </div>
             
           
@@ -200,20 +200,21 @@
 
 <span class="sd">This module also handles repeat shuffles when doing a restart.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">interfaces</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.localization.exceptions</span> <span class="k">import</span> <span class="n">InputError</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="k">import</span> <span class="n">Flags</span>
-<span class="kn">from</span> <span class="nn">armi.operators</span> <span class="k">import</span> <span class="n">RunTypes</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">directoryChangers</span><span class="p">,</span> <span class="n">pathTools</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">utils</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">plotting</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.localization.exceptions</span> <span class="kn">import</span> <span class="n">InputError</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">armi.operators</span> <span class="kn">import</span> <span class="n">RunTypes</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span><span class="p">,</span> <span class="n">pathTools</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">utils</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">plotting</span>
 
 
 <div class="viewcode-block" id="FuelHandlerInterface"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandlerInterface">[docs]</a><span class="k">class</span> <span class="nc">FuelHandlerInterface</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
@@ -228,7 +229,7 @@
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;fuelHandler&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
         <span class="c1"># assembly name key, (x, y) values. used for making shuffle arrows.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">oldLocations</span> <span class="o">=</span> <span class="p">{}</span>
@@ -387,7 +388,7 @@
         <span class="c1"># This is code coupling that should be untangled.</span>
         <span class="c1"># Special case for equilibrium-mode shuffling</span>
         <span class="k">if</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;eqDirect&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;runType&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="n">RunTypes</span><span class="o">.</span><span class="n">STANDARD</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
-            <span class="kn">from</span> <span class="nn">terrapower.physics.neutronics.equilibrium</span> <span class="k">import</span> <span class="n">fuelHandler</span> <span class="k">as</span> <span class="n">efh</span>
+            <span class="kn">from</span> <span class="nn">terrapower.physics.neutronics.equilibrium</span> <span class="kn">import</span> <span class="n">fuelHandler</span> <span class="k">as</span> <span class="n">efh</span>
 
             <span class="k">return</span> <span class="n">efh</span><span class="o">.</span><span class="n">EqDirectFuelHandler</span><span class="p">(</span><span class="n">operator</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -450,7 +451,7 @@
 <span class="sd">    with the ``fuelHandler`` setting. In that file, subclass this object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">):</span>
         <span class="c1"># we need access to the operator to find the core, get settings, grab</span>
         <span class="c1"># other interfaces, etc.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span> <span class="o">=</span> <span class="n">operator</span>
@@ -796,7 +797,7 @@
 <span class="sd">        by the framework, so here it remains. New developments should</span>
 <span class="sd">        avoid using it. Most code using it has been refactored to just use</span>
 <span class="sd">        a ``_prepSearch`` private method.</span>
-<span class="sd">        </span>
+
 <span class="sd">        It now should not be used and will trigger a DeprecationWarning</span>
 <span class="sd">        in the constructor. It&#39;s still here because old user-input code</span>
 <span class="sd">        calls the parent&#39;s prepSearch, which is this.</span>
@@ -1032,7 +1033,7 @@
             <span class="n">minD</span> <span class="o">=</span> <span class="mf">1e10</span>
             <span class="n">xt</span><span class="p">,</span> <span class="n">yt</span> <span class="o">=</span> <span class="n">coords</span>  <span class="c1"># assume (x,y) tuple.</span>
             <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">():</span>
-                <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">getLocationObject</span><span class="p">()</span><span class="o">.</span><span class="n">coords</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">getPitch</span><span class="p">())</span>
+                <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span>
                 <span class="n">d</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">yt</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">xt</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
                 <span class="k">if</span> <span class="n">d</span> <span class="o">&lt;</span> <span class="n">minD</span><span class="p">:</span>
                     <span class="n">minD</span> <span class="o">=</span> <span class="n">d</span>
@@ -1159,8 +1160,13 @@
                             <span class="k">continue</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="k">return</span> <span class="n">a</span>
-                    <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">getLocationObject</span><span class="p">()</span><span class="o">.</span><span class="n">i1</span> <span class="o">-</span> <span class="n">targetRing</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">minDiff</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-                        <span class="n">minDiff</span> <span class="o">=</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">getLocationObject</span><span class="p">()</span><span class="o">.</span><span class="n">i1</span> <span class="o">-</span> <span class="n">targetRing</span><span class="p">),</span> <span class="n">a</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="p">(</span>
+                        <span class="nb">abs</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">targetRing</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">minDiff</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="p">):</span>
+                        <span class="n">minDiff</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="nb">abs</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">targetRing</span><span class="p">),</span>
+                            <span class="n">a</span><span class="p">,</span>
+                        <span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">findMany</span><span class="p">:</span>
                     <span class="c1"># returning many assemblies. If there&#39;s a param, we&#39;d like it to be honored by</span>
@@ -1266,7 +1272,7 @@
                 <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">getLocation</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;SFP&quot;</span><span class="p">:</span>
                     <span class="n">ring</span> <span class="o">=</span> <span class="s2">&quot;SFP&quot;</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">ring</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">getLocationObject</span><span class="p">()</span><span class="o">.</span><span class="n">i1</span>
+                    <span class="n">ring</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
                 <span class="k">if</span> <span class="n">ring</span> <span class="ow">in</span> <span class="n">ringList</span><span class="p">:</span>
                     <span class="c1"># keep it in the right order</span>
                     <span class="n">assemblyList</span><span class="p">[</span><span class="n">ringList</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ring</span><span class="p">)]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
@@ -1544,7 +1550,7 @@
 
 <div class="viewcode-block" id="FuelHandler.dischargeSwap"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.dischargeSwap">[docs]</a>    <span class="k">def</span> <span class="nf">dischargeSwap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">incoming</span><span class="p">,</span> <span class="n">outgoing</span><span class="p">):</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Removes one assembly from the core and replace it with another assembly</span>
+<span class="sd">        Removes one assembly from the core and replace it with another assembly.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -1572,10 +1578,19 @@
         <span class="c1"># which, coincidentally is the same time we&#39;re at right now at BOC.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">removeAssembly</span><span class="p">(</span><span class="n">outgoing</span><span class="p">)</span>
 
+        <span class="c1"># adjust the assembly multiplicity so that it doesnt forget how many it really</span>
+        <span class="c1"># represents. This allows us to discharge an assembly from any location in</span>
+        <span class="c1"># fractional-core models where the central location may only be one assembly,</span>
+        <span class="c1"># whereas other locations are more, and keep proper track of things. In the</span>
+        <span class="c1"># future, this mechanism may be used to handle symmetry in general.</span>
+        <span class="n">outgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">multiplicity</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">loc</span><span class="o">.</span><span class="n">getSymmetricEquivalents</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span>
+
         <span class="k">if</span> <span class="n">incoming</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">():</span>
             <span class="c1"># pull it out of the sfp if it&#39;s in there.</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;removing </span><span class="si">{0}</span><span class="s2"> from the sfp&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">incoming</span><span class="p">))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">incoming</span><span class="p">)</span>
+
+        <span class="n">incoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">multiplicity</span> <span class="o">=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">incoming</span><span class="p">,</span> <span class="n">loc</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_swapFluxParam</span><span class="p">(</span><span class="n">incoming</span><span class="p">,</span> <span class="n">outgoing</span><span class="p">)</span></div>
@@ -2132,6 +2147,16 @@
 <span class="sd">        locationSchedule : list</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">squaredDistanceFromOrigin</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">())</span>
+            <span class="k">return</span> <span class="p">((</span><span class="n">p</span> <span class="o">-</span> <span class="n">origin</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+        <span class="k">def</span> <span class="nf">assemAngle</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">atan2</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+
         <span class="n">locationSchedule</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="c1"># start by expanding the user-input eqRingSchedule list into a list containing</span>
         <span class="c1"># all the rings as it goes.</span>
@@ -2142,23 +2167,17 @@
         <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="n">ringList</span><span class="p">:</span>
             <span class="n">assemsInRing</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssembliesInRing</span><span class="p">(</span><span class="n">ring</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;circularRingOrder&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;angle&quot;</span><span class="p">:</span>
-                <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">getLocationObject</span><span class="p">()</span><span class="o">.</span><span class="n">getAngle</span><span class="p">()</span>
+                <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">assemAngle</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;circularRingOrder&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;distanceSmart&quot;</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">lastRing</span> <span class="o">==</span> <span class="n">ring</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
                     <span class="c1"># converging. Put things on the outside first.</span>
-                    <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="o">-</span><span class="n">a</span><span class="o">.</span><span class="n">getLocationObject</span><span class="p">()</span><span class="o">.</span><span class="n">getDistanceOfLocationToPoint</span><span class="p">(</span>
-                        <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-                    <span class="p">)</span>
+                    <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="o">-</span><span class="n">squaredDistanceFromOrigin</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="c1"># diverging. Put things on the inside first.</span>
-                    <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">getLocationObject</span><span class="p">()</span><span class="o">.</span><span class="n">getDistanceOfLocationToPoint</span><span class="p">(</span>
-                        <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-                    <span class="p">)</span>
+                    <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">squaredDistanceFromOrigin</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># purely based on distance. Can mix things up in convergent-divergent cases. Prefer distanceSmart</span>
-                <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">getLocationObject</span><span class="p">()</span><span class="o">.</span><span class="n">getDistanceOfLocationToPoint</span><span class="p">(</span>
-                    <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-                <span class="p">)</span>
+                <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">squaredDistanceFromOrigin</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
             <span class="n">assemsInRing</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">assemsInRing</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">sorter</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assemsInRing</span><span class="p">:</span>
                 <span class="n">locationSchedule</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">getLocation</span><span class="p">())</span>
@@ -2276,7 +2295,7 @@
         
         &copy; Copyright 2009-2020, TerraPower, LLC
       <span class="lastupdated">
-        Last updated on 2020-10-05.
+        Last updated on 2020-11-10.
       </span>
 
     </p>
