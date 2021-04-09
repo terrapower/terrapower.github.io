@@ -3,11 +3,11 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>armi.reactor.blocks &mdash; ARMI 0.1.5 documentation</title>
+  <title>armi.reactor.blocks &mdash; ARMI 0.1.6 documentation</title>
   
 
   
@@ -22,7 +22,10 @@
   
     <link rel="shortcut icon" href="../../../_static/armiicon_16x16.ico"/>
   
+
   
+  
+
   
 
   
@@ -35,10 +38,7 @@
         <script src="../../../_static/jquery.js"></script>
         <script src="../../../_static/underscore.js"></script>
         <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/language_data.js"></script>
         <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
-        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
     
     <script type="text/javascript" src="../../../_static/js/theme.js"></script>
 
@@ -58,7 +58,7 @@
           
 
           
-            <a href="../../../index.html" class="icon icon-home" alt="Documentation Home"> ARMI
+            <a href="../../../index.html" class="icon icon-home"> ARMI
           
 
           
@@ -71,7 +71,7 @@
             
             
               <div class="version">
-                0.1.5
+                0.1.6
               </div>
             
           
@@ -130,6 +130,8 @@
         <div class="rst-content style-external-links">
         
           
+
+
 
 
 
@@ -216,6 +218,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">components</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span>
+<span class="kn">from</span> <span class="nn">armi.utils.plotting</span> <span class="kn">import</span> <span class="n">plotBlockFlux</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">report</span>
 <span class="kn">from</span> <span class="nn">armi.physics</span> <span class="kn">import</span> <span class="n">constants</span>
 <span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="kn">import</span> <span class="n">TRACE_NUMBER_DENSITY</span>
@@ -381,13 +384,18 @@
 
 <span class="sd">        This also sets the block-level assembly-num param.</span>
 
+<span class="sd">        Once, we used a axial-character suffix to represent the axial</span>
+<span class="sd">        index, but this is inherently limited so we switched to a numerical</span>
+<span class="sd">        name. The axial suffix needs can be brought in in plugins that require</span>
+<span class="sd">        them.</span>
+
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
 <span class="sd">        &gt;&gt;&gt; makeName(120, 5)</span>
-<span class="sd">        &#39;B0120E&#39;</span>
+<span class="sd">        &#39;B0120-005&#39;</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span> <span class="o">=</span> <span class="n">assemNum</span>
-        <span class="k">return</span> <span class="s2">&quot;B</span><span class="si">{0:04d}{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">assemNum</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">AXIAL_CHARS</span><span class="p">[</span><span class="n">axialIndex</span><span class="p">])</span></div>
+        <span class="k">return</span> <span class="s2">&quot;B</span><span class="si">{0:04d}</span><span class="s2">-</span><span class="si">{1:03d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">assemNum</span><span class="p">,</span> <span class="n">axialIndex</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Block.makeUnique"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.makeUnique">[docs]</a>    <span class="k">def</span> <span class="nf">makeUnique</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1020,164 +1028,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">clearCache</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="Block.plotFlux"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.plotFlux">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">plotFlux</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">fName</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bList</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">peak</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">adjoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">bList2</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Produce energy spectrum plot of real and/or adjoint flux in one or more blocks.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        core : Core</span>
-<span class="sd">            Core object</span>
-<span class="sd">        fName : str, optional</span>
-<span class="sd">            the name of the plot file to produce. If none, plot will be shown. A text file with</span>
-<span class="sd">            the flux values will also be generated if this is non-empty.</span>
-<span class="sd">        bList : iterable, optional</span>
-<span class="sd">            is a single block or a list of blocks to average over. If no bList, full core is assumed.</span>
-<span class="sd">        peak : bool, optional</span>
-<span class="sd">            a flag that will produce the peak as well as the average on the plot.</span>
-<span class="sd">        adjoint : bool, optional</span>
-<span class="sd">            plot the adjoint as well.</span>
-<span class="sd">        bList2 :</span>
-<span class="sd">            a separate list of blocks that will also be plotted on a separate axis on the same plot.</span>
-<span class="sd">            This is useful for comparing flux in some blocks with flux in some other blocks.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        This is not a great method. It should be cleand up and migrated into ``utils.plotting``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># process arguments</span>
-        <span class="k">if</span> <span class="n">bList</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">bList</span> <span class="o">=</span> <span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()</span>
-        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bList</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="c1"># convert single block to single entry list</span>
-            <span class="n">bList</span> <span class="o">=</span> <span class="p">[</span><span class="n">bList</span><span class="p">]</span>
-
-        <span class="k">if</span> <span class="n">bList2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">bList2</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="k">if</span> <span class="n">adjoint</span> <span class="ow">and</span> <span class="n">bList2</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Cannot plot adjoint flux with bList2 argument&quot;</span><span class="p">)</span>
-            <span class="k">return</span>
-        <span class="k">elif</span> <span class="n">adjoint</span><span class="p">:</span>
-            <span class="c1"># reuse bList2 for adjoint flux.</span>
-            <span class="n">bList2</span> <span class="o">=</span> <span class="n">bList</span>
-        <span class="n">G</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">bList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">getMgFlux</span><span class="p">())</span>
-        <span class="n">avg</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">bList2</span> <span class="ow">or</span> <span class="n">adjoint</span><span class="p">:</span>
-            <span class="n">avg2</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
-            <span class="n">peakFlux2</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
-        <span class="n">peakFlux</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bList</span><span class="p">:</span>
-            <span class="n">thisFlux</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getMgFlux</span><span class="p">())</span>  <span class="c1"># this block&#39;s flux.</span>
-            <span class="n">avg</span> <span class="o">+=</span> <span class="n">thisFlux</span>
-            <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">thisFlux</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">sum</span><span class="p">(</span><span class="n">peakFlux</span><span class="p">):</span>
-                <span class="c1"># save the peak block flux as the peakFlux</span>
-                <span class="n">peakFlux</span> <span class="o">=</span> <span class="n">thisFlux</span>
-
-        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bList2</span><span class="p">:</span>
-            <span class="n">thisFlux</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getMgFlux</span><span class="p">(</span><span class="n">adjoint</span><span class="o">=</span><span class="n">adjoint</span><span class="p">))</span>
-            <span class="n">avg2</span> <span class="o">+=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">thisFlux</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">thisFlux</span><span class="p">))</span> <span class="o">&gt;</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">peakFlux2</span><span class="p">)):</span>
-                <span class="n">peakFlux2</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">thisFlux</span><span class="p">)</span>
-
-        <span class="n">avg</span> <span class="o">=</span> <span class="n">avg</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">bList</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">bList2</span><span class="p">:</span>
-            <span class="n">avg2</span> <span class="o">=</span> <span class="n">avg2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">bList2</span><span class="p">)</span>
-
-        <span class="c1"># lib required to get the energy structure of the groups for plotting.</span>
-        <span class="n">lib</span> <span class="o">=</span> <span class="n">core</span><span class="o">.</span><span class="n">lib</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">lib</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No ISOTXS library attached so no flux plots.&quot;</span><span class="p">)</span>
-            <span class="k">return</span>
-
-        <span class="k">if</span> <span class="n">fName</span><span class="p">:</span>
-            <span class="c1"># write a little flux text file.</span>
-            <span class="n">txtFileName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">fName</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;.txt&quot;</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">txtFileName</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Energy_Group Average_Flux Peak_Flux</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">eMax</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lib</span><span class="o">.</span><span class="n">neutronEnergyUpperBounds</span><span class="p">):</span>
-                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{0}</span><span class="s2"> </span><span class="si">{1}</span><span class="s2"> </span><span class="si">{2}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">eMax</span> <span class="o">/</span> <span class="mf">1e6</span><span class="p">,</span> <span class="n">avg</span><span class="p">[</span><span class="n">g</span><span class="p">],</span> <span class="n">peakFlux</span><span class="p">[</span><span class="n">g</span><span class="p">]))</span>
-
-        <span class="n">x</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">yAvg</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">yPeak</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="n">bList2</span><span class="p">:</span>
-            <span class="n">yAvg2</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="n">yPeak2</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="n">fluxList</span> <span class="o">=</span> <span class="n">avg</span>
-        <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">eMax</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lib</span><span class="o">.</span><span class="n">neutronEnergyUpperBounds</span><span class="p">):</span>
-            <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">eMax</span> <span class="o">/</span> <span class="mf">1e6</span><span class="p">)</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">yAvg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fluxList</span><span class="p">[</span><span class="n">g</span><span class="p">])</span>
-            <span class="k">except</span><span class="p">:</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">fluxList</span><span class="p">)</span>
-                <span class="k">raise</span>
-            <span class="n">yPeak</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">peakFlux</span><span class="p">[</span><span class="n">g</span><span class="p">])</span>
-            <span class="k">if</span> <span class="n">bList2</span><span class="p">:</span>
-                <span class="n">yAvg2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">avg2</span><span class="p">[</span><span class="n">g</span><span class="p">])</span>
-                <span class="n">yPeak2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">peakFlux2</span><span class="p">[</span><span class="n">g</span><span class="p">])</span>
-            <span class="c1"># make a &quot;histogram&quot; by adding the same val at the next x-point</span>
-            <span class="k">if</span> <span class="n">g</span> <span class="o">&lt;</span> <span class="n">lib</span><span class="o">.</span><span class="n">numGroups</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lib</span><span class="o">.</span><span class="n">neutronEnergyUpperBounds</span><span class="p">[</span><span class="n">g</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e6</span><span class="p">)</span>
-                <span class="n">yAvg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fluxList</span><span class="p">[</span><span class="n">g</span><span class="p">])</span>
-                <span class="n">yPeak</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">peakFlux</span><span class="p">[</span><span class="n">g</span><span class="p">])</span>
-                <span class="k">if</span> <span class="n">bList2</span><span class="p">:</span>
-                    <span class="n">yAvg2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">avg2</span><span class="p">[</span><span class="n">g</span><span class="p">])</span>
-                    <span class="n">yPeak2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">peakFlux2</span><span class="p">[</span><span class="n">g</span><span class="p">])</span>
-
-        <span class="c1"># visual hack for the lowest energy (last group). Make it flat, but can&#39;t go to 0.</span>
-        <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lib</span><span class="o">.</span><span class="n">neutronEnergyUpperBounds</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2e6</span><span class="p">)</span>
-        <span class="n">yAvg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">yAvg</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>  <span class="c1"># re-add the last point to get the histogram effect.</span>
-        <span class="n">yPeak</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">yPeak</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-        <span class="k">if</span> <span class="n">bList2</span><span class="p">:</span>
-            <span class="n">yPeak2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">yPeak2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-            <span class="n">yAvg2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">yAvg2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-
-        <span class="n">maxVal</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">yAvg</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">maxVal</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot plot flux with maxval==</span><span class="si">{0}</span><span class="s2"> in </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">maxVal</span><span class="p">,</span> <span class="n">bList</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-            <span class="p">)</span>
-            <span class="k">return</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">yAvg</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Average Flux&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">peak</span><span class="p">:</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">yPeak</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Peak Flux&quot;</span><span class="p">)</span>
-        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_xscale</span><span class="p">(</span><span class="s2">&quot;log&quot;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s2">&quot;log&quot;</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Energy (MeV)&quot;</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Flux (n/cm$^2$/s)&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">peak</span> <span class="ow">or</span> <span class="n">bList2</span><span class="p">:</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">&quot;lower right&quot;</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">&quot;0.70&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">bList2</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">adjoint</span><span class="p">:</span>
-                <span class="n">label1</span> <span class="o">=</span> <span class="s2">&quot;Average Adjoint Flux&quot;</span>
-                <span class="n">label2</span> <span class="o">=</span> <span class="s2">&quot;Peak Adjoint Flux&quot;</span>
-                <span class="n">plt</span><span class="o">.</span><span class="n">twinx</span><span class="p">()</span>
-                <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Adjoint Flux [n/cm$^2$/s]&quot;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">270</span><span class="p">)</span>
-                <span class="n">ax2</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
-                <span class="n">ax2</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s2">&quot;log&quot;</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">label1</span> <span class="o">=</span> <span class="s2">&quot;Average Flux 2&quot;</span>
-                <span class="n">label2</span> <span class="o">=</span> <span class="s2">&quot;Peak Flux 2&quot;</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">yAvg2</span><span class="p">,</span> <span class="s2">&quot;r--&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label1</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">peak</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">adjoint</span><span class="p">:</span>
-                <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">yPeak2</span><span class="p">,</span> <span class="s2">&quot;k--&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label2</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">&quot;lower left&quot;</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Group flux&quot;</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">fName</span><span class="p">:</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">fName</span><span class="p">)</span>
-            <span class="n">report</span><span class="o">.</span><span class="n">setData</span><span class="p">(</span>
-                <span class="s2">&quot;Flux Plot </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">fName</span><span class="p">)[</span><span class="mi">1</span><span class="p">]),</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">fName</span><span class="p">),</span>
-                <span class="n">report</span><span class="o">.</span><span class="n">FLUX_PLOT</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+    <span class="k">def</span> <span class="nf">plotFlux</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">fName</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bList</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">peak</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">adjoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">bList2</span><span class="o">=</span><span class="p">[]):</span>
+        <span class="c1"># Block.plotFlux has been moved to utils.plotting as plotBlockFlux, which is a</span>
+        <span class="c1"># better fit.</span>
+        <span class="c1"># We don&#39;t want to remove the plotFlux function in the Block namespace yet</span>
+        <span class="c1"># in case client code is depending on this function existing here. This is just</span>
+        <span class="c1"># a simple pass-through function that passes the arguments along to the actual</span>
+        <span class="c1"># implementation in its new location.</span>
+        <span class="n">plotBlockFlux</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">fName</span><span class="p">,</span> <span class="n">bList</span><span class="p">,</span> <span class="n">peak</span><span class="p">,</span> <span class="n">adjoint</span><span class="p">,</span> <span class="n">bList2</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Block._updatePitchComponent"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block._updatePitchComponent">[docs]</a>    <span class="k">def</span> <span class="nf">_updatePitchComponent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1932,43 +1790,30 @@
 
 <span class="sd">        Outputs</span>
 <span class="sd">        -------</span>
-<span class="sd">        self.p.pinPowers : list of floats</span>
+<span class="sd">        self.p.pinPowers : 1-D numpy array</span>
 <span class="sd">            The block-level pin linear power densities. pinPowers[i] represents the average linear</span>
 <span class="sd">            power density of pin i.</span>
 <span class="sd">            Power units are Watts/cm (Watts produced per cm of pin length).</span>
 <span class="sd">            The &quot;ARMI pin ordering&quot; is used, which is counter-clockwise from 3 o&#39;clock.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># numPins = self.getNumPins()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinPowers</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="mi">0</span> <span class="k">for</span> <span class="n">_n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">numPins</span><span class="p">)</span>
-        <span class="p">]</span>  <span class="c1"># leave as a list. maybe go to dictionary later.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinPowers</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">numPins</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;linPowByPin&quot;</span> <span class="o">+</span> <span class="n">powerKeySuffix</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">numPins</span><span class="p">)</span>
         <span class="n">j0</span> <span class="o">=</span> <span class="n">jmax</span><span class="p">[</span><span class="n">imax</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mi">6</span>
         <span class="n">pinNum</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">cornerPinCount</span> <span class="o">=</span> <span class="mi">0</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;linPowByPin&quot;</span> <span class="o">+</span> <span class="n">powerKeySuffix</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">imax</span><span class="p">):</span>  <span class="c1"># loop through rings</span>
             <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">jmax</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>  <span class="c1"># loop through positions in ring i</span>
-                <span class="n">pinNum</span> <span class="o">+=</span> <span class="mi">1</span>
-
-                <span class="k">if</span> <span class="p">(</span>
-                    <span class="n">removeSixCornerPins</span>
-                    <span class="ow">and</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">imax</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-                    <span class="ow">and</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">fmod</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">j0</span><span class="p">)</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">)</span>
-                <span class="p">):</span>
+                <span class="k">if</span> <span class="n">removeSixCornerPins</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">==</span> <span class="n">imax</span> <span class="o">-</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">fmod</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">j0</span><span class="p">)</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
                     <span class="n">linPow</span> <span class="o">=</span> <span class="mf">0.0</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
-                        <span class="n">pinLoc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinLocation</span><span class="p">[</span><span class="n">pinNum</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+                        <span class="c1"># -1 to map from pinLocations to list index</span>
+                        <span class="n">pinLoc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinLocation</span><span class="p">[</span><span class="n">pinNum</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="n">pinLoc</span> <span class="o">=</span> <span class="n">pinNum</span>
-
-                    <span class="n">linPow</span> <span class="o">=</span> <span class="n">powers</span><span class="p">[</span>
-                        <span class="n">pinLoc</span> <span class="o">-</span> <span class="mi">1</span>
-                    <span class="p">]</span>  <span class="c1"># -1 to map from pinLocations to list index</span>
-
-                <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinPowers</span><span class="p">[</span><span class="n">pinNum</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">cornerPinCount</span><span class="p">]</span> <span class="o">=</span> <span class="n">linPow</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;linPowByPin&quot;</span> <span class="o">+</span> <span class="n">powerKeySuffix</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">linPow</span><span class="p">)</span>
+                    <span class="n">linPow</span> <span class="o">=</span> <span class="n">powers</span><span class="p">[</span><span class="n">pinLoc</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinPowers</span><span class="p">[</span><span class="n">pinNum</span><span class="p">]</span> <span class="o">=</span> <span class="n">linPow</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;linPowByPin&quot;</span> <span class="o">+</span> <span class="n">powerKeySuffix</span><span class="p">][</span><span class="n">pinNum</span><span class="p">]</span> <span class="o">=</span> <span class="n">linPow</span>
+                <span class="n">pinNum</span> <span class="o">+=</span> <span class="mi">1</span>
 
         <span class="k">if</span> <span class="n">powerKeySuffix</span> <span class="o">==</span> <span class="n">GAMMA</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinPowersGamma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinPowers</span>
@@ -2194,11 +2039,14 @@
 
 <span class="sd">        If this block is not in any grid at all, then there can be no symmetry so return 1.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">symmetry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">symmetry</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">1.0</span>
         <span class="k">if</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">symmetry</span>
-            <span class="o">==</span> <span class="n">geometry</span><span class="o">.</span><span class="n">THIRD_CORE</span> <span class="o">+</span> <span class="n">geometry</span><span class="o">.</span><span class="n">PERIODIC</span>
+            <span class="n">symmetry</span><span class="o">.</span><span class="n">domain</span> <span class="o">==</span> <span class="n">geometry</span><span class="o">.</span><span class="n">DomainType</span><span class="o">.</span><span class="n">THIRD_CORE</span>
+            <span class="ow">and</span> <span class="n">symmetry</span><span class="o">.</span><span class="n">boundary</span> <span class="o">==</span> <span class="n">geometry</span><span class="o">.</span><span class="n">BoundaryType</span><span class="o">.</span><span class="n">PERIODIC</span>
         <span class="p">):</span>
             <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getCompleteIndices</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">indices</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -2337,7 +2185,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getCompleteIndices</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">geometry</span><span class="o">.</span><span class="n">THROUGH_CENTER_ASSEMBLY</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">isThroughCenterAssembly</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">indices</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="c1"># central location</span>
                     <span class="k">return</span> <span class="mf">4.0</span>
@@ -2386,7 +2234,7 @@
 <div class="viewcode-block" id="ThRZBlock.thetaOuter"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.ThRZBlock.thetaOuter">[docs]</a>    <span class="k">def</span> <span class="nf">thetaOuter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return a largest theta of all the components.&quot;&quot;&quot;</span>
         <span class="n">outerTheta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getDimensions</span><span class="p">(</span><span class="s2">&quot;outer_theta&quot;</span><span class="p">)</span>
-        <span class="n">largestOuter</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">outerTheta</span><span class="p">)</span> <span class="k">if</span> <span class="n">outerTheta</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">largestOuter</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">outerTheta</span><span class="p">)</span> <span class="k">if</span> <span class="n">outerTheta</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">largestOuter</span></div>
 
 <div class="viewcode-block" id="ThRZBlock.axialInner"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.ThRZBlock.axialInner">[docs]</a>    <span class="k">def</span> <span class="nf">axialInner</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -2437,16 +2285,14 @@
            
           </div>
           <footer>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        
-        &copy; Copyright 2009-2020, TerraPower, LLC
+        &#169; Copyright 2009-2021, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2020-12-16.
+        Last updated on 2021-04-09.
       </span>
 
     </p>
@@ -2454,14 +2300,13 @@
     
     
     
-    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     
-    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     
     provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
