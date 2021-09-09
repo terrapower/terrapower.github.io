@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>armi.utils.textProcessors &mdash; ARMI 0.1.6 documentation</title>
+  <title>armi.utils.textProcessors &mdash; ARMI 0.1.7 documentation</title>
   
 
   
@@ -35,10 +35,13 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
     
     <script type="text/javascript" src="../../../_static/js/theme.js"></script>
 
@@ -71,7 +74,7 @@
             
             
               <div class="version">
-                0.1.6
+                0.1.7
               </div>
             
           
@@ -198,13 +201,32 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">TextIO</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
-<span class="kn">from</span> <span class="nn">armi.localization</span> <span class="kn">import</span> <span class="n">strings</span>
 
 
 <span class="n">_INCLUDE_CTOR</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="n">_INCLUDE_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^([^#]*\s+)?!include\s+(.*)\n?$&quot;</span><span class="p">)</span>
 <span class="n">_INDENT_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^[\s\-\?:]*([^\s\-\?:].*)?$&quot;</span><span class="p">)</span>
+
+<span class="c1"># String constants</span>
+<span class="n">SCIENTIFIC_PATTERN</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;[+-]?\d*\.\d+[eEdD][+-]\d+&quot;</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Matches:</span>
+<span class="sd">* code:` 1.23e10`</span>
+<span class="sd">* code:`-1.23Ee10`</span>
+<span class="sd">* code:`+1.23d10`</span>
+<span class="sd">* code:`  .23D10`</span>
+<span class="sd">* code:` 1.23e-10`</span>
+<span class="sd">* code:` 1.23e+1`</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">FLOATING_PATTERN</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;[+-]?\d+\.*\d*&quot;</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Matches 1, 100, 1.0, -1.2, +12.234</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">DECIMAL_PATTERN</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;[+-]?\d*\.\d+&quot;</span>
+<span class="sd">&quot;&quot;&quot;matches .1, 1.213423, -23.2342, +.023</span>
+<span class="sd">&quot;&quot;&quot;</span>
 
 
 <div class="viewcode-block" id="FileMark"><a class="viewcode-back" href="../../../.apidocs/armi.utils.textProcessors.html#armi.utils.textProcessors.FileMark">[docs]</a><span class="k">class</span> <span class="nc">FileMark</span><span class="p">:</span>
@@ -687,9 +709,9 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">scipat</span> <span class="o">=</span> <span class="n">strings</span><span class="o">.</span><span class="n">SCIENTIFIC_PATTERN</span>
-    <span class="n">number</span> <span class="o">=</span> <span class="n">strings</span><span class="o">.</span><span class="n">FLOATING_PATTERN</span>
-    <span class="n">decimal</span> <span class="o">=</span> <span class="n">strings</span><span class="o">.</span><span class="n">DECIMAL_PATTERN</span>
+    <span class="n">scipat</span> <span class="o">=</span> <span class="n">SCIENTIFIC_PATTERN</span>
+    <span class="n">number</span> <span class="o">=</span> <span class="n">FLOATING_PATTERN</span>
+    <span class="n">decimal</span> <span class="o">=</span> <span class="n">DECIMAL_PATTERN</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fname</span><span class="p">,</span> <span class="n">highMem</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">eChecking</span> <span class="o">=</span> <span class="kc">False</span>
@@ -826,7 +848,7 @@
     <p>
         &#169; Copyright 2009-2021, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2021-04-09.
+        Last updated on 2021-09-09.
       </span>
 
     </p>

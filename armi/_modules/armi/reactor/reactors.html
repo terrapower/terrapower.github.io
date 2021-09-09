@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>armi.reactor.reactors &mdash; ARMI 0.1.6 documentation</title>
+  <title>armi.reactor.reactors &mdash; ARMI 0.1.7 documentation</title>
   
 
   
@@ -35,10 +35,13 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
     
     <script type="text/javascript" src="../../../_static/js/theme.js"></script>
 
@@ -71,7 +74,7 @@
             
             
               <div class="version">
-                0.1.6
+                0.1.7
               </div>
             
           
@@ -198,10 +201,10 @@
 <span class="sd">plant-wide state variables such as keff, cycle, and node.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
 <span class="kn">import</span> <span class="nn">tabulate</span>
 <span class="kn">import</span> <span class="nn">time</span>
@@ -209,11 +212,7 @@
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
-<span class="kn">import</span> <span class="nn">armi</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">nuclearDataIO</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
-<span class="kn">from</span> <span class="nn">armi.localization</span> <span class="kn">import</span> <span class="n">exceptions</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">getPluginManagerOrFail</span><span class="p">,</span> <span class="n">materials</span><span class="p">,</span> <span class="n">nuclearDataIO</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">utils</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblies</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblyLists</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">composites</span>
@@ -223,14 +222,15 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">zones</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">reactorParameters</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">materials</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">utils</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span>
 <span class="kn">from</span> <span class="nn">armi.utils.iterables</span> <span class="kn">import</span> <span class="n">Sequence</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_MATERIAL_NAMESPACE_ORDER</span>
 <span class="kn">from</span> <span class="nn">armi.nuclearDataIO</span> <span class="kn">import</span> <span class="n">xsLibraries</span>
+
+<span class="c1"># init logger</span>
+<span class="n">runLog</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="Reactor"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Reactor">[docs]</a><span class="k">class</span> <span class="nc">Reactor</span><span class="p">(</span><span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="p">):</span>
@@ -256,7 +256,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">blueprints</span> <span class="o">=</span> <span class="n">blueprints</span>
 
 <div class="viewcode-block" id="Reactor.__getstate__"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Reactor.__getstate__">[docs]</a>    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;applies a settings and parent to the reactor and components. &quot;&quot;&quot;</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;applies a settings and parent to the reactor and components.&quot;&quot;&quot;</span>
         <span class="n">state</span> <span class="o">=</span> <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">state</span><span class="p">[</span><span class="s2">&quot;o&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="n">state</span></div>
@@ -375,7 +375,6 @@
         <span class="c1"># build a spent fuel pool for this reactor</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Building spent fuel pools&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sfp</span> <span class="o">=</span> <span class="n">assemblyLists</span><span class="o">.</span><span class="n">SpentFuelPool</span><span class="p">(</span><span class="s2">&quot;Spent Fuel Pool&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cfp</span> <span class="o">=</span> <span class="n">assemblyLists</span><span class="o">.</span><span class="n">ChargedFuelPool</span><span class="p">(</span><span class="s2">&quot;Charged Fuel Pool&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_lib</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># placeholder for ISOTXS object</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">locParams</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># location-based parameters</span>
         <span class="c1"># overridden in case.py to include pre-reactor time.</span>
@@ -406,13 +405,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_minMeshSizeRatio</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;minMeshSizeRatio&quot;</span><span class="p">]</span></div>
 
 <div class="viewcode-block" id="Core.__getstate__"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.__getstate__">[docs]</a>    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Applies a settings and parent to the core and components. &quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Applies a settings and parent to the core and components.&quot;&quot;&quot;</span>
         <span class="n">state</span> <span class="o">=</span> <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">state</span></div>
 
     <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
         <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cfp</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">regenAssemblyLists</span><span class="p">()</span>
 
@@ -486,7 +484,7 @@
         <span class="n">isotxsFileName</span> <span class="o">=</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedISOTXSFileName</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lib</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">isotxsFileName</span><span class="p">):</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading microscopic cross section library `</span><span class="si">{</span><span class="n">isotxsFileName</span><span class="si">}</span><span class="s2">`&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_lib</span> <span class="o">=</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">ISOTXS</span><span class="p">(</span><span class="n">isotxsFileName</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_lib</span> <span class="o">=</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">isotxs</span><span class="o">.</span><span class="n">readBinary</span><span class="p">(</span><span class="n">isotxsFileName</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lib</span>
 
     <span class="nd">@lib</span><span class="o">.</span><span class="n">setter</span>
@@ -646,7 +644,6 @@
         <span class="n">assems</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">removeAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">discharge</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cfp</span><span class="o">.</span><span class="n">removeAll</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">removeAll</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">blocksByName</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assembliesByName</span> <span class="o">=</span> <span class="p">{}</span></div>
@@ -700,7 +697,7 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">locatorInDomain</span><span class="p">(</span>
                 <span class="n">spatialLocator</span><span class="p">,</span> <span class="n">symmetryOverlap</span><span class="o">=</span><span class="kc">True</span>
             <span class="p">):</span>
-                <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">SymmetryError</span><span class="p">(</span>
+                <span class="k">raise</span> <span class="ne">LookupError</span><span class="p">(</span>
                     <span class="s2">&quot;Location `</span><span class="si">{}</span><span class="s2">` outside of the represented domain: `</span><span class="si">{}</span><span class="s2">`&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                         <span class="n">spatialLocator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">domain</span>
                     <span class="p">)</span>
@@ -1165,9 +1162,7 @@
         <span class="c1">## NOTE: eliminated unnecessary repeated lookups in self for self.assembliesByName</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assembliesByName</span> <span class="o">=</span> <span class="n">assymap</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="c1"># don&#39;t includeAll b/c detailed ones are not ready yet</span>
-        <span class="k">for</span> <span class="n">assem</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span>
-            <span class="n">includeBolAssems</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">includeSFP</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">includeCFP</span><span class="o">=</span><span class="kc">True</span>
-        <span class="p">):</span>
+        <span class="k">for</span> <span class="n">assem</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">includeBolAssems</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">includeSFP</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
             <span class="n">aName</span> <span class="o">=</span> <span class="n">assem</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">aName</span> <span class="ow">in</span> <span class="n">assymap</span> <span class="ow">and</span> <span class="n">assymap</span><span class="p">[</span><span class="n">aName</span><span class="p">]</span> <span class="o">!=</span> <span class="n">assem</span><span class="p">:</span>
                 <span class="c1"># dangerous situation that can occur in restart runs where the global assemNum isn&#39;t updated.</span>
@@ -1207,7 +1202,6 @@
         <span class="n">sortKey</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">includeBolAssems</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">includeSFP</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">includeCFP</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">includeAll</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">zones</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -1237,9 +1231,6 @@
 <span class="sd">        includeSFP : bool, optional</span>
 <span class="sd">            Include assemblies in the SFP</span>
 
-<span class="sd">        includeCFP : bool, optional</span>
-<span class="sd">            Include Charged fuel pool</span>
-
 <span class="sd">        includeAll : bool, optional</span>
 <span class="sd">            Will include ALL assemblies.</span>
 
@@ -1254,7 +1245,7 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">includeAll</span><span class="p">:</span>
-            <span class="n">includeBolAssems</span> <span class="o">=</span> <span class="n">includeSFP</span> <span class="o">=</span> <span class="n">includeCFP</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">includeBolAssems</span> <span class="o">=</span> <span class="n">includeSFP</span> <span class="o">=</span> <span class="kc">True</span>
 
         <span class="n">assems</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="p">(</span>
@@ -1267,8 +1258,6 @@
 
         <span class="k">if</span> <span class="n">includeSFP</span><span class="p">:</span>
             <span class="n">assems</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">())</span>
-        <span class="k">if</span> <span class="n">includeCFP</span><span class="p">:</span>
-            <span class="n">assems</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">())</span>
 
         <span class="k">if</span> <span class="n">typeSpec</span><span class="p">:</span>
             <span class="n">assems</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span> <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="n">exact</span><span class="p">)]</span>
@@ -1699,38 +1688,20 @@
 
 <div class="viewcode-block" id="Core.getAssemblyPitch"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.getAssemblyPitch">[docs]</a>    <span class="k">def</span> <span class="nf">getAssemblyPitch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Find the representative assembly pitch for the whole core.</span>
+<span class="sd">        Find the assembly pitch for the whole core.</span>
 
-<span class="sd">        This loops over all fuel blocks to find the best pitch.</span>
+<span class="sd">        This returns the pitch according to the spatialGrid.</span>
+<span class="sd">        To capture any thermal/hydraulic feedback of the core pitch,</span>
+<span class="sd">        T/H modules will need to modify the grid pitch directly based</span>
+<span class="sd">        on the relevant mechanical assumptions.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        avgPitch : float</span>
-<span class="sd">            The average pitch of fuel assems in cm.</span>
+<span class="sd">        pitch : float</span>
+<span class="sd">            The assembly pitch.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">pitches</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">b</span><span class="o">.</span><span class="n">getPitch</span><span class="p">()</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)])</span>
-
-        <span class="c1"># keepdims assures we get array of length one for when there is only one pitch</span>
-        <span class="c1"># value (such as in the hex case), so the same code can be used.</span>
-        <span class="n">keepDims</span> <span class="o">=</span> <span class="kc">False</span> <span class="k">if</span> <span class="n">pitches</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">True</span>
-
-        <span class="c1"># axis=0 will return average of the horizontal and vertical pitch independently</span>
-        <span class="c1"># in the case of rectangular lattice.</span>
-        <span class="n">avgPitch</span> <span class="o">=</span> <span class="n">pitches</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="n">keepDims</span><span class="p">)</span>
-
-        <span class="c1"># Check that pitches are consistent</span>
-        <span class="n">minPitch</span> <span class="o">=</span> <span class="n">pitches</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="n">keepDims</span><span class="p">)</span>
-        <span class="n">maxPitch</span> <span class="o">=</span> <span class="n">pitches</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="n">keepDims</span><span class="p">)</span>
-        <span class="n">minDeviatesTooMuch</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">diff</span> <span class="o">&gt;</span> <span class="mf">1e-10</span> <span class="k">for</span> <span class="n">diff</span> <span class="ow">in</span> <span class="n">avgPitch</span> <span class="o">-</span> <span class="n">minPitch</span><span class="p">)</span>
-        <span class="n">maxDeviatesTooMuch</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">diff</span> <span class="o">&gt;</span> <span class="mf">1e-10</span> <span class="k">for</span> <span class="n">diff</span> <span class="ow">in</span> <span class="n">maxPitch</span> <span class="o">-</span> <span class="n">avgPitch</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">minDeviatesTooMuch</span> <span class="ow">or</span> <span class="n">maxDeviatesTooMuch</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="s2">&quot;Not all fuel blocks have the same pitch (in cm). &quot;</span>
-                <span class="s2">&quot;Min: </span><span class="si">{}</span><span class="s2">, Mean: </span><span class="si">{}</span><span class="s2">, Max: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">minPitch</span><span class="p">,</span> <span class="n">avgPitch</span><span class="p">,</span> <span class="n">maxPitch</span><span class="p">)</span>
-            <span class="p">)</span>
-        <span class="c1"># not keepdims this time so non-tuples are unpacked</span>
-        <span class="k">return</span> <span class="n">pitches</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">pitch</span></div>
 
 <div class="viewcode-block" id="Core.findNeighbors"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.findNeighbors">[docs]</a>    <span class="k">def</span> <span class="nf">findNeighbors</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">showBlanks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">duplicateAssembliesOnReflectiveBoundary</span><span class="o">=</span><span class="kc">False</span>
@@ -1922,13 +1893,6 @@
                     <span class="c1"># therefore breaks the burnup metric.</span>
                     <span class="n">b</span><span class="o">.</span><span class="n">adjustUEnrich</span><span class="p">(</span><span class="n">enrich</span><span class="p">)</span>
 
-        <span class="c1"># see if there are tracked assemblies and add this to the list if so</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trackAssems</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">cfp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">numAssembliesFabricated</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">powerMultiplier</span>
-        <span class="p">)</span>  <span class="c1"># in 1/3 symmetry you&#39;re creating 3 assems.</span>
         <span class="k">return</span> <span class="n">a</span></div>
 
 <div class="viewcode-block" id="Core.saveAllFlux"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.saveAllFlux">[docs]</a>    <span class="k">def</span> <span class="nf">saveAllFlux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fName</span><span class="o">=</span><span class="s2">&quot;allFlux.txt&quot;</span><span class="p">):</span>
@@ -1976,7 +1940,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">zones</span> <span class="o">=</span> <span class="n">zones</span><span class="o">.</span><span class="n">splitZones</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">zones</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Core.getCoreRadius"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.getCoreRadius">[docs]</a>    <span class="k">def</span> <span class="nf">getCoreRadius</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns a radius that the core would fit into. &quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Returns a radius that the core would fit into.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">(</span><span class="n">indexBased</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">()</span><span class="o">.</span><span class="n">getPitch</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="Core.findAllMeshPoints"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.findAllMeshPoints">[docs]</a>    <span class="k">def</span> <span class="nf">findAllMeshPoints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assems</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">applySubMesh</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
@@ -2154,7 +2118,7 @@
 <span class="sd">            generates submesh points to further discretize the theta reactor mesh</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findAllMeshPoints</span><span class="p">(</span><span class="n">extraAssems</span><span class="p">,</span> <span class="n">applySubMesh</span><span class="p">)</span>
+        <span class="n">i</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findAllMeshPoints</span><span class="p">(</span><span class="n">extraAssems</span><span class="p">,</span> <span class="n">applySubMesh</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">i</span></div>
 
 <div class="viewcode-block" id="Core.findAllRadMeshPoints"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.findAllRadMeshPoints">[docs]</a>    <span class="k">def</span> <span class="nf">findAllRadMeshPoints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">extraAssems</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">applySubMesh</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
@@ -2174,7 +2138,7 @@
 <span class="sd">            (not implemented) generates submesh points to further discretize the radial reactor mesh</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findAllMeshPoints</span><span class="p">(</span><span class="n">extraAssems</span><span class="p">,</span> <span class="n">applySubMesh</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findAllMeshPoints</span><span class="p">(</span><span class="n">extraAssems</span><span class="p">,</span> <span class="n">applySubMesh</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">j</span></div>
 
 <div class="viewcode-block" id="Core.getMaxBlockParam"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.getMaxBlockParam">[docs]</a>    <span class="k">def</span> <span class="nf">getMaxBlockParam</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
@@ -2493,14 +2457,16 @@
                     <span class="s2">&quot;Detected a grid plate </span><span class="si">{}</span><span class="s2">.  Adding to stationary blocks&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
                 <span class="p">)</span>  <span class="c1"># TODO: remove hard-coded assumption of grid plates (T3019)</span>
 
-        <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;stationaryBlocks&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stationaryBlocks</span>
+        <span class="n">cs</span><span class="p">[</span>
+            <span class="s2">&quot;stationaryBlocks&quot;</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">stationaryBlocks</span>  <span class="c1"># TODO: DeprecationWarning - changing settings</span>
 
         <span class="c1"># Perform initial zoning task</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">buildZones</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getMaxParam</span><span class="p">(</span><span class="s2">&quot;assemNum&quot;</span><span class="p">)</span>
 
-        <span class="n">armi</span><span class="o">.</span><span class="n">getPluginManagerOrFail</span><span class="p">()</span><span class="o">.</span><span class="n">hook</span><span class="o">.</span><span class="n">onProcessCoreLoading</span><span class="p">(</span><span class="n">core</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="n">cs</span><span class="p">)</span></div></div>
+        <span class="n">getPluginManagerOrFail</span><span class="p">()</span><span class="o">.</span><span class="n">hook</span><span class="o">.</span><span class="n">onProcessCoreLoading</span><span class="p">(</span><span class="n">core</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="n">cs</span><span class="p">)</span></div></div>
 </pre></div>
 
            </div>
@@ -2514,7 +2480,7 @@
     <p>
         &#169; Copyright 2009-2021, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2021-04-09.
+        Last updated on 2021-09-09.
       </span>
 
     </p>

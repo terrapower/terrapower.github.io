@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>armi.settings.caseSettings &mdash; ARMI 0.1.6 documentation</title>
+  <title>armi.settings.caseSettings &mdash; ARMI 0.1.7 documentation</title>
   
 
   
@@ -35,10 +35,13 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
     
     <script type="text/javascript" src="../../../_static/js/theme.js"></script>
 
@@ -71,7 +74,7 @@
             
             
               <div class="version">
-                0.1.6
+                0.1.7
               </div>
             
           
@@ -204,17 +207,16 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">io</span>
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">copy</span>
-<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
 
 <span class="kn">import</span> <span class="nn">armi</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.localization</span> <span class="kn">import</span> <span class="n">exceptions</span>
-<span class="kn">from</span> <span class="nn">armi.settings</span> <span class="kn">import</span> <span class="n">fwSettings</span>
 <span class="kn">from</span> <span class="nn">armi.settings</span> <span class="kn">import</span> <span class="n">settingsIO</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">pathTools</span>
-<span class="kn">from</span> <span class="nn">armi.settings</span> <span class="kn">import</span> <span class="n">setting</span>
+<span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">NonexistentSetting</span>
+
+<span class="n">DEP_WARNING</span> <span class="o">=</span> <span class="s2">&quot;Deprecation Warning: Settings will not be mutable mid-run: </span><span class="si">{}</span><span class="s2">&quot;</span>
 
 
 <div class="viewcode-block" id="Settings"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings">[docs]</a><span class="k">class</span> <span class="nc">Settings</span><span class="p">:</span>
@@ -253,6 +255,7 @@
 <span class="sd">        provided by the user on the command line.  Therefore, _failOnLoad is used to</span>
 <span class="sd">        prevent this from happening.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 
         <span class="n">app</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">getApp</span><span class="p">()</span>
@@ -264,6 +267,26 @@
 
         <span class="k">if</span> <span class="n">fName</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">loadFromInputFile</span><span class="p">(</span><span class="n">fName</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="Settings.lock"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.lock">[docs]</a>    <span class="k">def</span> <span class="nf">lock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Permanently make the settings immutable</span>
+
+<span class="sd">        NOTE: The immutable-lock functionality is not in place yet.</span>
+<span class="sd">              This is currently used only for DeprecationWarnings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="Settings._unlock"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings._unlock">[docs]</a>    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">_unlock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Temporarily make the settings mutable</span>
+
+<span class="sd">        NOTE: This is a termporary measure, which will only exist as long as the</span>
+<span class="sd">              DeprecationWarning and mutable settings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">yield</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="kc">True</span></div>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">inputDirectory</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -281,6 +304,8 @@
 
     <span class="nd">@caseTitle</span><span class="o">.</span><span class="n">setter</span>
     <span class="k">def</span> <span class="nf">caseTitle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">DEP_WARNING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;caseTitle&quot;</span><span class="p">),</span> <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">,</span> <span class="n">value</span> <span class="o">+</span> <span class="s2">&quot;.yaml&quot;</span><span class="p">)</span>
 
     <span class="nd">@property</span>
@@ -302,13 +327,15 @@
         <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">NonexistentSetting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">NonexistentSetting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">DEP_WARNING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">key</span><span class="p">),</span> <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">setValue</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">NonexistentSetting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">NonexistentSetting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Settings.__setstate__"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.__setstate__">[docs]</a>    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -327,6 +354,7 @@
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="s2">&quot;settings&quot;</span><span class="p">:</span>
                 <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+
         <span class="c1"># with schema restored, restore all setting values</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">settingState</span> <span class="ow">in</span> <span class="n">state</span><span class="p">[</span><span class="s2">&quot;settings&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="c1"># pylint: disable=protected-access</span>
@@ -336,10 +364,16 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="Settings.update"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">DEP_WARNING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">keys</span><span class="p">())),</span> <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">values</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="bp">self</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span></div>
 
 <div class="viewcode-block" id="Settings.clear"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.clear">[docs]</a>    <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">DEP_WARNING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;ALL&quot;</span><span class="p">),</span> <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="Settings.duplicate"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.duplicate">[docs]</a>    <span class="k">def</span> <span class="nf">duplicate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -373,14 +407,16 @@
 <span class="sd">        Passes the reader back out in case you want to know something about how the reading went</span>
 <span class="sd">        like for knowing if a file contained deprecated settings, etc.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">reader</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepToRead</span><span class="p">(</span><span class="n">fName</span><span class="p">)</span>
-        <span class="n">reader</span><span class="o">.</span><span class="n">readFromFile</span><span class="p">(</span><span class="n">fName</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_applyReadSettings</span><span class="p">(</span><span class="n">path</span> <span class="k">if</span> <span class="n">setPath</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unlock</span><span class="p">():</span>
+            <span class="n">reader</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepToRead</span><span class="p">(</span><span class="n">fName</span><span class="p">)</span>
+            <span class="n">reader</span><span class="o">.</span><span class="n">readFromFile</span><span class="p">(</span><span class="n">fName</span><span class="p">,</span> <span class="n">handleInvalids</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_applyReadSettings</span><span class="p">(</span><span class="n">path</span> <span class="k">if</span> <span class="n">setPath</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="n">reader</span></div>
 
 <div class="viewcode-block" id="Settings._prepToRead"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings._prepToRead">[docs]</a>    <span class="k">def</span> <span class="nf">_prepToRead</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fName</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_failOnLoad</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">StateError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot load settings file after processing of command &quot;</span>
                 <span class="s2">&quot;line options begins.</span><span class="se">\n</span><span class="s2">You may be able to fix this by &quot;</span>
                 <span class="s2">&quot;reordering the command line arguments, and making sure &quot;</span>
@@ -400,25 +436,26 @@
 <span class="sd">        Passes the reader back out in case you want to know something about how the</span>
 <span class="sd">        reading went like for knowing if a file contained deprecated settings, etc.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_failOnLoad</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">StateError</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot load settings after processing of command &quot;</span>
-                <span class="s2">&quot;line options begins.</span><span class="se">\n</span><span class="s2">You may be able to fix this by &quot;</span>
-                <span class="s2">&quot;reordering the command line arguments.&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unlock</span><span class="p">():</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_failOnLoad</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Cannot load settings after processing of command &quot;</span>
+                    <span class="s2">&quot;line options begins.</span><span class="se">\n</span><span class="s2">You may be able to fix this by &quot;</span>
+                    <span class="s2">&quot;reordering the command line arguments.&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">reader</span> <span class="o">=</span> <span class="n">settingsIO</span><span class="o">.</span><span class="n">SettingsReader</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="n">fmt</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">YAML</span>
+            <span class="k">if</span> <span class="n">string</span><span class="o">.</span><span class="n">strip</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">:</span>
+                <span class="n">fmt</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">XML</span>
+            <span class="n">reader</span><span class="o">.</span><span class="n">readFromStream</span><span class="p">(</span>
+                <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">string</span><span class="p">),</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="n">handleInvalids</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="n">fmt</span>
             <span class="p">)</span>
 
-        <span class="n">reader</span> <span class="o">=</span> <span class="n">settingsIO</span><span class="o">.</span><span class="n">SettingsReader</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">fmt</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">YAML</span>
-        <span class="k">if</span> <span class="n">string</span><span class="o">.</span><span class="n">strip</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">:</span>
-            <span class="n">fmt</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">SettingsInputFormat</span><span class="o">.</span><span class="n">XML</span>
-        <span class="n">reader</span><span class="o">.</span><span class="n">readFromStream</span><span class="p">(</span>
-            <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">string</span><span class="p">),</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="n">handleInvalids</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="n">fmt</span>
-        <span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">armi</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="s2">&quot;verbosity&quot;</span><span class="p">])</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="s2">&quot;branchVerbosity&quot;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">armi</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="s2">&quot;verbosity&quot;</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="s2">&quot;branchVerbosity&quot;</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="n">reader</span></div>
 
@@ -547,22 +584,24 @@
 <span class="sd">        --------</span>
 <span class="sd">        unsetTemporarySettings : reverts this</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="s2">&quot;Temporarily changing </span><span class="si">{}</span><span class="s2"> from </span><span class="si">{}</span><span class="s2"> to </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="n">settingName</span><span class="p">,</span> <span class="bp">self</span><span class="p">[</span><span class="n">settingName</span><span class="p">],</span> <span class="n">temporaryValue</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_backedup</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span>
-        <span class="bp">self</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span> <span class="o">=</span> <span class="n">temporaryValue</span></div>
-
-<div class="viewcode-block" id="Settings.unsetTemporarySettings"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.unsetTemporarySettings">[docs]</a>    <span class="k">def</span> <span class="nf">unsetTemporarySettings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">settingName</span><span class="p">,</span> <span class="n">origValue</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backedup</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unlock</span><span class="p">():</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="s2">&quot;Reverting </span><span class="si">{}</span><span class="s2"> from </span><span class="si">{}</span><span class="s2"> back to its original value of </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="n">settingName</span><span class="p">,</span> <span class="bp">self</span><span class="p">[</span><span class="n">settingName</span><span class="p">],</span> <span class="n">origValue</span>
+                <span class="s2">&quot;Temporarily changing </span><span class="si">{}</span><span class="s2"> from </span><span class="si">{}</span><span class="s2"> to </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">settingName</span><span class="p">,</span> <span class="bp">self</span><span class="p">[</span><span class="n">settingName</span><span class="p">],</span> <span class="n">temporaryValue</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span> <span class="o">=</span> <span class="n">origValue</span></div></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_backedup</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span>
+            <span class="bp">self</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span> <span class="o">=</span> <span class="n">temporaryValue</span></div>
+
+<div class="viewcode-block" id="Settings.unsetTemporarySettings"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.unsetTemporarySettings">[docs]</a>    <span class="k">def</span> <span class="nf">unsetTemporarySettings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unlock</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">settingName</span><span class="p">,</span> <span class="n">origValue</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backedup</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;Reverting </span><span class="si">{}</span><span class="s2"> from </span><span class="si">{}</span><span class="s2"> back to its original value of </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">settingName</span><span class="p">,</span> <span class="bp">self</span><span class="p">[</span><span class="n">settingName</span><span class="p">],</span> <span class="n">origValue</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span> <span class="o">=</span> <span class="n">origValue</span></div></div>
 </pre></div>
 
            </div>
@@ -576,7 +615,7 @@
     <p>
         &#169; Copyright 2009-2021, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2021-04-09.
+        Last updated on 2021-09-09.
       </span>
 
     </p>

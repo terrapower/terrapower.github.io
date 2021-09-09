@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>armi.runLog &mdash; ARMI 0.1.6 documentation</title>
+  <title>armi.runLog &mdash; ARMI 0.1.7 documentation</title>
   
 
   
@@ -35,10 +35,13 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "tex2jax_ignore|mathjax_ignore|document", "processClass": "tex2jax_process|mathjax_process|math|output_area"}})</script>
     
     <script type="text/javascript" src="../../_static/js/theme.js"></script>
 
@@ -71,7 +74,7 @@
             
             
               <div class="version">
-                0.1.6
+                0.1.7
               </div>
             
           
@@ -191,198 +194,183 @@
 <span class="sd">This module handles logging of console output (e.g. warnings, information, errors)</span>
 <span class="sd">during an armi run.</span>
 
-<span class="sd">The default way of using the ARMI runLog is:</span>
+<span class="sd">The default way of calling and the global armi logger is to just import it:</span>
 
 <span class="sd">.. code::</span>
 
-<span class="sd">    import armi.runLog as runLog</span>
-<span class="sd">    runLog.setVerbosity(&#39;debug&#39;)</span>
+<span class="sd">    from armi import runLog</span>
+
+<span class="sd">You may want a logger specific to a single module, say to provide debug logging</span>
+<span class="sd">for only one module. That functionality is provided by a global override of</span>
+<span class="sd">logging imports:</span>
+
+<span class="sd">.. code::</span>
+
+<span class="sd">    import logging</span>
+<span class="sd">    runLog = logging.getLogger(__name__)</span>
+
+<span class="sd">In either case, you can then log things the same way:</span>
+
+<span class="sd">.. code::</span>
+
 <span class="sd">    runLog.info(&#39;information here&#39;)</span>
 <span class="sd">    runLog.error(&#39;extra error info here&#39;)</span>
 <span class="sd">    raise SomeException  # runLog.error() implies that the code will crash!</span>
 
-<span class="sd">.. note::</span>
-<span class="sd">    We plan to reimplement this with the standard Python logging module. It was customized</span>
-<span class="sd">    to add a few features in a HPC/MPI environment but we now think we can use the standard</span>
-<span class="sd">    system.</span>
+<span class="sd">Or change the log level the same way:</span>
+
+<span class="sd">.. code::</span>
+
+<span class="sd">    runLog.setVerbosity(&#39;debug&#39;)</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">print_function</span>
-<span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">glob</span> <span class="kn">import</span> <span class="n">glob</span>
 <span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">operator</span>
-<span class="kn">import</span> <span class="nn">time</span>
-
-<span class="kn">from</span> <span class="nn">six</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
-<span class="kn">from</span> <span class="nn">armi.context</span> <span class="kn">import</span> <span class="n">Mode</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">meta</span>
 
 
-<span class="c1"># use ordereddict so we can get right order of options in GUI.</span>
-<span class="n">_logLevels</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">(</span>
-    <span class="p">[</span>
-        <span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;dbug&quot;</span><span class="p">)),</span>
-        <span class="p">(</span><span class="s2">&quot;extra&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;xtra&quot;</span><span class="p">)),</span>
-        <span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;info&quot;</span><span class="p">)),</span>
-        <span class="p">(</span><span class="s2">&quot;important&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="s2">&quot;impt&quot;</span><span class="p">)),</span>
-        <span class="p">(</span><span class="s2">&quot;prompt&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">27</span><span class="p">,</span> <span class="s2">&quot;prmt&quot;</span><span class="p">)),</span>
-        <span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="s2">&quot;warn&quot;</span><span class="p">)),</span>
-        <span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="s2">&quot;err &quot;</span><span class="p">)),</span>
-        <span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)),</span>
-    <span class="p">]</span>
-<span class="p">)</span>
-
-<span class="n">_stderrName</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">.</span><span class="si">{1:04d}</span><span class="s2">.stderr&quot;</span>
-<span class="n">_stdoutName</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">.</span><span class="si">{1:04d}</span><span class="s2">.stdout&quot;</span>
+<span class="c1"># global constants</span>
+<span class="n">_ADD_LOG_METHOD_STR</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;def </span><span class="si">{0}</span><span class="s2">(self, message, *args, **kws):</span>
+<span class="s2">    if self.isEnabledFor(</span><span class="si">{1}</span><span class="s2">):</span>
+<span class="s2">        self._log(</span><span class="si">{1}</span><span class="s2">, message, args, **kws)</span>
+<span class="s2">logging.Logger.</span><span class="si">{0}</span><span class="s2"> = </span><span class="si">{0}</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="n">_WHITE_SPACE</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="mi">6</span>
+<span class="n">SEP</span> <span class="o">=</span> <span class="s2">&quot;|&quot;</span>
+<span class="n">STDERR_LOGGER_NAME</span> <span class="o">=</span> <span class="s2">&quot;ARMI_ERROR&quot;</span>
+<span class="n">STDOUT_LOGGER_NAME</span> <span class="o">=</span> <span class="s2">&quot;ARMI&quot;</span>
 
 
-<div class="viewcode-block" id="getLogVerbosityLevels"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.getLogVerbosityLevels">[docs]</a><span class="k">def</span> <span class="nf">getLogVerbosityLevels</span><span class="p">():</span>
-    <span class="sd">&quot;&quot;&quot;Return a list of the available log levels (e.g., debug, extra, etc.).&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">_logLevels</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span></div>
-
-
-<div class="viewcode-block" id="getLogVerbosityRank"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.getLogVerbosityRank">[docs]</a><span class="k">def</span> <span class="nf">getLogVerbosityRank</span><span class="p">(</span><span class="n">level</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Return integer verbosity rank given the string verbosity name.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">level</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">getLogVerbosityLevels</span><span class="p">():</span>
-        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
-            <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> is not a valid verbosity level. Choose from </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="n">level</span><span class="p">,</span> <span class="n">getLogVerbosityLevels</span><span class="p">()</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-    <span class="k">return</span> <span class="n">_logLevels</span><span class="p">[</span><span class="n">level</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span></div>
-
-
-<div class="viewcode-block" id="_checkLogVerbsityRank"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._checkLogVerbsityRank">[docs]</a><span class="k">def</span> <span class="nf">_checkLogVerbsityRank</span><span class="p">(</span><span class="n">rank</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Check that the verbosity rank is defined within the _logLevels and return it if it is.&quot;&quot;&quot;</span>
-    <span class="n">validRanks</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">getLogVerbosityLevels</span><span class="p">():</span>
-        <span class="n">expectedRank</span> <span class="o">=</span> <span class="n">getLogVerbosityRank</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
-        <span class="n">validRanks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="n">expectedRank</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">rank</span>
-    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
-        <span class="s2">&quot;Invalid verbosity rank </span><span class="si">{}</span><span class="s2">. Valid options are: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rank</span><span class="p">,</span> <span class="n">validRanks</span><span class="p">)</span>
-    <span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="Log"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log">[docs]</a><span class="k">class</span> <span class="nc">Log</span><span class="p">:</span>
+<div class="viewcode-block" id="_RunLog"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog">[docs]</a><span class="k">class</span> <span class="nc">_RunLog</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Abstract class that ARMI code calls to be rendered to some kind of log.</span>
+<span class="sd">    Handles all the logging</span>
+<span class="sd">    For the parent process, things are allowed to print to stdout and stderr,</span>
+<span class="sd">    but the stdout prints are formatted like log statements.</span>
+<span class="sd">    For the child processes, everything is piped to log files.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbosity</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>  <span class="c1"># pylint: disable=unused-argument</span>
+    <span class="n">STDERR_NAME</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">.</span><span class="si">{1:04d}</span><span class="s2">.stderr&quot;</span>
+    <span class="n">STDOUT_NAME</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">.</span><span class="si">{1:04d}</span><span class="s2">.stdout&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mpiRank</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Build a log object</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        verbosity : int</span>
-<span class="sd">            if a msg verbosity is &gt; this, it will be  emitted.</span>
-<span class="sd">            The default of 50 means only error messages will be emitted.</span>
-<span class="sd">            This usually gets adjusted by user settings quickly after instantiation.</span>
+<span class="sd">        mpiRank : int</span>
+<span class="sd">            If this is zero, we are in the parent process, otherwise child process.</span>
+<span class="sd">            The default of 0 means we assume the parent process.</span>
+<span class="sd">            This should not be adjusted after instantiation.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span> <span class="o">=</span> <span class="n">verbosity</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_singleMessageCounts</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_singleWarningMessageCounts</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_outputStream</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_errStream</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="c1"># https://docs.python.org/2/library/sys.html says</span>
-        <span class="c1"># to explicitly save these instead of relying upon __stdout__, etc.</span>
-        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">initialOut</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">initialErr</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Attach output streams to a null device until we open log files. We don&#39;t know what to</span>
-            <span class="c1"># call them until we have processed some of the settings, and any errors encountered in</span>
-            <span class="c1"># that should be encountered on the master process anyway.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">initialOut</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">devnull</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">initialErr</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">devnull</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">setStreams</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initialOut</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialErr</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;log&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span> <span class="o">=</span> <span class="n">mpiRank</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialErr</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logLevelNumbers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stderrLogger</span> <span class="o">=</span> <span class="kc">None</span>
 
-<div class="viewcode-block" id="Log._emit"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log._emit">[docs]</a>    <span class="k">def</span> <span class="nf">_emit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setNullLoggers</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setLogLevels</span><span class="p">()</span>
+
+<div class="viewcode-block" id="_RunLog.setNullLoggers"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog.setNullLoggers">[docs]</a>    <span class="k">def</span> <span class="nf">setNullLoggers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Helper method to set both of our loggers to Null handlers&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">NullLogger</span><span class="p">(</span><span class="s2">&quot;NULL&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stderrLogger</span> <span class="o">=</span> <span class="n">NullLogger</span><span class="p">(</span><span class="s2">&quot;NULL2&quot;</span><span class="p">,</span> <span class="n">isStderr</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="_RunLog._setLogLevels"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog._setLogLevels">[docs]</a>    <span class="k">def</span> <span class="nf">_setLogLevels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Here we fill the logLevels dict with custom strings that depend on the MPI rank&quot;&quot;&quot;</span>
+        <span class="c1"># NOTE: use ordereddict so we can get right order of options in GUI</span>
+        <span class="n">_rank</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;-</span><span class="si">{:&gt;03d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">,</span> <span class="s2">&quot;[dbug</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
+                <span class="p">(</span><span class="s2">&quot;extra&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="s2">&quot;[xtra</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
+                <span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="s2">&quot;[info</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
+                <span class="p">(</span><span class="s2">&quot;important&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="s2">&quot;[impt</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
+                <span class="p">(</span><span class="s2">&quot;prompt&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">27</span><span class="p">,</span> <span class="s2">&quot;[prmt</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
+                <span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span> <span class="s2">&quot;[warn</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
+                <span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span> <span class="s2">&quot;[err </span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
+                <span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_logLevelNumbers</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">l</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+        <span class="k">global</span> <span class="n">_WHITE_SPACE</span>
+        <span class="n">_WHITE_SPACE</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="nb">max</span><span class="p">([</span><span class="n">l</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span><span class="o">.</span><span class="n">values</span><span class="p">()]))</span>
+
+        <span class="c1"># modify the logging module strings for printing</span>
+        <span class="k">for</span> <span class="n">longLogString</span><span class="p">,</span> <span class="p">(</span><span class="n">logValue</span><span class="p">,</span> <span class="n">shortLogString</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># add the log string name (upper and lower) to logging module</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">addLevelName</span><span class="p">(</span><span class="n">logValue</span><span class="p">,</span> <span class="n">shortLogString</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">addLevelName</span><span class="p">(</span><span class="n">logValue</span><span class="p">,</span> <span class="n">shortLogString</span><span class="p">)</span>
+
+            <span class="c1"># ensure that we add any custom logging levels as constants to the module, e.g. logging.HEADER</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">longLogString</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">longLogString</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">logValue</span><span class="p">)</span>
+
+            <span class="c1"># Add logging methods for our new custom levels: LOG.extra(&quot;message&quot;)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">longLogString</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                <span class="n">exec</span><span class="p">(</span><span class="n">_ADD_LOG_METHOD_STR</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">longLogString</span><span class="p">,</span> <span class="n">logValue</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="_RunLog.log"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog.log">[docs]</a>    <span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msgType</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        send the raw message to the stream that you want it to go to.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-<div class="viewcode-block" id="Log.flush"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log.flush">[docs]</a>    <span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_errStream</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_outputStream</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div>
-
-<div class="viewcode-block" id="Log.standardLogMsg"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log.standardLogMsg">[docs]</a>    <span class="k">def</span> <span class="nf">standardLogMsg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msgType</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Add formatting to a message and handle its singleness, if applicable.</span>
-
-<span class="sd">        This is a wrapper around _emit that does most of the work and is</span>
+<span class="sd">        This is a wrapper around logger.log() that does most of the work and is</span>
 <span class="sd">        used by all message passers (e.g. info, warning, etc.).</span>
 
-<span class="sd">        The MPI_RANK printout was removed because it&#39;s obvious in the stdout now.</span>
+<span class="sd">        In this situation, we do the mangling needed to get the log level to the correct number.</span>
+<span class="sd">        And we do some custom string manipulation so we can handle de-duplicating warnings.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="n">msg</span>
+        <span class="c1"># Determine the log level: users can optionally pass in custom strings (&quot;debug&quot;)</span>
+        <span class="n">msgLevel</span> <span class="o">=</span> <span class="n">msgType</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msgType</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span><span class="p">[</span><span class="n">msgType</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
 
-        <span class="n">msgVerbosity</span><span class="p">,</span> <span class="n">msgLabel</span> <span class="o">=</span> <span class="n">_logLevels</span><span class="p">[</span><span class="n">msgType</span><span class="p">]</span>
-        <span class="c1"># Skip writing the message if it is below the set verbosity</span>
-        <span class="k">if</span> <span class="n">msgVerbosity</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span><span class="p">:</span>
-            <span class="k">return</span>
+        <span class="c1"># If this is a special &quot;don&#39;t duplicate me&quot; string, we need to add that info to the msg temporarily</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">single</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_msgHasAlreadyBeenEmitted</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">msgType</span><span class="p">):</span>
-                <span class="k">return</span>
+        <span class="c1"># Do the actual logging</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">msgLevel</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
 
-        <span class="c1"># Set up the prefix for the line (e.g. [info], [info-001])</span>
-        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">prefixAdder</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">prefixAdder</span> <span class="o">=</span> <span class="s2">&quot;-</span><span class="si">{:&gt;03d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span><span class="p">)</span>
+<div class="viewcode-block" id="_RunLog.getDuplicatesFilter"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog.getDuplicatesFilter">[docs]</a>    <span class="k">def</span> <span class="nf">getDuplicatesFilter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The top-level ARMI logger should have a no duplicates filter</span>
+<span class="sd">        If it exists, find it.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="n">linePrefix</span> <span class="o">=</span> <span class="s2">&quot;[&quot;</span> <span class="o">+</span> <span class="n">msgLabel</span> <span class="o">+</span> <span class="n">prefixAdder</span> <span class="o">+</span> <span class="s2">&quot;] &quot;</span> <span class="k">if</span> <span class="n">msgLabel</span> <span class="k">else</span> <span class="n">msgLabel</span>
-        <span class="n">linePrefixSpacing</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">linePrefix</span><span class="p">)</span> <span class="o">*</span> <span class="s2">&quot; &quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">getDuplicatesFilter</span><span class="p">()</span></div>
 
-        <span class="c1"># Write lines to the stream</span>
-        <span class="n">lines</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
-            <span class="n">prefix</span> <span class="o">=</span> <span class="n">linePrefix</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">linePrefixSpacing</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_emit</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="n">line</span><span class="p">))</span></div>
-
-<div class="viewcode-block" id="Log._msgHasAlreadyBeenEmitted"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log._msgHasAlreadyBeenEmitted">[docs]</a>    <span class="k">def</span> <span class="nf">_msgHasAlreadyBeenEmitted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">msgType</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return True if the count of the label is greater than 1.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">msgType</span> <span class="o">==</span> <span class="s2">&quot;warning&quot;</span> <span class="ow">or</span> <span class="n">msgType</span> <span class="o">==</span> <span class="s2">&quot;critical&quot;</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_singleWarningMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_singleWarningMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span>
-            <span class="p">):</span>  <span class="c1"># short circuit because error has changed</span>
-                <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_singleMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_singleMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span>
-            <span class="p">):</span>  <span class="c1"># short circuit because error has changed</span>
-                <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">return</span> <span class="kc">False</span></div>
-
-<div class="viewcode-block" id="Log.clearSingleWarnings"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log.clearSingleWarnings">[docs]</a>    <span class="k">def</span> <span class="nf">clearSingleWarnings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="_RunLog.clearSingleWarnings"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog.clearSingleWarnings">[docs]</a>    <span class="k">def</span> <span class="nf">clearSingleWarnings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Reset the single warned list so we get messages again.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_singleMessageCounts</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+        <span class="n">dupsFilter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getDuplicatesFilter</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">dupsFilter</span><span class="p">:</span>
+            <span class="n">dupsFilter</span><span class="o">.</span><span class="n">singleMessageCounts</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Log.warningReport"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log.warningReport">[docs]</a>    <span class="k">def</span> <span class="nf">warningReport</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="_RunLog.warningReport"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog.warningReport">[docs]</a>    <span class="k">def</span> <span class="nf">warningReport</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Summarize all warnings for the run.&quot;&quot;&quot;</span>
-        <span class="n">info</span><span class="p">(</span><span class="s2">&quot;----- Final Warning Count --------&quot;</span><span class="p">)</span>
-        <span class="n">info</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">{0:^10s}</span><span class="s2">   </span><span class="si">{1:^25s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;COUNT&quot;</span><span class="p">,</span> <span class="s2">&quot;LABEL&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warningReport</span><span class="p">()</span></div>
 
-        <span class="c1"># sort by labcollections.defaultdict(lambda: 1)</span>
-        <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_singleWarningMessageCounts</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-        <span class="p">):</span>
-            <span class="n">info</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">{0:10d}</span><span class="s2">   </span><span class="si">{1:&lt;25s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">count</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">label</span><span class="p">)))</span>
-        <span class="n">info</span><span class="p">(</span><span class="s2">&quot;------------------------------------&quot;</span><span class="p">)</span></div>
+<div class="viewcode-block" id="_RunLog.getLogVerbosityRank"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog.getLogVerbosityRank">[docs]</a>    <span class="k">def</span> <span class="nf">getLogVerbosityRank</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return integer verbosity rank given the string verbosity name.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span><span class="p">[</span><span class="n">level</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">log_strs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> is not a valid verbosity level: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">level</span><span class="p">,</span> <span class="n">log_strs</span><span class="p">)</span>
+            <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Log.setVerbosity"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log.setVerbosity">[docs]</a>    <span class="k">def</span> <span class="nf">setVerbosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">levelInput</span><span class="p">):</span>
+<div class="viewcode-block" id="_RunLog.setVerbosity"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog.setVerbosity">[docs]</a>    <span class="k">def</span> <span class="nf">setVerbosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">level</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Sets the minimum output verbosity for the logger.</span>
 
@@ -391,9 +379,9 @@
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        levelInput : int or str</span>
+<span class="sd">        level : int or str</span>
 <span class="sd">            The level to set the log output verbosity to.</span>
-<span class="sd">            Valid numbers are 0-50 and valid strings are keys of _logLevels</span>
+<span class="sd">            Valid numbers are 0-50 and valid strings are keys of logLevels</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -401,226 +389,177 @@
 <span class="sd">        &gt;&gt;&gt; setVerbosity(0) -&gt; sets to 0</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">getLogVerbosityRank</span><span class="p">(</span><span class="n">levelInput</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">levelInput</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
-            <span class="k">else</span> <span class="n">_checkLogVerbsityRank</span><span class="p">(</span><span class="n">levelInput</span><span class="p">)</span>
-        <span class="p">)</span></div>
+        <span class="c1"># first, we have to get a valid integer from the input level</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">level</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getLogVerbosityRank</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">level</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="c1"># The logging module does strange things if you set the log level to something other than DEBUG, INFO, etc</span>
+            <span class="c1"># So, if someone tries, we HAVE to set the log level at a canonical value.</span>
+            <span class="c1"># Otherwise, nearly all log statements will be silently dropped.</span>
+            <span class="k">if</span> <span class="n">level</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_logLevelNumbers</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span> <span class="o">=</span> <span class="n">level</span>
+            <span class="k">elif</span> <span class="n">level</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_logLevelNumbers</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_logLevelNumbers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_logLevelNumbers</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">level</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_logLevelNumbers</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_logLevelNumbers</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                        <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Invalid verbosity rank </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">level</span><span class="p">))</span>
 
-<div class="viewcode-block" id="Log.getVerbosity"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log.getVerbosity">[docs]</a>    <span class="k">def</span> <span class="nf">getVerbosity</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Finally, set the log level</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">handler</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">:</span>
+                <span class="n">handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="_RunLog.getVerbosity"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog.getVerbosity">[docs]</a>    <span class="k">def</span> <span class="nf">getVerbosity</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return the global runLog verbosity.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span></div>
 
-<div class="viewcode-block" id="Log.setStreams"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log.setStreams">[docs]</a>    <span class="k">def</span> <span class="nf">setStreams</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the stdout and stderr streams to any stream object.&quot;&quot;&quot;</span>
-        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_outputStream</span> <span class="o">=</span> <span class="n">stdout</span>
-        <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_errStream</span> <span class="o">=</span> <span class="n">stderr</span></div>
+<div class="viewcode-block" id="_RunLog.restoreStandardStreams"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog.restoreStandardStreams">[docs]</a>    <span class="k">def</span> <span class="nf">restoreStandardStreams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the system stderr back to its default (as it was when the run started).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialErr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialErr</span></div>
 
-<div class="viewcode-block" id="Log._getStreams"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log._getStreams">[docs]</a>    <span class="k">def</span> <span class="nf">_getStreams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_outputStream</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_errStream</span></div>
-
-<div class="viewcode-block" id="Log._restoreStandardStreams"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.Log._restoreStandardStreams">[docs]</a>    <span class="k">def</span> <span class="nf">_restoreStandardStreams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the system stdout/stderr to their defaults (as they were when the run started).&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_outputStream</span><span class="p">:</span>
-            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialOut</span>  <span class="c1"># sys.__stdout__</span>
-            <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialErr</span>  <span class="c1"># sys.__stderr__</span></div></div>
-
-
-<div class="viewcode-block" id="PrintLog"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.PrintLog">[docs]</a><span class="k">class</span> <span class="nc">PrintLog</span><span class="p">(</span><span class="n">Log</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Log that emits to stdout/stderr or file-based streams (for MPI workers) with print.&quot;&quot;&quot;</span>
-
-<div class="viewcode-block" id="PrintLog.startLog"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.PrintLog.startLog">[docs]</a>    <span class="k">def</span> <span class="nf">startLog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+<div class="viewcode-block" id="_RunLog.startLog"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog._RunLog.startLog">[docs]</a>    <span class="k">def</span> <span class="nf">startLog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initialize the streams when parallel processing&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">return</span>
-        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s2">&quot;logs&quot;</span><span class="p">):</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;logs&quot;</span><span class="p">)</span>
-            <span class="c1"># stall until it shows up in file system (SMB caching issue?)</span>
-            <span class="k">while</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s2">&quot;logs&quot;</span><span class="p">):</span>
-                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="c1"># open the main logger</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">STDOUT_LOGGER_NAME</span> <span class="o">+</span> <span class="n">SEP</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span><span class="p">))</span>
 
-        <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
+        <span class="c1"># if there was a pre-existing _verbosity, use it now</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span> <span class="o">!=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;logs&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
-            <span class="n">outputStream</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">_stdoutName</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
-            <span class="n">errStream</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">_stderrName</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setStreams</span><span class="p">(</span><span class="n">outputStream</span><span class="p">,</span> <span class="n">errStream</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># init stderr intercepting logging</span>
+            <span class="n">filePath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">context</span><span class="o">.</span><span class="n">LOG_DIR</span><span class="p">,</span> <span class="n">_RunLog</span><span class="o">.</span><span class="n">STDERR_NAME</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stderrLogger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">STDERR_LOGGER_NAME</span><span class="p">)</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="n">filePath</span><span class="p">,</span> <span class="n">delay</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">fmt</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(message)s</span><span class="s2">&quot;</span>
+            <span class="n">form</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span><span class="n">fmt</span><span class="p">)</span>
+            <span class="n">h</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+            <span class="n">h</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stderrLogger</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">h</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stderrLogger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
 
-<div class="viewcode-block" id="PrintLog.close"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.PrintLog.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;End use of the log. Concatenate if needed and restore defaults&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">concatenateLogs</span><span class="p">()</span>
-            <span class="k">except</span> <span class="ne">IOError</span> <span class="k">as</span> <span class="n">ee</span><span class="p">:</span>
-                <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to concatenate logs due to IOError.&quot;</span><span class="p">)</span>
-                <span class="n">error</span><span class="p">(</span><span class="n">ee</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">fileObj</span> <span class="ow">in</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_outputStream</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_errStream</span><span class="p">]:</span>
-                <span class="n">fileObj</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
-                <span class="n">fileObj</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_restoreStandardStreams</span><span class="p">()</span></div>
+            <span class="c1"># force the error logger onto stderr</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initialErr</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stderrLogger</span></div></div>
 
-<div class="viewcode-block" id="PrintLog._emit"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.PrintLog._emit">[docs]</a>    <span class="k">def</span> <span class="nf">_emit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
-        <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="PrintLog.concatenateLogs"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.PrintLog.concatenateLogs">[docs]</a>    <span class="k">def</span> <span class="nf">concatenateLogs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Concatenate the armi run logs and delete them.</span>
+<div class="viewcode-block" id="close"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.close">[docs]</a><span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="n">mpiRank</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;End use of the log. Concatenate if needed and restore defaults&quot;&quot;&quot;</span>
+    <span class="n">mpiRank</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="k">if</span> <span class="n">mpiRank</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">mpiRank</span>
 
-<span class="sd">        Should only ever be called by master.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">info</span><span class="p">(</span><span class="s2">&quot;Concatenating </span><span class="si">{0}</span><span class="s2"> standard streams&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span><span class="p">))</span>
-        <span class="k">for</span> <span class="n">rank</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span><span class="p">):</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">rank</span><span class="p">:</span>
-                <span class="c1"># skip log 0</span>
-                <span class="k">continue</span>
-            <span class="n">stdoutName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;logs&quot;</span><span class="p">,</span> <span class="n">_stdoutName</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">rank</span><span class="p">))</span>
-            <span class="n">stderrName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;logs&quot;</span><span class="p">,</span> <span class="n">_stderrName</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">rank</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">mpiRank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">concatenateLogs</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">IOError</span> <span class="k">as</span> <span class="n">ee</span><span class="p">:</span>
+            <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to concatenate logs due to IOError.&quot;</span><span class="p">)</span>
+            <span class="n">error</span><span class="p">(</span><span class="n">ee</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">LOG</span><span class="o">.</span><span class="n">stderrLogger</span><span class="p">:</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="p">[</span><span class="n">h</span><span class="o">.</span><span class="n">close</span><span class="p">()</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">LOG</span><span class="o">.</span><span class="n">stderrLogger</span><span class="o">.</span><span class="n">handlers</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">LOG</span><span class="o">.</span><span class="n">logger</span><span class="p">:</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="p">[</span><span class="n">h</span><span class="o">.</span><span class="n">close</span><span class="p">()</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">LOG</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">]</span>
 
-            <span class="k">for</span> <span class="n">streamName</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">logName</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-                <span class="p">[</span><span class="s2">&quot;STDOUT&quot;</span><span class="p">,</span> <span class="s2">&quot;STDERR&quot;</span><span class="p">],</span>
-                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_outputStream</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_errStream</span><span class="p">],</span>
-                <span class="p">[</span><span class="n">stdoutName</span><span class="p">,</span> <span class="n">stderrName</span><span class="p">],</span>
-            <span class="p">):</span>
-                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">logName</span><span class="p">)</span> <span class="k">as</span> <span class="n">logFile</span><span class="p">:</span>
-                    <span class="n">data</span> <span class="o">=</span> <span class="n">logFile</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">setNullLoggers</span><span class="p">()</span>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">restoreStandardStreams</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="concatenateLogs"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.concatenateLogs">[docs]</a><span class="k">def</span> <span class="nf">concatenateLogs</span><span class="p">(</span><span class="n">logDir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Concatenate the armi run logs and delete them.</span>
+
+<span class="sd">    Should only ever be called by parent.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">logDir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logDir</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">LOG_DIR</span>
+
+    <span class="c1"># find all the logging-module-based log files</span>
+    <span class="n">stdoutFiles</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">logDir</span><span class="p">,</span> <span class="s2">&quot;*.stdout&quot;</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">stdoutFiles</span><span class="p">):</span>
+        <span class="n">info</span><span class="p">(</span><span class="s2">&quot;No log files found to concatenate.&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">info</span><span class="p">(</span><span class="s2">&quot;Concatenating </span><span class="si">{0}</span><span class="s2"> log files&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">stdoutFiles</span><span class="p">)))</span>
+
+    <span class="k">for</span> <span class="n">stdoutName</span> <span class="ow">in</span> <span class="n">stdoutFiles</span><span class="p">:</span>
+        <span class="c1"># NOTE: If the log file name format changes, this will need to change.</span>
+        <span class="n">rank</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">stdoutName</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
+
+        <span class="c1"># first, print the log messages for a child process</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stdoutName</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">logFile</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">logFile</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
+                <span class="c1"># only write if there&#39;s something to write</span>
+                <span class="n">rankId</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="si">{0}</span><span class="s2"> RANK </span><span class="si">{1:03d}</span><span class="s2"> STDOUT </span><span class="si">{2}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span>
+                <span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">rankId</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">stdoutName</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+            <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not delete </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">stdoutName</span><span class="p">))</span>
+
+        <span class="c1"># then print the stderr messages for that child process</span>
+        <span class="n">stderrName</span> <span class="o">=</span> <span class="n">stdoutName</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;err&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">stderrName</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stderrName</span><span class="p">)</span> <span class="k">as</span> <span class="n">logFile</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">logFile</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
                 <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
                     <span class="c1"># only write if there&#39;s something to write.</span>
-                    <span class="n">rankId</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="si">{0}</span><span class="s2"> RANK </span><span class="si">{1:03d}</span><span class="s2"> </span><span class="si">{2}</span><span class="s2"> </span><span class="si">{3}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                        <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="n">streamName</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span>
+                    <span class="n">rankId</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="si">{0}</span><span class="s2"> RANK </span><span class="si">{1:03d}</span><span class="s2"> STDERR </span><span class="si">{2}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span>
                     <span class="p">)</span>
-                    <span class="n">stream</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">rankId</span><span class="p">)</span>
-                    <span class="n">stream</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">logName</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-                    <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not delete </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">logName</span><span class="p">))</span></div></div>
-
-
-<div class="viewcode-block" id="PrintLogCombined"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.PrintLogCombined">[docs]</a><span class="k">class</span> <span class="nc">PrintLogCombined</span><span class="p">(</span><span class="n">PrintLog</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Print log that doesn&#39;t break up into files</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-<div class="viewcode-block" id="PrintLogCombined.startLog"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.PrintLogCombined.startLog">[docs]</a>    <span class="k">def</span> <span class="nf">startLog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
-        <span class="k">pass</span></div>
-
-<div class="viewcode-block" id="PrintLogCombined.close"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.PrintLogCombined.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">pass</span></div>
-
-<div class="viewcode-block" id="PrintLogCombined.concatenateLogs"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.PrintLogCombined.concatenateLogs">[docs]</a>    <span class="k">def</span> <span class="nf">concatenateLogs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">pass</span></div></div>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">rankId</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">stderrName</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not delete </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">stderrName</span><span class="p">))</span></div>
 
 
 <span class="c1"># Here are all the module-level functions that should be used for most outputs.</span>
-<span class="c1"># They use the PrintLog object behind the scenes.</span>
+<span class="c1"># They use the Log object behind the scenes.</span>
 <div class="viewcode-block" id="raw"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.raw">[docs]</a><span class="k">def</span> <span class="nf">raw</span><span class="p">(</span><span class="n">msg</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Print raw text without any special functionality.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">LOG</span><span class="o">.</span><span class="n">_emit</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>  <span class="c1">#  pylint: disable=protected-access</span></div>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">msg</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="extra"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.extra">[docs]</a><span class="k">def</span> <span class="nf">extra</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">LOG</span><span class="o">.</span><span class="n">standardLogMsg</span><span class="p">(</span><span class="s2">&quot;extra&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;extra&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="debug"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.debug">[docs]</a><span class="k">def</span> <span class="nf">debug</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">LOG</span><span class="o">.</span><span class="n">standardLogMsg</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="info"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.info">[docs]</a><span class="k">def</span> <span class="nf">info</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">LOG</span><span class="o">.</span><span class="n">standardLogMsg</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="important"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.important">[docs]</a><span class="k">def</span> <span class="nf">important</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">LOG</span><span class="o">.</span><span class="n">standardLogMsg</span><span class="p">(</span><span class="s2">&quot;important&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;important&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="warning"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.warning">[docs]</a><span class="k">def</span> <span class="nf">warning</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">LOG</span><span class="o">.</span><span class="n">standardLogMsg</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="error"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.error">[docs]</a><span class="k">def</span> <span class="nf">error</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">LOG</span><span class="o">.</span><span class="n">standardLogMsg</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="header"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.header">[docs]</a><span class="k">def</span> <span class="nf">header</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">LOG</span><span class="o">.</span><span class="n">standardLogMsg</span><span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="flush"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.flush">[docs]</a><span class="k">def</span> <span class="nf">flush</span><span class="p">():</span>
-    <span class="sd">&quot;&quot;&quot;Flush LOG&#39;s output in the err and output streams&quot;&quot;&quot;</span>
-    <span class="n">LOG</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div>
-
-
-<div class="viewcode-block" id="prompt"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.prompt">[docs]</a><span class="k">def</span> <span class="nf">prompt</span><span class="p">(</span><span class="n">statement</span><span class="p">,</span> <span class="n">question</span><span class="p">,</span> <span class="o">*</span><span class="n">options</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;&quot;Prompt the user for some information.&quot;&quot;&quot;</span>
-    <span class="kn">from</span> <span class="nn">armi.localization</span> <span class="kn">import</span> <span class="n">exceptions</span>
-
-    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">CURRENT_MODE</span> <span class="o">==</span> <span class="n">Mode</span><span class="o">.</span><span class="n">GUI</span><span class="p">:</span>
-        <span class="c1"># avoid hard dependency on wx</span>
-        <span class="kn">import</span> <span class="nn">wx</span>  <span class="c1"># pylint: disable=import-error</span>
-
-        <span class="n">msg</span> <span class="o">=</span> <span class="n">statement</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n\n\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">question</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">300</span><span class="p">:</span>
-            <span class="n">style</span> <span class="o">=</span> <span class="n">wx</span><span class="o">.</span><span class="n">CENTER</span>
-            <span class="k">for</span> <span class="n">opt</span> <span class="ow">in</span> <span class="n">options</span><span class="p">:</span>
-                <span class="n">style</span> <span class="o">|=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">wx</span><span class="p">,</span> <span class="n">opt</span><span class="p">)</span>
-            <span class="n">dlg</span> <span class="o">=</span> <span class="n">wx</span><span class="o">.</span><span class="n">MessageDialog</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="n">style</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># for shame. Might make sense to move the styles stuff back into the</span>
-            <span class="c1"># Framework</span>
-            <span class="kn">from</span> <span class="nn">tparmi.gui.styles</span> <span class="kn">import</span> <span class="n">dialogues</span>
-
-            <span class="n">dlg</span> <span class="o">=</span> <span class="n">dialogues</span><span class="o">.</span><span class="n">ScrolledMessageDialog</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="s2">&quot;Prompt&quot;</span><span class="p">)</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="n">dlg</span><span class="o">.</span><span class="n">ShowModal</span><span class="p">()</span>
-        <span class="n">dlg</span><span class="o">.</span><span class="n">Destroy</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">response</span> <span class="o">==</span> <span class="n">wx</span><span class="o">.</span><span class="n">ID_CANCEL</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">RunLogPromptCancel</span><span class="p">(</span><span class="s2">&quot;Manual cancellation of GUI prompt&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">response</span> <span class="ow">in</span> <span class="p">[</span><span class="n">wx</span><span class="o">.</span><span class="n">ID_OK</span><span class="p">,</span> <span class="n">wx</span><span class="o">.</span><span class="n">ID_YES</span><span class="p">]</span>
-
-    <span class="k">elif</span> <span class="n">context</span><span class="o">.</span><span class="n">CURRENT_MODE</span> <span class="o">==</span> <span class="n">Mode</span><span class="o">.</span><span class="n">INTERACTIVE</span><span class="p">:</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="n">responses</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">opt</span> <span class="k">for</span> <span class="n">opt</span> <span class="ow">in</span> <span class="n">options</span> <span class="k">if</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;YES_NO&quot;</span><span class="p">,</span> <span class="s2">&quot;YES&quot;</span><span class="p">,</span> <span class="s2">&quot;NO&quot;</span><span class="p">,</span> <span class="s2">&quot;CANCEL&quot;</span><span class="p">,</span> <span class="s2">&quot;OK&quot;</span><span class="p">]</span>
-        <span class="p">]</span>
-
-        <span class="k">if</span> <span class="s2">&quot;YES_NO&quot;</span> <span class="ow">in</span> <span class="n">responses</span><span class="p">:</span>
-            <span class="n">index</span> <span class="o">=</span> <span class="n">responses</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">&quot;YES_NO&quot;</span><span class="p">)</span>
-            <span class="n">responses</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;NO&quot;</span>
-            <span class="n">responses</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="s2">&quot;YES&quot;</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">responses</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No suitable responses in </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">responses</span><span class="p">))</span>
-
-        <span class="c1"># highly requested shorthand responses</span>
-        <span class="k">if</span> <span class="s2">&quot;YES&quot;</span> <span class="ow">in</span> <span class="n">responses</span><span class="p">:</span>
-            <span class="n">responses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Y&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="s2">&quot;NO&quot;</span> <span class="ow">in</span> <span class="n">responses</span><span class="p">:</span>
-            <span class="n">responses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;N&quot;</span><span class="p">)</span>
-
-        <span class="k">while</span> <span class="n">response</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">responses</span><span class="p">:</span>
-            <span class="n">LOG</span><span class="o">.</span><span class="n">standardLogMsg</span><span class="p">(</span><span class="s2">&quot;prompt&quot;</span><span class="p">,</span> <span class="n">statement</span><span class="p">)</span>
-            <span class="n">LOG</span><span class="o">.</span><span class="n">standardLogMsg</span><span class="p">(</span>
-                <span class="s2">&quot;prompt&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> (</span><span class="si">{}</span><span class="s2">): &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">question</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">responses</span><span class="p">))</span>
-            <span class="p">)</span>
-            <span class="n">response</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
-
-        <span class="k">if</span> <span class="n">response</span> <span class="o">==</span> <span class="s2">&quot;CANCEL&quot;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">RunLogPromptCancel</span><span class="p">(</span>
-                <span class="s2">&quot;Manual cancellation of interactive prompt&quot;</span>
-            <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">response</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;YES&quot;</span><span class="p">,</span> <span class="s2">&quot;Y&quot;</span><span class="p">,</span> <span class="s2">&quot;OK&quot;</span><span class="p">]</span>
-
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">RunLogPromptUnresolvable</span><span class="p">(</span>
-            <span class="s2">&quot;Incorrect CURRENT_MODE for prompting user: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">CURRENT_MODE</span><span class="p">)</span>
-        <span class="p">)</span></div>
+    <span class="n">LOG</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="n">single</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="warningReport"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.warningReport">[docs]</a><span class="k">def</span> <span class="nf">warningReport</span><span class="p">():</span>
@@ -628,7 +567,6 @@
 
 
 <div class="viewcode-block" id="setVerbosity"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.setVerbosity">[docs]</a><span class="k">def</span> <span class="nf">setVerbosity</span><span class="p">(</span><span class="n">level</span><span class="p">):</span>
-    <span class="c1"># convenience function</span>
     <span class="n">LOG</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">level</span><span class="p">)</span></div>
 
 
@@ -639,30 +577,204 @@
 <span class="c1"># ---------------------------------------</span>
 
 
+<div class="viewcode-block" id="DeduplicationFilter"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.DeduplicationFilter">[docs]</a><span class="k">class</span> <span class="nc">DeduplicationFilter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Filter</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Important logging filter</span>
+
+<span class="sd">    * allow users to turn off duplicate warnings</span>
+<span class="sd">    * handles special indentation rules for our logs</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">Filter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">singleMessageCounts</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">singleWarningMessageCounts</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="DeduplicationFilter.filter"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.DeduplicationFilter.filter">[docs]</a>    <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+        <span class="c1"># determine if this is a &quot;do not duplicate&quot; message</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">msg</span><span class="p">)</span>
+        <span class="n">single</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">&quot;single&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">msg</span> <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">label</span>
+
+        <span class="c1"># If the message is set to &quot;do not duplicate&quot; we may filter it out</span>
+        <span class="k">if</span> <span class="n">single</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">levelno</span> <span class="ow">in</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">CRITICAL</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">singleWarningMessageCounts</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">singleWarningMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">singleWarningMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">singleMessageCounts</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">singleMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">singleMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># Handle some special string-mangling we want to do, for multi-line messages</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">msg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">_WHITE_SPACE</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
+
+<div class="viewcode-block" id="RunLogger"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger">[docs]</a><span class="k">class</span> <span class="nc">RunLogger</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Custom Logger to support:</span>
+
+<span class="sd">    1. Giving users the option to de-duplicate warnings</span>
+<span class="sd">    2. Piping stderr to a log file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">FMT</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(levelname)s%(message)s</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># optionally, the user can pass in the MPI_RANK by putting it in the logger name after a separator string</span>
+        <span class="k">if</span> <span class="n">SEP</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">mpiRank</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">SEP</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">SEP</span><span class="p">)[</span><span class="mi">0</span><span class="p">],)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mpiRank</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span>
+
+        <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">allowStopDuplicates</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">mpiRank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+            <span class="n">handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">filePath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">context</span><span class="o">.</span><span class="n">LOG_DIR</span><span class="p">,</span> <span class="n">_RunLog</span><span class="o">.</span><span class="n">STDOUT_NAME</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mpiRank</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="n">filePath</span><span class="p">,</span> <span class="n">delay</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
+
+        <span class="n">form</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span><span class="n">RunLogger</span><span class="o">.</span><span class="n">FMT</span><span class="p">)</span>
+        <span class="n">handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RunLogger.log"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger.log">[docs]</a>    <span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msgType</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is a wrapper around logger.log() that does most of the work and is</span>
+<span class="sd">        used by all message passers (e.g. info, warning, etc.).</span>
+
+<span class="sd">        In this situation, we do the mangling needed to get the log level to the correct number.</span>
+<span class="sd">        And we do some custom string manipulation so we can handle de-duplicating warnings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Determine the log level: users can optionally pass in custom strings (&quot;debug&quot;)</span>
+        <span class="n">msgLevel</span> <span class="o">=</span> <span class="n">msgType</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msgType</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="k">else</span> <span class="n">LOG</span><span class="o">.</span><span class="n">logLevels</span><span class="p">[</span><span class="n">msgType</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Do the actual logging</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">msgLevel</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;single&quot;</span><span class="p">:</span> <span class="n">single</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">}</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="RunLogger._log"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger._log">[docs]</a>    <span class="k">def</span> <span class="nf">_log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;wrapper around the standard library Logger._log() method</span>
+<span class="sd">        The primary goal here is to allow us to support the deduplication of warnings.</span>
+<span class="sd">        NOTE: All of the *args and **kwargs logic here are mandatory, as the standard library implementation of this</span>
+<span class="sd">        method has been changing the number of kwargs between Python v3.4 and v3.9.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># we need &#39;extra&#39; as an output keyword, even if empty</span>
+        <span class="k">if</span> <span class="s2">&quot;extra&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;extra&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># make sure to populate the single/label data for de-duplication</span>
+        <span class="k">if</span> <span class="s2">&quot;single&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;extra&quot;</span><span class="p">]:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">single</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;single&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">msg</span> <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">label</span>
+
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;extra&quot;</span><span class="p">][</span><span class="s2">&quot;single&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">single</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;extra&quot;</span><span class="p">][</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">label</span>
+
+        <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="o">.</span><span class="n">_log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RunLogger.allowStopDuplicates"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger.allowStopDuplicates">[docs]</a>    <span class="k">def</span> <span class="nf">allowStopDuplicates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;helper method to allow us to safely add the deduplication filter at any time&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">filters</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">DeduplicationFilter</span><span class="p">):</span>
+                <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">addFilter</span><span class="p">(</span><span class="n">DeduplicationFilter</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="RunLogger.write"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;the redirect method that allows to do stderr piping&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RunLogger.flush"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger.flush">[docs]</a>    <span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;stub, purely to allow stderr piping&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="RunLogger.close"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;helper method, to shutdown and delete a Logger&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="k">del</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="RunLogger.getDuplicatesFilter"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger.getDuplicatesFilter">[docs]</a>    <span class="k">def</span> <span class="nf">getDuplicatesFilter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This object should have a no-duplicates filter. If it exists, find it.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">filters</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">DeduplicationFilter</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">f</span>
+
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="RunLogger.warningReport"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger.warningReport">[docs]</a>    <span class="k">def</span> <span class="nf">warningReport</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Summarize all warnings for the run.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;----- Final Warning Count --------&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">{0:^10s}</span><span class="s2">   </span><span class="si">{1:^25s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;COUNT&quot;</span><span class="p">,</span> <span class="s2">&quot;LABEL&quot;</span><span class="p">))</span>
+
+        <span class="c1"># grab the no-duplicates filter, and exit early if it doesn&#39;t exist</span>
+        <span class="n">dupsFilter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getDuplicatesFilter</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">dupsFilter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">{0:^10s}</span><span class="s2">   </span><span class="si">{1:^25s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="s2">&quot;None Found&quot;</span><span class="p">)))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;------------------------------------&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># sort by labcollections.defaultdict(lambda: 1)</span>
+        <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="n">dupsFilter</span><span class="o">.</span><span class="n">singleWarningMessageCounts</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">{0:^10s}</span><span class="s2">   </span><span class="si">{1:^25s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">count</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">label</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;------------------------------------&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RunLogger.setVerbosity"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger.setVerbosity">[docs]</a>    <span class="k">def</span> <span class="nf">setVerbosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intLevel</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A helper method to try to partially support the local, historical method of the same name&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">intLevel</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="NullLogger"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.NullLogger">[docs]</a><span class="k">class</span> <span class="nc">NullLogger</span><span class="p">(</span><span class="n">RunLogger</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This is really just a placeholder for logging before or after the span of a normal armi run.</span>
+<span class="sd">    It will forward all logging to stdout/stderr, as you&#39;d normally expect.</span>
+<span class="sd">    But it will preserve the formatting and duplication tools of the armi library.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">isStderr</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">RunLogger</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">isStderr</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)]</span>
+
+<div class="viewcode-block" id="NullLogger.addHandler"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.NullLogger.addHandler">[docs]</a>    <span class="k">def</span> <span class="nf">addHandler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;ensure this STAYS a null logger&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+
+
+<span class="c1"># Setting the default logging class to be ours</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">RunLogger</span> <span class="o">=</span> <span class="n">RunLogger</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">setLoggerClass</span><span class="p">(</span><span class="n">RunLogger</span><span class="p">)</span>
+
+
+<span class="c1"># ---------------------------------------</span>
+
+
 <div class="viewcode-block" id="logFactory"><a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.logFactory">[docs]</a><span class="k">def</span> <span class="nf">logFactory</span><span class="p">():</span>
     <span class="sd">&quot;&quot;&quot;Create the default logging object.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">verbosity</span> <span class="o">=</span> <span class="n">_logLevels</span><span class="p">[</span><span class="s2">&quot;info&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">verbosity</span> <span class="o">=</span> <span class="n">_logLevels</span><span class="p">[</span><span class="s2">&quot;warning&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">PrintLog</span><span class="p">(</span><span class="n">verbosity</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_RunLog</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span><span class="p">))</span></div>
 
 
 <span class="n">LOG</span> <span class="o">=</span> <span class="n">logFactory</span><span class="p">()</span>
-
-<span class="c1"># Copyright 2009-2019 TerraPower, LLC</span>
-<span class="c1">#</span>
-<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
-<span class="c1"># you may not use this file except in compliance with the License.</span>
-<span class="c1"># You may obtain a copy of the License at</span>
-<span class="c1">#</span>
-<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
-<span class="c1">#</span>
-<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
-<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
-<span class="c1"># See the License for the specific language governing permissions and</span>
-<span class="c1"># limitations under the License.</span>
 </pre></div>
 
            </div>
@@ -676,7 +788,7 @@
     <p>
         &#169; Copyright 2009-2021, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2021-04-09.
+        Last updated on 2021-09-09.
       </span>
 
     </p>
