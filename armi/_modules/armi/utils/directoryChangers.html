@@ -193,12 +193,14 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">string</span>
 <span class="kn">import</span> <span class="nn">glob</span>
 
 <span class="kn">import</span> <span class="nn">armi</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">pathTools</span>
 
@@ -374,14 +376,20 @@
             <span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="n">filesToMove</span><span class="p">,</span> <span class="n">filesToRetrieve</span><span class="p">,</span> <span class="n">dumpOnException</span>
         <span class="p">)</span>
 
-        <span class="c1"># If no root dir is given, the default path to grab in context is cwd(), which</span>
-        <span class="c1"># can lead to deleting any directory on the hard drive. So this check is here</span>
-        <span class="c1"># to ensure that if we grab a path from context, it is a proper temp dir.</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="p">:</span>
+        <span class="c1"># If no root dir is given, the default path comes from context.getFastPath, which</span>
+        <span class="c1"># *might* be relative to the cwd, making it possible to delete unintended files.</span>
+        <span class="c1"># So this check is here to ensure that if we grab a path from context, it is a</span>
+        <span class="c1"># proper temp dir.</span>
+        <span class="c1"># That said, since the TemporaryDirectoryChanger *always* responsible for</span>
+        <span class="c1"># creating its destination directory, it may always be safe to delete it</span>
+        <span class="c1"># regardless of location.</span>
+        <span class="k">if</span> <span class="n">root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">root</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">getFastPath</span><span class="p">()</span>
-            <span class="c1"># ARMIs temp dirs are in an /.armi/ directory: validate this is a temp dir.</span>
-            <span class="k">if</span> <span class="s2">&quot;.armi&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">root</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">sep</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Temporary directory not found.&quot;</span><span class="p">)</span>
+            <span class="c1"># ARMIs temp dirs are in an context.APP_DATA directory: validate this is a temp dir.</span>
+            <span class="k">if</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">APP_DATA</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">root</span><span class="p">)</span><span class="o">.</span><span class="n">parents</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Temporary directory not in a safe location for deletion.&quot;</span>
+                <span class="p">)</span>
 
         <span class="c1"># make the tmp dir, if necessary</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
