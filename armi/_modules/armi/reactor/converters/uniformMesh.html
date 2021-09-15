@@ -233,6 +233,7 @@
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
@@ -247,6 +248,8 @@
 
 <span class="c1"># unfortunate physics coupling, but still in the framework</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.globalFlux</span> <span class="kn">import</span> <span class="n">globalFluxInterface</span>
+
+<span class="n">runLog</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter">[docs]</a><span class="k">class</span> <span class="nc">UniformMeshGeometryConverter</span><span class="p">(</span><span class="n">GeometryConverter</span><span class="p">):</span>
@@ -332,71 +335,74 @@
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating a uniform mesh of </span><span class="si">{</span><span class="n">newAssem</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">bottom</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">topMeshPoint</span> <span class="ow">in</span> <span class="n">newMesh</span><span class="p">:</span>
-            <span class="n">overlappingBlockInfo</span> <span class="o">=</span> <span class="n">sourceAssem</span><span class="o">.</span><span class="n">getBlocksBetweenElevations</span><span class="p">(</span>
-                <span class="n">bottom</span><span class="p">,</span> <span class="n">topMeshPoint</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">overlappingBlockInfo</span><span class="p">:</span>
-                <span class="c1"># this could be handled by duplicating the block but with the current CR module</span>
-                <span class="c1"># this situation should just never happen.</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="s2">&quot;No block found between </span><span class="si">{:.3f}</span><span class="s2"> and </span><span class="si">{:.3f}</span><span class="s2"> in assembly </span><span class="si">{}</span><span class="s2">&quot;</span>
-                    <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bottom</span><span class="p">,</span> <span class="n">topMeshPoint</span><span class="p">,</span> <span class="n">sourceAssem</span><span class="p">)</span>
-                <span class="p">)</span>
-
-            <span class="n">sourceBlock</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">specialXSType</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;From axial elevation </span><span class="si">{</span><span class="n">bottom</span><span class="si">:</span><span class="s2">&lt;6.2f</span><span class="si">}</span><span class="s2"> cm to </span><span class="si">{</span><span class="n">topMeshPoint</span><span class="si">:</span><span class="s2">&lt;6.2f</span><span class="si">}</span><span class="s2"> cm&quot;</span>
             <span class="p">)</span>
-            <span class="k">for</span> <span class="n">potentialBlock</span><span class="p">,</span> <span class="n">heightOverlap</span> <span class="ow">in</span> <span class="n">overlappingBlockInfo</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">sourceBlock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">sourceBlock</span> <span class="o">=</span> <span class="n">potentialBlock</span>
-                    <span class="n">sourceBlockHeightOverlap</span> <span class="o">=</span> <span class="n">heightOverlap</span>
-                <span class="k">if</span> <span class="p">(</span>
-                    <span class="n">potentialBlock</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">])</span>
-                    <span class="ow">and</span> <span class="n">potentialBlock</span> <span class="o">!=</span> <span class="n">sourceBlock</span>
-                <span class="p">):</span>
-                    <span class="n">totalHeight</span> <span class="o">=</span> <span class="n">topMeshPoint</span> <span class="o">-</span> <span class="n">bottom</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">potentialBlock</span><span class="si">}</span><span class="s2"> accounts for </span><span class="si">{</span><span class="n">heightOverlap</span><span class="o">/</span><span class="n">totalHeight</span> <span class="o">*</span> <span class="mf">100.0</span><span class="si">:</span><span class="s2">&lt;5.2f</span><span class="si">}</span><span class="s2">% of the homogenized region&quot;</span>
-                    <span class="p">)</span>
+            <span class="n">overlappingBlockInfo</span> <span class="o">=</span> <span class="n">sourceAssem</span><span class="o">.</span><span class="n">getBlocksBetweenElevations</span><span class="p">(</span>
+                <span class="n">bottom</span><span class="p">,</span> <span class="n">topMeshPoint</span>
+            <span class="p">)</span>
+            <span class="c1"># This is not expected to occur given that the assembly mesh is consistent with</span>
+            <span class="c1"># the blocks within it, but this is added for defensive programming and to</span>
+            <span class="c1"># highlight a developer issue.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">overlappingBlockInfo</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;No blocks found between </span><span class="si">{</span><span class="n">bottom</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">topMeshPoint</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">sourceAssem</span><span class="si">}</span><span class="s2">. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;This is a major bug that should be reported to the developers.&quot;</span>
+                <span class="p">)</span>
 
-                    <span class="k">if</span> <span class="n">specialXSType</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="n">sourceBlock</span> <span class="o">=</span> <span class="n">potentialBlock</span>
-                        <span class="n">specialXSType</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span>
-                    <span class="k">elif</span> <span class="n">specialXSType</span> <span class="o">==</span> <span class="n">potentialBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span><span class="p">:</span>
-                        <span class="k">pass</span>
+            <span class="c1"># Iterate over the blocks that are within this region and</span>
+            <span class="c1"># select one as a &quot;source&quot; for determining which cross section</span>
+            <span class="c1"># type to use. This uses the following rules:</span>
+            <span class="c1">#     1. Select the first block that has either FUEL or CONTROL flags</span>
+            <span class="c1">#     2. Fail if multiple blocks meet this criteria if they have different XS types</span>
+            <span class="c1">#     3. Default to the first block in the list if no blocks meet FUEL or CONTROL flags criteria.</span>
+            <span class="n">blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">_h</span> <span class="ow">in</span> <span class="n">overlappingBlockInfo</span><span class="p">]</span>
+            <span class="n">sourceBlock</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">xsType</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">]):</span>
+                    <span class="k">if</span> <span class="n">sourceBlock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">sourceBlock</span> <span class="o">=</span> <span class="n">b</span>
+                        <span class="n">xsType</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span>
                     <span class="k">else</span><span class="p">:</span>
-                        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;Both </span><span class="si">{</span><span class="n">sourceBlock</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">potentialBlock</span><span class="si">}</span><span class="s2"> have conflicting XS types &quot;</span>
-                            <span class="sa">f</span><span class="s2">&quot;and have either </span><span class="si">{</span><span class="p">[</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">]</span><span class="si">}</span><span class="s2"> flags. One or the other flags &quot;</span>
-                            <span class="sa">f</span><span class="s2">&quot;from these blocks should be removed to produce a uniform axial mesh for </span><span class="si">{</span><span class="n">newAssem</span><span class="si">}</span><span class="s2">&quot;</span>
-                        <span class="p">)</span>
-                        <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">potentialBlock</span> <span class="o">==</span> <span class="n">sourceBlock</span><span class="p">:</span>
-                    <span class="n">totalHeight</span> <span class="o">=</span> <span class="n">topMeshPoint</span> <span class="o">-</span> <span class="n">bottom</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">sourceBlock</span><span class="si">}</span><span class="s2"> accounts for </span><span class="si">{</span><span class="n">sourceBlockHeightOverlap</span><span class="o">/</span><span class="n">totalHeight</span> <span class="o">*</span> <span class="mf">100.0</span><span class="si">:</span><span class="s2">&lt;5.2f</span><span class="si">}</span><span class="s2">% of the homogenized region&quot;</span>
-                    <span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">totalHeight</span> <span class="o">=</span> <span class="n">topMeshPoint</span> <span class="o">-</span> <span class="n">bottom</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">potentialBlock</span><span class="si">}</span><span class="s2"> accounts for </span><span class="si">{</span><span class="n">heightOverlap</span><span class="o">/</span><span class="n">totalHeight</span> <span class="o">*</span> <span class="mf">100.0</span><span class="si">:</span><span class="s2">&lt;5.2f</span><span class="si">}</span><span class="s2">% of the homogenized region&quot;</span>
-                    <span class="p">)</span>
+                        <span class="c1"># If there is a duplicate source block candidate that has a different</span>
+                        <span class="c1"># cross section type then this is an error because the code cannot</span>
+                        <span class="c1"># decide which one is correct.</span>
+                        <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span> <span class="o">!=</span> <span class="n">xsType</span><span class="p">:</span>
+                            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sourceBlock</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">newAssem</span><span class="si">}</span><span class="s2"> have conflicting XS types and are &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;candidates for the source block. To fix this, either set their XS types &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;to be the same or remove these flags </span><span class="si">{</span><span class="p">[</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">]</span><span class="si">}</span><span class="s2"> &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;from one of the blocks.&quot;</span>
+                            <span class="p">)</span>
+                            <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
-            <span class="n">newXSType</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span> <span class="k">if</span> <span class="n">specialXSType</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">specialXSType</span>
+            <span class="c1"># If no blocks meet the criteria above just select the first block</span>
+            <span class="c1"># as the source block and use its cross section type.</span>
+            <span class="k">if</span> <span class="n">sourceBlock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">sourceBlock</span> <span class="o">=</span> <span class="n">blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">xsType</span> <span class="o">=</span> <span class="n">blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span>
+
             <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;  - The XS type of `</span><span class="si">{</span><span class="n">newXSType</span><span class="si">}</span><span class="s2">` will be applied to the new homogenized region.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  - The source block for this region is </span><span class="si">{</span><span class="n">sourceBlock</span><span class="si">}</span><span class="s2"> with XS type </span><span class="si">{</span><span class="n">xsType</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
 
+            <span class="c1"># Report the homogenization fractions for debugging purposes</span>
+            <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">heightOverlap</span> <span class="ow">in</span> <span class="n">overlappingBlockInfo</span><span class="p">:</span>
+                <span class="n">totalHeight</span> <span class="o">=</span> <span class="n">topMeshPoint</span> <span class="o">-</span> <span class="n">bottom</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> accounts for </span><span class="si">{</span><span class="n">heightOverlap</span><span class="o">/</span><span class="n">totalHeight</span> <span class="o">*</span> <span class="mf">100.0</span><span class="si">:</span><span class="s2">&lt;5.2f</span><span class="si">}</span><span class="s2">% of the homogenized region&quot;</span>
+                <span class="p">)</span>
+
             <span class="n">block</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">sourceBlock</span><span class="p">)</span>
-            <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span> <span class="o">=</span> <span class="n">newXSType</span>
+            <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span> <span class="o">=</span> <span class="n">xsType</span>
             <span class="n">block</span><span class="o">.</span><span class="n">setHeight</span><span class="p">(</span><span class="n">topMeshPoint</span> <span class="o">-</span> <span class="n">bottom</span><span class="p">)</span>
             <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axMesh</span> <span class="o">=</span> <span class="mi">1</span>
             <span class="n">_setNumberDensitiesFromOverlaps</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">overlappingBlockInfo</span><span class="p">)</span>
             <span class="n">newAssem</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
             <span class="n">bottom</span> <span class="o">=</span> <span class="n">topMeshPoint</span>
+
         <span class="n">newAssem</span><span class="o">.</span><span class="n">reestablishBlockOrder</span><span class="p">()</span>
         <span class="n">newAssem</span><span class="o">.</span><span class="n">calculateZCoords</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">newAssem</span></div>
@@ -768,7 +774,7 @@
     <p>
         &#169; Copyright 2009-2021, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2021-09-14.
+        Last updated on 2021-09-15.
       </span>
 
     </p>
