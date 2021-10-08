@@ -297,6 +297,7 @@
 <span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">InputError</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">asciimaps</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">geometry</span><span class="p">,</span> <span class="n">grids</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">blueprints</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 
 
@@ -362,8 +363,9 @@
         <span class="p">),</span>
     <span class="p">)</span>
     <span class="c1"># gridContents is the final form of grid contents information;</span>
-    <span class="c1"># it is set regardless of how the input is read. This is how all</span>
-    <span class="c1"># grid contents information is written out.</span>
+    <span class="c1"># it is set regardless of how the input is read. When writing, we attempt to</span>
+    <span class="c1"># preserve the input mode and write ascii map if that was what was originally</span>
+    <span class="c1"># provided.</span>
     <span class="n">gridContents</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;grid contents&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
     <span class="nd">@gridContents</span><span class="o">.</span><span class="n">validator</span>
@@ -404,10 +406,22 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">geom</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">geom</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">latticeMap</span> <span class="o">=</span> <span class="n">latticeMap</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">readFromLatticeMap</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_readFromLatticeMap</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">symmetry</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gridContents</span> <span class="o">=</span> <span class="n">gridContents</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gridBounds</span> <span class="o">=</span> <span class="n">gridBounds</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">readFromLatticeMap</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is implemented as a property, since as a Yamlize object, __init__ is not</span>
+<span class="sd">        always called and we have to lazily evaluate its default value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_readFromLatticeMap&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="nd">@readFromLatticeMap</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">readFromLatticeMap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_readFromLatticeMap</span> <span class="o">=</span> <span class="n">value</span>
 
 <div class="viewcode-block" id="GridBlueprint.construct"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.gridBlueprint.html#armi.reactor.blueprints.gridBlueprint.GridBlueprint.construct">[docs]</a>    <span class="k">def</span> <span class="nf">construct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Build a Grid from a grid definition.&quot;&quot;&quot;</span>
@@ -571,7 +585,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">readFromLatticeMap</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">symmetry</span> <span class="o">=</span> <span class="n">geometry</span><span class="o">.</span><span class="n">SymmetryType</span><span class="o">.</span><span class="n">fromStr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span><span class="p">)</span>
         <span class="n">geom</span> <span class="o">=</span> <span class="n">geometry</span><span class="o">.</span><span class="n">GeomType</span><span class="o">.</span><span class="n">fromStr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">geom</span><span class="p">)</span>
-        <span class="n">latticeCls</span> <span class="o">=</span> <span class="n">asciimaps</span><span class="o">.</span><span class="n">asciiMapFromGeomAndSym</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">geom</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span><span class="p">)</span>
+        <span class="n">latticeCls</span> <span class="o">=</span> <span class="n">asciimaps</span><span class="o">.</span><span class="n">asciiMapFromGeomAndDomain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">geom</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">.</span><span class="n">domain</span><span class="p">)</span>
         <span class="n">asciimap</span> <span class="o">=</span> <span class="n">latticeCls</span><span class="p">()</span>
         <span class="n">asciimap</span><span class="o">.</span><span class="n">readAscii</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">latticeMap</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gridContents</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
@@ -704,7 +718,7 @@
         <span class="k">del</span> <span class="n">gridBp</span><span class="o">.</span><span class="n">gridContents</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span></div>
 
 
-<div class="viewcode-block" id="saveToStream"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.gridBlueprint.html#armi.reactor.blueprints.gridBlueprint.saveToStream">[docs]</a><span class="k">def</span> <span class="nf">saveToStream</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">bluep</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">full</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="saveToStream"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.gridBlueprint.html#armi.reactor.blueprints.gridBlueprint.saveToStream">[docs]</a><span class="k">def</span> <span class="nf">saveToStream</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">bluep</span><span class="p">,</span> <span class="n">full</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">tryMap</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Save the blueprints to the passed stream.</span>
 
 <span class="sd">    This can save either the entire blueprints, or just the `grids:` section of the</span>
@@ -712,9 +726,10 @@
 <span class="sd">    blueprints can be useful when cobbling blueprints together with !include flags.</span>
 
 <span class="sd">    stream: file output stream of some kind</span>
-<span class="sd">    bluep: armi.reactor.blueprints.Blueprints</span>
-<span class="sd">    grid: armi.reactor.grids.Grid</span>
+<span class="sd">    bluep: armi.reactor.blueprints.Blueprints, or Grids</span>
 <span class="sd">    full: bool ~ Is this a full output file, or just a partial/grids?</span>
+<span class="sd">    tryMap: regardless of input form, attempt to output as a lattice map. let&#39;s face it;</span>
+<span class="sd">    they&#39;re prettier.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># To save, we want to try our best to output our grid blueprints in the lattice</span>
     <span class="c1"># map style. However, we do not want to wreck the state that the current</span>
@@ -722,7 +737,14 @@
     <span class="c1"># canonicalize it and save that, leaving the original blueprints unmolested.</span>
     <span class="n">bp</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">bluep</span><span class="p">)</span>
 
-    <span class="k">for</span> <span class="n">gridDesignType</span><span class="p">,</span> <span class="n">gridDesign</span> <span class="ow">in</span> <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bp</span><span class="p">,</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="p">):</span>
+        <span class="n">gridDesigns</span> <span class="o">=</span> <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bp</span><span class="p">,</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Grids</span><span class="p">):</span>
+        <span class="n">gridDesigns</span> <span class="o">=</span> <span class="n">bp</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Expected Blueprints or Grids, got </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">bp</span><span class="p">)))</span>
+
+    <span class="k">for</span> <span class="n">gridDesignType</span><span class="p">,</span> <span class="n">gridDesign</span> <span class="ow">in</span> <span class="n">gridDesigns</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="c1"># The core equilibrium path should be put into the</span>
         <span class="c1"># grid contents rather than a lattice map until we write</span>
         <span class="c1"># a string-&gt; tuple parser for reading it back in. Skip</span>
@@ -735,42 +757,50 @@
             <span class="c1"># there is no grid, so there must be lattice, and that goes to output</span>
             <span class="k">continue</span>
 
-        <span class="n">readFromLatticeMap</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">gridDesign</span><span class="p">,</span> <span class="s2">&quot;readFromLatticeMap&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">readFromLatticeMap</span><span class="p">:</span>
-            <span class="c1"># there is a grid, but we didn&#39;t read from latttice, so we block lattic output</span>
-            <span class="n">gridDesign</span><span class="o">.</span><span class="n">latticeMap</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">continue</span>
-
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">aMap</span> <span class="o">=</span> <span class="n">asciimaps</span><span class="o">.</span><span class="n">asciiMapFromGeomAndSym</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">geomType</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">symmetry</span><span class="p">)()</span>
-            <span class="c1"># asciimaps can&#39;t handle negative indices, so we bump everything</span>
-            <span class="c1"># forward if needed</span>
-            <span class="n">offset</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="nb">min</span><span class="p">(</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">gridContents</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
-                <span class="nb">min</span><span class="p">(</span><span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">gridContents</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span>
-            <span class="p">)</span>
-            <span class="n">aMap</span><span class="o">.</span><span class="n">asciiLabelByIndices</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="p">(</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span> <span class="n">val</span>
-                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">gridContents</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-            <span class="p">}</span>
-            <span class="n">aMap</span><span class="o">.</span><span class="n">gridContentsToAscii</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot write geometry with asciimap. Defaulting to dict. Issue: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="n">e</span>
+        <span class="k">if</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">readFromLatticeMap</span> <span class="ow">or</span> <span class="n">tryMap</span><span class="p">:</span>
+            <span class="n">geomType</span> <span class="o">=</span> <span class="n">geometry</span><span class="o">.</span><span class="n">GeomType</span><span class="o">.</span><span class="n">fromStr</span><span class="p">(</span><span class="n">gridDesign</span><span class="o">.</span><span class="n">geom</span><span class="p">)</span>
+            <span class="n">symmetry</span> <span class="o">=</span> <span class="n">geometry</span><span class="o">.</span><span class="n">SymmetryType</span><span class="o">.</span><span class="n">fromStr</span><span class="p">(</span><span class="n">gridDesign</span><span class="o">.</span><span class="n">symmetry</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">aMap</span> <span class="o">=</span> <span class="n">asciimaps</span><span class="o">.</span><span class="n">asciiMapFromGeomAndDomain</span><span class="p">(</span>
+                    <span class="n">gridDesign</span><span class="o">.</span><span class="n">geom</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">.</span><span class="n">domain</span>
+                <span class="p">)()</span>
+                <span class="n">aMap</span><span class="o">.</span><span class="n">asciiLabelByIndices</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="p">(</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span> <span class="n">val</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">gridContents</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">}</span>
+                <span class="n">aMap</span><span class="o">.</span><span class="n">gridContentsToAscii</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Cannot write geometry with asciimap. Defaulting to dict. Issue: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">e</span>
+                    <span class="p">)</span>
                 <span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">aMap</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">aMap</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">gridDesign</span><span class="o">.</span><span class="n">gridContents</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">aMap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">mapString</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">()</span>
-            <span class="n">aMap</span><span class="o">.</span><span class="n">writeAscii</span><span class="p">(</span><span class="n">mapString</span><span class="p">)</span>
-            <span class="c1"># deep ruamel.yaml magic</span>
-            <span class="n">fmtStr</span> <span class="o">=</span> <span class="n">scalarstring</span><span class="o">.</span><span class="n">LiteralScalarString</span><span class="p">(</span><span class="n">mapString</span><span class="o">.</span><span class="n">getvalue</span><span class="p">())</span>
-            <span class="n">gridDesign</span><span class="o">.</span><span class="n">latticeMap</span> <span class="o">=</span> <span class="n">fmtStr</span>
+            <span class="k">if</span> <span class="n">aMap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">gridDesign</span><span class="o">.</span><span class="n">gridContents</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">aMap</span><span class="p">,</span> <span class="n">asciimaps</span><span class="o">.</span><span class="n">AsciiMapHexFullTipsUp</span><span class="p">):</span>
+                    <span class="c1"># this specific implementation of asciimap is broken, so we only</span>
+                    <span class="c1"># attempt to use the other implementations. If hex, full, tips-up is</span>
+                    <span class="c1"># being used we just preserve whatever was in the blueprints</span>
+                    <span class="c1"># already. this is bad, but we can do away with it when #437 is</span>
+                    <span class="c1"># fixed.</span>
+                    <span class="n">mapString</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">()</span>
+                    <span class="n">aMap</span><span class="o">.</span><span class="n">writeAscii</span><span class="p">(</span><span class="n">mapString</span><span class="p">)</span>
+                    <span class="n">gridDesign</span><span class="o">.</span><span class="n">latticeMap</span> <span class="o">=</span> <span class="n">mapString</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
+                <span class="n">gridDesign</span><span class="o">.</span><span class="n">latticeMap</span> <span class="o">=</span> <span class="n">scalarstring</span><span class="o">.</span><span class="n">LiteralScalarString</span><span class="p">(</span>
+                    <span class="n">gridDesign</span><span class="o">.</span><span class="n">latticeMap</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">gridDesign</span><span class="o">.</span><span class="n">latticeMap</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">toSave</span> <span class="o">=</span> <span class="n">bp</span> <span class="k">if</span> <span class="n">full</span> <span class="k">else</span> <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># grid contents were supplied as a dictionary, so we shouldnt even have a</span>
+            <span class="c1"># latticeMap, unless it was set explicitly in code somewhere. Discard if</span>
+            <span class="c1"># there is one.</span>
+            <span class="n">gridDesign</span><span class="o">.</span><span class="n">latticeMap</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">toSave</span> <span class="o">=</span> <span class="n">bp</span> <span class="k">if</span> <span class="n">full</span> <span class="k">else</span> <span class="n">gridDesigns</span>
 
     <span class="c1"># NOTE: type(bp) here used because importing Blueprints causes a circular import</span>
     <span class="nb">type</span><span class="p">(</span><span class="n">toSave</span><span class="p">)</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">toSave</span><span class="p">,</span> <span class="n">stream</span><span class="p">)</span></div>
