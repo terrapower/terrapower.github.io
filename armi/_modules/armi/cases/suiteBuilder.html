@@ -207,9 +207,12 @@
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">pyDOE</span> <span class="kn">import</span> <span class="n">lhs</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
 
 <span class="kn">from</span> <span class="nn">armi.cases</span> <span class="kn">import</span> <span class="n">suite</span>
+<span class="kn">from</span> <span class="nn">armi.cases.inputModifiers.inputModifiers</span> <span class="kn">import</span> <span class="n">InputModifier</span>
 
 
 <div class="viewcode-block" id="getInputModifiers"><a class="viewcode-back" href="../../../.apidocs/armi.cases.suiteBuilder.html#armi.cases.suiteBuilder.getInputModifiers">[docs]</a><span class="k">def</span> <span class="nf">getInputModifiers</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
@@ -485,6 +488,136 @@
 <span class="sd">        SuiteBuilder.addDegreeOfFreedom</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">modifierSets</span><span class="o">.</span><span class="n">extend</span><span class="p">((</span><span class="n">modifier</span><span class="p">,)</span> <span class="k">for</span> <span class="n">modifier</span> <span class="ow">in</span> <span class="n">inputModifiers</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="LatinHyperCubeSuiteBuilder"><a class="viewcode-back" href="../../../.apidocs/armi.cases.suiteBuilder.html#armi.cases.suiteBuilder.LatinHyperCubeSuiteBuilder">[docs]</a><span class="k">class</span> <span class="nc">LatinHyperCubeSuiteBuilder</span><span class="p">(</span><span class="n">SuiteBuilder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Implements a Latin Hypercube Sampling suite builder.</span>
+
+<span class="sd">    This method is used to provide a more efficient sampling of the design space.</span>
+<span class="sd">    LHS more efficiently samples the space evenly across dimensions compared to</span>
+<span class="sd">    random sampling. It requires fewer points than a full factorial since it samples</span>
+<span class="sd">    quasi-randomly into nonoverlapping partitions. It is recommended to use a surrogate</span>
+<span class="sd">    model with the sampled data to get the full benefit.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    modifierSets: An array of InputModifiers specifying input parameters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">baseCase</span><span class="p">,</span> <span class="n">size</span><span class="p">):</span>
+        <span class="n">SuiteBuilder</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">baseCase</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">modifierSets</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="LatinHyperCubeSuiteBuilder.addDegreeOfFreedom"><a class="viewcode-back" href="../../../.apidocs/armi.cases.suiteBuilder.html#armi.cases.suiteBuilder.LatinHyperCubeSuiteBuilder.addDegreeOfFreedom">[docs]</a>    <span class="k">def</span> <span class="nf">addDegreeOfFreedom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputModifiers</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a degree of freedom to the SuiteBuilder.</span>
+
+<span class="sd">        Unlike other types of suite builders, only one instance of a</span>
+<span class="sd">        modifier class should be added. This is because the Latin Hypercube</span>
+<span class="sd">        Sampling will automatically perturb the values and produce modifier</span>
+<span class="sd">        sets internally. A settings modfier class passed to this method</span>
+<span class="sd">        need include bounds by which the LHS algorithm can perturb the input</span>
+<span class="sd">        parameters.</span>
+
+<span class="sd">        For example::</span>
+
+<span class="sd">            class InputParameterModifier(SamplingInputModifier):</span>
+
+<span class="sd">                def __init__(</span>
+<span class="sd">                    self,</span>
+<span class="sd">                    name: str,</span>
+<span class="sd">                    pararmType: str, # either &#39;continuous&#39; or &#39;discrete&#39;</span>
+<span class="sd">                    bounds: Optional[Tuple, List]</span>
+<span class="sd">                ):</span>
+<span class="sd">                    super().__init__(name, paramType, bounds)</span>
+
+<span class="sd">                def __call__(self, cs, bp, geom):</span>
+<span class="sd">                    ...</span>
+
+<span class="sd">        If the modifier is discrete then bounds specifies a list of options</span>
+<span class="sd">        the values can take. If continuous, then bounds specifies a range of values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">mod</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">modifierSets</span> <span class="o">+</span> <span class="n">inputModifiers</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">)):</span>
+            <span class="n">counts</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+            <span class="n">duplicateNames</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">counts</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">counts</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">duplicateNames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Only a single input parameter should be inserted as an input modifer &quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;since cases are added through Latin Hypercube Sampling.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;Each inputModifier adds a dimension to the Latin Hypercube and &quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;represents a single input variable.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">duplicateNames</span><span class="si">}</span><span class="s2"> have duplicates. &quot;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">modifierSets</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">inputModifiers</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LatinHyperCubeSuiteBuilder.buildSuite"><a class="viewcode-back" href="../../../.apidocs/armi.cases.suiteBuilder.html#armi.cases.suiteBuilder.LatinHyperCubeSuiteBuilder.buildSuite">[docs]</a>    <span class="k">def</span> <span class="nf">buildSuite</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">namingFunc</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Builds a ``CaseSuite`` based on the modifierSets contained in the SuiteBuilder.</span>
+
+<span class="sd">        For each sequence of modifications, this creates a new ``Case`` from the ``baseCase``, and</span>
+<span class="sd">        runs the sequence of modifications on the new ``Case``&#39;s inputs. The modified ``Case`` is</span>
+<span class="sd">        then added to a ``CaseSuite``. The resulting ``CaseSuite`` is returned.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        namingFunc : callable(index, case, tuple(InputModifier)), (optional)</span>
+<span class="sd">            Function used to name each case. It is supplied with the index (int), the case (Case),</span>
+<span class="sd">            and a tuple of InputModifiers used to edit the case. This should be enough information</span>
+<span class="sd">            for someone to derive a meaningful name.</span>
+
+<span class="sd">            The function should return a string specifying the path of the ``CaseSettings``, this</span>
+<span class="sd">            allows the user to specify the directories where each case will be run.</span>
+
+<span class="sd">            If not supplied the path will be ``./case-suite/&lt;0000&gt;/&lt;title&gt;-&lt;0000&gt;``, where</span>
+<span class="sd">            ``&lt;0000&gt;`` is the four-digit case index, and ``&lt;title&gt;`` is the ``baseCase.title``.</span>
+
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        RuntimeError</span>
+<span class="sd">            When order of modifications is deemed to be invalid.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        caseSuite : CaseSuite</span>
+<span class="sd">            Derived from the ``baseCase`` and modifications.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">original_modifiers</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">modifierSets</span><span class="p">)</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">modifierSets</span><span class="p">[:]</span>
+
+        <span class="n">samples</span> <span class="o">=</span> <span class="n">lhs</span><span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">original_modifiers</span><span class="p">),</span>
+            <span class="n">samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span>
+            <span class="n">criterion</span><span class="o">=</span><span class="s2">&quot;maximin&quot;</span><span class="p">,</span>
+            <span class="n">iterations</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Normalizing samples to modifier bounds and creating modifier objects.</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">samples</span><span class="p">)):</span>
+            <span class="n">modSet</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">mod</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">original_modifiers</span><span class="p">):</span>
+                <span class="n">new_mod</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">mod</span><span class="o">.</span><span class="n">paramType</span> <span class="ow">is</span> <span class="s2">&quot;continuous&quot;</span><span class="p">:</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">mod</span><span class="o">.</span><span class="n">bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">samples</span><span class="p">[</span><span class="n">i</span><span class="p">][</span>
+                        <span class="n">j</span>
+                    <span class="p">]</span> <span class="o">+</span> <span class="n">mod</span><span class="o">.</span><span class="n">bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">new_mod</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+                <span class="k">elif</span> <span class="n">mod</span><span class="o">.</span><span class="n">paramType</span> <span class="ow">is</span> <span class="s2">&quot;discrete&quot;</span><span class="p">:</span>
+                    <span class="n">index</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">samples</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">bounds</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="n">mod</span><span class="o">.</span><span class="n">bounds</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+                    <span class="n">new_mod</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
+
+                <span class="n">modSet</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_mod</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">modifierSets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">modSet</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">buildSuite</span><span class="p">(</span><span class="n">namingFunc</span><span class="o">=</span><span class="n">namingFunc</span><span class="p">)</span></div></div>
 </pre></div>
 
            </div>
@@ -498,7 +631,7 @@
     <p>
         &#169; Copyright 2009-2021, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2021-10-08.
+        Last updated on 2021-10-09.
       </span>
 
     </p>
