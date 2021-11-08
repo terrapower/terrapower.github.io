@@ -275,6 +275,7 @@
 
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">pathlib</span>
+<span class="kn">import</span> <span class="nn">glob</span>
 
 <span class="kn">import</span> <span class="nn">yaml</span>
 
@@ -662,20 +663,14 @@
     <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">_riplEnvironVariable</span><span class="si">}</span><span class="s2">`: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> is invalid.&quot;</span><span class="p">)</span>
 
-    <span class="c1"># Check for all (.dat) data files within the directory. These</span>
-    <span class="c1"># are ordered from z000.dat to z117.dat. If all files do not</span>
-    <span class="c1"># exist then an exception is thrown for the missing data files.</span>
+    <span class="c1"># Check that the number of expected (.dat) data files within the directory exist.</span>
     <span class="n">numRIPLDataFiles</span> <span class="o">=</span> <span class="mi">118</span>
-    <span class="n">dataFileNames</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;z</span><span class="si">{:&gt;03d}</span><span class="s2">.dat&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">numRIPLDataFiles</span><span class="p">)]</span>
-    <span class="n">missingFileNames</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">df</span> <span class="ow">in</span> <span class="n">dataFileNames</span><span class="p">:</span>
-        <span class="n">expectedDataFilePath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">df</span><span class="p">))</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expectedDataFilePath</span><span class="p">):</span>
-            <span class="n">missingFileNames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">missingFileNames</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;There are </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">missingFileNames</span><span class="p">)</span><span class="si">}</span><span class="s2"> missing RIPL data files in `</span><span class="si">{</span><span class="n">_riplEnvironVariable</span><span class="si">}</span><span class="s2">`: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;The following data files were expected: </span><span class="si">{</span><span class="n">missingFileNames</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">numAvailableRIPLFiles</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">riplPath</span><span class="p">,</span> <span class="s2">&quot;z???.dat&quot;</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="n">numAvailableRIPLFiles</span> <span class="o">&lt;</span> <span class="n">numRIPLDataFiles</span><span class="p">:</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The number of RIPL files are expected to be </span><span class="si">{</span><span class="n">numRIPLDataFiles</span><span class="si">}</span><span class="s2">, but &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;only </span><span class="si">{</span><span class="n">numAvailableRIPLFiles</span><span class="si">}</span><span class="s2"> exist. There may be missing nuclides that &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;are loaded into the `nuclideBases` directory.&quot;</span>
         <span class="p">)</span>
 
     <span class="n">ripl</span><span class="o">.</span><span class="n">makeDecayConstantTable</span><span class="p">(</span><span class="n">directory</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
@@ -1503,7 +1498,7 @@
     <p>
         &#169; Copyright 2009-2021, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2021-10-31.
+        Last updated on 2021-11-08.
       </span>
 
     </p>
