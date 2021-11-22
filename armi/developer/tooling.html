@@ -9,7 +9,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://terrapower.github.io/armi/developer/tooling.html" />
   <meta property="og:site_name" content="Advanced Reactor Modeling Interface" />
-  <meta property="og:description" content="Tooling and infrastructure: Packaging and dependency management: The process of packaging and Python projects and managing their dependencies is somewhat challenging, nuanced, and in the opinion of..." />
+  <meta property="og:description" content="Tooling and infrastructure: Packaging and dependency management: The process of packaging Python projects and managing their dependencies is somewhat challenging and nuanced. The contents of our se..." />
   <meta property="og:image" content="https://terrapower.github.io/armi/_static/armiSchematicView.png" />
   <meta property="og:image:alt" content="Advanced Reactor Modeling Interface" />
   
@@ -122,8 +122,13 @@
 <li class="toctree-l2"><a class="reference internal" href="profiling.html">5. Profiling ARMI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="reports.html">6. Reports in ARMI</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">7. Tooling and infrastructure</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#packaging-and-dependency-management">7.1. Packaging and dependency management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#module-level-logging">7.2. Module-Level Logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#packaging-and-dependency-management">7.1. Packaging and dependency management</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#setup-py">7.1.1. setup.py</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#requirements-txt">7.1.2. requirements.txt</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#releasing-a-new-version-of-armi">7.2. Releasing a New Version of ARMI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-level-logging">7.3. Module-Level Logging</a></li>
 </ul>
 </li>
 </ul>
@@ -231,35 +236,57 @@
 <h1>7. Tooling and infrastructure<a class="headerlink" href="#tooling-and-infrastructure" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="packaging-and-dependency-management">
 <h2>7.1. Packaging and dependency management<a class="headerlink" href="#packaging-and-dependency-management" title="Permalink to this headline">¶</a></h2>
-<p>The process of packaging and Python projects and managing their dependencies is
-somewhat challenging, nuanced, and in the opinion of the author, poorly-documented.
-We attempt to follow existing conventions, where they exist, and the contents of our
-<code class="docutils literal notranslate"><span class="pre">setup.py</span></code> follow existing conventions as possible. Of particular note is the way that
-we express our dependencies. In this, we take inspiration from <a class="reference external" href="https://caremad.io/posts/2013/07/setup-vs-requirement/">this fantastic article</a>
-about dependecy management in Python projects.</p>
-<p>The main points here are that the packages listed in the <code class="docutils literal notranslate"><span class="pre">install_requires</span></code> argument to
-<code class="docutils literal notranslate"><span class="pre">setup()</span></code> are meant to express, as abstractly as possible, the packages that need to
-be installed <strong>somehow</strong> for the package to work. In addition, <code class="docutils literal notranslate"><span class="pre">extras_require</span></code> can be
-used to specify other packages that are not strictly required, but if installed enable
-extra functionality. On the other hand, <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> exists to describe a
-complete environment more specifically, potentially including extra arguments to <code class="docutils literal notranslate"><span class="pre">pip</span></code>
-to control its behavior. Dependencies specified in <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> should include version
-bounds sparingly, only when needed to ensure compatibility, whereas <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code>
-may sometimes point to an alternative package index, and include strict version bounds
-for all dependencies.</p>
-<p>A common source of concern is that the list of dependencies would be duplicated between
-<code class="docutils literal notranslate"><span class="pre">setup.py</span></code> and <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code>. In our particular case, ARMI does not benefit
-from pointing to special package indices, and most version bounds are semantic. We
-therefore follow the recommendation in the above article of including in
-<code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> a simple <code class="docutils literal notranslate"><span class="pre">-e</span> <span class="pre">.</span></code>. This tells pip to install <code class="docutils literal notranslate"><span class="pre">armi</span></code> itself,
-deferring to <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> for a list of requiremed dependencies. Non-semantic version
-bounds, such as those used to avoid bugs in the dependency, should be specified in
-<code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code>, rather than <code class="docutils literal notranslate"><span class="pre">setup.py</span></code>. ARMI itself has several requirements
-files, located at the root of the project, which can be used as jumping-off points for
-more complex scenarios.</p>
+<p>The process of packaging Python projects and managing their dependencies is somewhat
+challenging and nuanced. The contents of our <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> follow existing conventions as
+much as possible. In particular, we follow <a class="reference external" href="https://caremad.io/posts/2013/07/setup-vs-requirement/">this fantastic article</a> about dependecy management in
+Python projects.</p>
+<div class="section" id="setup-py">
+<h3>7.1.1. setup.py<a class="headerlink" href="#setup-py" title="Permalink to this headline">¶</a></h3>
+<p>The packages listed in the <code class="docutils literal notranslate"><span class="pre">install_requires</span></code> argument to <code class="docutils literal notranslate"><span class="pre">setup()</span></code> are meant to
+express, as abstractly as possible, the packages that need to be installed <strong>somehow</strong>
+for the package to work. In addition, <code class="docutils literal notranslate"><span class="pre">extras_require</span></code> are used to specify other
+packages that are not strictly required, but if installed enable extra functionality,
+like unit testing or building documentation.</p>
+</div>
+<div class="section" id="requirements-txt">
+<h3>7.1.2. requirements.txt<a class="headerlink" href="#requirements-txt" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">requirements***.txt</span></code> files exist to describe a complete environment more
+specifically. If specific versions of packages are required, they should be defined here.
+Any extra arguments to <code class="docutils literal notranslate"><span class="pre">pip</span></code> will also be placed here. For instance, there is a <code class="docutils literal notranslate"><span class="pre">-e</span></code>
+that tells <code class="docutils literal notranslate"><span class="pre">pip</span></code> to install ARMI itself and defer to <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> for a version-agnostic
+list of dependencies. We also have multiple requirements files for different needs, like
+testing.</p>
+</div>
+</div>
+<div class="section" id="releasing-a-new-version-of-armi">
+<h2>7.2. Releasing a New Version of ARMI<a class="headerlink" href="#releasing-a-new-version-of-armi" title="Permalink to this headline">¶</a></h2>
+<p>In ARMI, we use the common <code class="docutils literal notranslate"><span class="pre">major.minor.bump</span></code> version scheme where a version string
+might look like <code class="docutils literal notranslate"><span class="pre">0.1.7</span></code>, <code class="docutils literal notranslate"><span class="pre">1.0.0</span></code>, or <code class="docutils literal notranslate"><span class="pre">1.2.123</span></code>. Each number has a specific meaning:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">major</span></code> - Revved for NRC-sanctioned release or at the end of a long development cycle.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">minor</span></code> - Revved when we decide the code or our API has reached a stable point;
+this might happen once a year.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bump</span></code> - Revved every time we modify the API, or at will; any time we want.</p></li>
+</ul>
+<p><strong>Any change to a major or minor version is considered a release.</strong></p>
+<p>Only a core member of the ARMI team may release a new version, or add a tag of any kind to
+the repository. The rule is <em>the only tags in the ARMI repo are for official versions</em>. If
+you want to release a version of ARMI, you will need admin privileges to multiple TerraPower
+repos on GitHub.</p>
+<p>Every release should follow this process:</p>
+<ol class="arabic simple">
+<li><p>Ensure all unit tests pass and the documentation is building correctly.</p></li>
+<li><p>Add release notes to the documentation:
+<a class="reference external" href="https://github.com/terrapower/armi/tree/master/doc/release">here</a>.</p></li>
+<li><p>Tag the commit after it goes into the repo: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">tag</span> <span class="pre">-a</span> <span class="pre">1.0.0</span> <span class="pre">-m</span> <span class="pre">&quot;Release</span> <span class="pre">v1.0.0&quot;</span></code></p></li>
+<li><p>Also add the release notes on <a class="reference external" href="https://github.com/terrapower/armi/releases">the GitHub UI</a>.</p></li>
+<li><p>Follow the instructions <a class="reference external" href="https://github.com/terrapower/terrapower.github.io">here</a> to
+archive the new documentation.</p></li>
+<li><p>Tell everyone!</p></li>
+</ol>
 </div>
 <div class="section" id="module-level-logging">
-<h2>7.2. Module-Level Logging<a class="headerlink" href="#module-level-logging" title="Permalink to this headline">¶</a></h2>
+<h2>7.3. Module-Level Logging<a class="headerlink" href="#module-level-logging" title="Permalink to this headline">¶</a></h2>
 <p>In most of the modules in <code class="docutils literal notranslate"><span class="pre">armi</span></code>, you will see logging using the <code class="docutils literal notranslate"><span class="pre">runLog</span></code> module.
 This is a custom, global logging object provided by the import:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
@@ -302,7 +329,7 @@ import, but is actually calling the same underlying <code class="docutils litera
     <p>
         &#169; Copyright 2009-2021, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2021-11-20.
+        Last updated on 2021-11-22.
       </span>
 
     </p>
