@@ -1,9 +1,9 @@
 Introduction
 ============
 
-This plugin uses data contained in the ARMI reactor model to 
-write DRAGON input files and execute DRAGON on them,
-thereby producing microscopic cross sections in the form of ISOTXS files.
+This plugin uses data contained in the ARMI reactor model to write DRAGON input
+files and execute DRAGON on them, thereby producing microscopic cross sections
+in the form of ISOTXS files.
 
 
 Capabilities
@@ -21,10 +21,11 @@ and ARMI (objects such as block) to a template, and the template is filled out t
 the input file
 
 DRAGON can also model more complex geometry, but users are responsible for creating
-their own template to model the needed geometry
+their own template and associated code that extracts the required template information
+from the ARMI data model for the desired geometry.
 
-Interaction
------------
+Use
+---
 * To turn DRAGON on as the lattice physics tool the setting ``xsKernel`` must be set 
   to ``DRAGON``.
 * For DRAGON to run, the location of your DRAGON executable must be known. The location 
@@ -55,8 +56,8 @@ Structure
 ---------
 The DRAGON interface is composed of:
 
-* An interface class responsible for creating new cross sections at the beginning of
+* An interface class responsible for triggering a workflow that creates new cross sections at the beginning of
   each cycle.
-* A writer class which is responsible for writing a DRAGON input file.
-* A template helper class which is responsible for interacting with the template.
+* A writer class which is responsible for building data structures required in a DRAGON input file.
+* A template which renders the inputs data structures the input file format.
 * An executor class, which is responsible for executing DRAGON.

@@ -11,7 +11,7 @@ Documentation
    :glob:
 
    dragon
-   *
+   API Docs <.apidocs/modules>
    
 Indices and tables
 ==================

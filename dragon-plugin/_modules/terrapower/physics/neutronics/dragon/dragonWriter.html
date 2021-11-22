@@ -3,11 +3,11 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>terrapower.physics.neutronics.dragon.dragonWriter &mdash; ARMI Dragon Plugin 0.1 documentation</title>
+  <title>terrapower.physics.neutronics.dragon.dragonWriter &mdash; ARMI Dragon Plugin 0.1.1 documentation</title>
   
 
   
@@ -16,7 +16,10 @@
 
   
   
+
   
+  
+
   
 
   
@@ -26,10 +29,10 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
-        <script src="../../../../../_static/jquery.js"></script>
-        <script src="../../../../../_static/underscore.js"></script>
-        <script src="../../../../../_static/doctools.js"></script>
-        <script src="../../../../../_static/language_data.js"></script>
+        <script type="text/javascript" src="../../../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../../../_static/language_data.js"></script>
     
     <script type="text/javascript" src="../../../../../_static/js/theme.js"></script>
 
@@ -49,7 +52,7 @@
           
 
           
-            <a href="../../../../../index.html" class="icon icon-home" alt="Documentation Home"> ARMI Dragon Plugin
+            <a href="../../../../../index.html" class="icon icon-home"> ARMI Dragon Plugin
           
 
           
@@ -57,6 +60,10 @@
 
           
             
+            
+              <div class="version">
+                0.1.1
+              </div>
             
           
 
@@ -82,6 +89,7 @@
             
               <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../dragon.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../.apidocs/modules.html">API Docs</a></li>
 </ul>
 
             
@@ -107,6 +115,8 @@
         <div class="rst-content">
         
           
+
+
 
 
 
@@ -162,234 +172,350 @@
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Write DRAGON inputs based on data contained in ARMI objects.</span>
+
+<span class="sd">This uses templates and attempts to do most of the logic in code</span>
+<span class="sd">to build the appropriate data structures. Then, the template engine</span>
+<span class="sd">is responsible for transforming that data into the format required</span>
+<span class="sd">for DRAGON to process it as input.</span>
+
+<span class="sd">Classes here are intended to be specialized with more design-specific</span>
+<span class="sd">subclasess in design-specific ARMI apps (or other clients).</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">jinja2</span> <span class="k">import</span> <span class="n">Template</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">NamedTuple</span>
 
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="k">import</span> <span class="n">units</span>
-<span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="k">import</span> <span class="n">nuclideBases</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="k">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="k">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">jinja2</span> <span class="kn">import</span> <span class="n">Template</span>
 
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.energyGroups</span> <span class="kn">import</span> <span class="n">GROUP_STRUCTURE</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span>
+<span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span> <span class="k">as</span> <span class="n">nb</span>
+<span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">thermalScattering</span> <span class="k">as</span> <span class="n">tsl</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">energyGroups</span>
 
 <span class="n">N_CHARS_ALLOWED_IN_LIB_NAME</span> <span class="o">=</span> <span class="mi">8</span>
 
 
+<span class="c1"># mapping between thermal scattering laws and DRAGON lib names.</span>
+<span class="c1"># unfortunately this is library specific so that will need to be treated somehow.</span>
+<span class="n">DRAGON_TSL</span> <span class="o">=</span> <span class="p">{</span><span class="n">tsl</span><span class="o">.</span><span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">nb</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">],</span> <span class="n">tsl</span><span class="o">.</span><span class="n">GRAPHITE_10P</span><span class="p">]:</span> <span class="s2">&quot;C12_GR&quot;</span><span class="p">}</span>
+
+
 <div class="viewcode-block" id="DragonWriter"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter">[docs]</a><span class="k">class</span> <span class="nc">DragonWriter</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Write DRAGON input file based on a template.</span>
+<span class="sd">    Write a DRAGON input file using a template.</span>
 
-<span class="sd">    Makes a 0D cross section case by default.</span>
-
-<span class="sd">    Notes</span>
-<span class="sd">    -----</span>
-<span class="sd">    Customize the template and the template data collecting for more sophisticated cases.</span>
+<span class="sd">    This base class should strive to avoid any design-specific assumptions.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="n">options</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">armiObjs</span><span class="p">,</span> <span class="n">options</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Initialize a writer for this block.</span>
+<span class="sd">        Initialize a writer.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        block : Block</span>
-<span class="sd">            The ARMI block object to process into template data.</span>
+<span class="sd">        armiObjs : list</span>
+<span class="sd">            The ARMI object(s) to process into template data. These represent the parts of</span>
+<span class="sd">            a reactor you want to model.</span>
 <span class="sd">        options : DragonOptions</span>
 <span class="sd">            Data structure that contains execution and modeling controls</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">=</span> <span class="n">block</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">armiObjs</span> <span class="o">=</span> <span class="n">armiObjs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;DragonWriter for </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armiObjs</span><span class="p">)[:</span><span class="mi">15</span><span class="p">]</span><span class="si">}</span><span class="s2">...&gt;&quot;</span>
 
 <div class="viewcode-block" id="DragonWriter.write"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Write a DRAGON input file.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Writing DRAGON input based on: </span><span class="si">{self.b}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Writing input with </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="n">templateData</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buildTemplateData</span><span class="p">()</span>
         <span class="n">template</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_readTemplate</span><span class="p">()</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">inputFile</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">dragonInput</span><span class="p">:</span>
             <span class="n">dragonInput</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">template</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="o">**</span><span class="n">templateData</span><span class="p">))</span></div>
 
-    <span class="k">def</span> <span class="nf">_readTemplate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="DragonWriter._readTemplate"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter._readTemplate">[docs]</a>    <span class="k">def</span> <span class="nf">_readTemplate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Read the template file.&quot;&quot;&quot;</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">templatePath</span><span class="p">)</span> <span class="k">as</span> <span class="n">templateFormat</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Template</span><span class="p">(</span><span class="n">templateFormat</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+            <span class="k">return</span> <span class="n">Template</span><span class="p">(</span><span class="n">templateFormat</span><span class="o">.</span><span class="n">read</span><span class="p">())</span></div>
 
-    <span class="k">def</span> <span class="nf">_buildTemplateData</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="DragonWriter._buildTemplateData"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter._buildTemplateData">[docs]</a>    <span class="k">def</span> <span class="nf">_buildTemplateData</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return a dictionary to be sent to the template to produce the DRAGON input.</span>
+<span class="sd">        Return data to be sent to the template to produce the DRAGON input.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">blockNDensCard</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getDragonNDensCard</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
-
-        <span class="c1"># Smallest outer dimension first.</span>
-        <span class="c1"># See component getBoundingCircleOuterDiameter which is used by __lt__.</span>
-        <span class="n">orderedComponents</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
-        <span class="n">componentTemp</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="n">units</span><span class="o">.</span><span class="n">getTk</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">orderedComponents</span>
-        <span class="p">)</span>
-        <span class="n">componentNDensCard</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_getDragonNDensCard</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">orderedComponents</span>
-        <span class="p">)</span>
-
-        <span class="c1"># DRAGON only needs inner boundaries it assumes lowest boundary is 0 ev</span>
-        <span class="c1"># and the upper most boundary is the highest energy fine group boundary in the</span>
-        <span class="c1"># specified library.</span>
-        <span class="n">innerBoundaries</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">GROUP_STRUCTURE</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">groupStructure</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span>
-
-        <span class="c1"># a data class could be used here, but considering an external python script</span>
-        <span class="c1"># will augment this, a simple dictionary is more flexible.</span>
         <span class="n">templateData</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;xsId&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">xsID</span><span class="p">,</span>
             <span class="s2">&quot;nucData&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">libDataFileShort</span><span class="p">,</span>
             <span class="s2">&quot;nucDataComment&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">libDataFile</span><span class="p">,</span>  <span class="c1"># full path</span>
-            <span class="s2">&quot;tempFuelInKelvin&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getFuelTempInK</span><span class="p">(),</span>
-            <span class="s2">&quot;blockNDensCard&quot;</span><span class="p">:</span> <span class="n">blockNDensCard</span><span class="p">,</span>
-            <span class="s2">&quot;tempComponentsInKelvin&quot;</span><span class="p">:</span> <span class="n">componentTemp</span><span class="p">,</span>
-            <span class="s2">&quot;componentNDensCard&quot;</span><span class="p">:</span> <span class="n">componentNDensCard</span><span class="p">,</span>
-            <span class="s2">&quot;buckling&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">xsSettings</span><span class="o">.</span><span class="n">criticalBuckling</span><span class="p">,</span>
-            <span class="s2">&quot;groupStructure&quot;</span><span class="p">:</span> <span class="n">innerBoundaries</span><span class="p">,</span>
-            <span class="s2">&quot;components&quot;</span><span class="p">:</span> <span class="n">orderedComponents</span><span class="p">,</span>
-            <span class="s2">&quot;block&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span>  <span class="c1"># include block so that templates have some flexibility</span>
+            <span class="s2">&quot;groupStructure&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_makeGroupStructure</span><span class="p">(),</span>
         <span class="p">}</span>
-        <span class="k">return</span> <span class="n">templateData</span>
+        <span class="k">return</span> <span class="n">templateData</span></div>
 
-    <span class="k">def</span> <span class="nf">_getDragonNDensCard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">armiObj</span><span class="p">):</span>
+<div class="viewcode-block" id="DragonWriter._makeGroupStructure"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter._makeGroupStructure">[docs]</a>    <span class="k">def</span> <span class="nf">_makeGroupStructure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Write the armi object as a number density for DRAGON.</span>
+<span class="sd">        Make energy group structure bounds.</span>
 
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        armiObj : ArmiObject</span>
-<span class="sd">            The ARMI object to write data for. ArmiObject, and anything that inherits</span>
-<span class="sd">            from it implements density and getNuclideNumberDensities.</span>
+<span class="sd">        DRAGON only needs group boundary values between 0 and the max. It assumes lowest</span>
+<span class="sd">        boundary is 0 eV and the upper most boundary is the highest energy fine group boundary</span>
+<span class="sd">        in the specified library.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">nucs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">nuclides</span>
+        <span class="k">return</span> <span class="n">GROUP_STRUCTURE</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">groupStructure</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span></div></div>
 
-        <span class="n">nDensCardData</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">mixtureMassDensity</span> <span class="o">=</span> <span class="n">armiObj</span><span class="o">.</span><span class="n">density</span><span class="p">()</span>
-        <span class="n">numberDensities</span> <span class="o">=</span> <span class="n">armiObj</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">nucs</span><span class="p">)</span>
-        <span class="n">totalADensityModeled</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">numberDensities</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">totalADensityModeled</span><span class="p">:</span>
-            <span class="c1"># This is an empty armiObj. Can happen with zero-volume dummy components.</span>
-            <span class="c1"># This this writer&#39;s job is to accurately reflect the state of the reactor,</span>
-            <span class="c1"># we simply return an emtpy set of number densities.</span>
-            <span class="k">return</span> <span class="n">nDensCardData</span>
-        <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">nDens</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nucs</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">):</span>
-            <span class="n">nuclideBase</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
-                <span class="n">nuclideBase</span><span class="p">,</span>
-                <span class="p">(</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">LumpNuclideBase</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">DummyNuclideBase</span><span class="p">),</span>
-            <span class="p">):</span>
-                <span class="c1"># DRAGON interface does not currently expand fission products.</span>
-                <span class="k">continue</span>
 
-            <span class="n">dragonId</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getDragLibNucID</span><span class="p">(</span><span class="n">nuclideBase</span><span class="p">)</span>
+<div class="viewcode-block" id="DragonWriterHomogenized"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriterHomogenized">[docs]</a><span class="k">class</span> <span class="nc">DragonWriterHomogenized</span><span class="p">(</span><span class="n">DragonWriter</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Write DRAGON inputs with homogenized compositions.</span>
 
-            <span class="c1"># Figuring out how to structure resonant region index (inrs)</span>
-            <span class="c1"># requires some engineering judgment, and this structure allows template</span>
-            <span class="c1"># creators to apply their own judgment.</span>
-            <span class="c1"># There is some basic data that templates filter out of</span>
-            <span class="c1"># self shielding (SS) calculation, or apply different inrs to nuclides.</span>
-            <span class="n">selfShieldingFilterData</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="c1"># Sometimes very low density components must be filtered from</span>
-                <span class="c1"># self shielding (by not setting inrs) for the SS to run.</span>
-                <span class="s2">&quot;mixtureMassDensity&quot;</span><span class="p">:</span> <span class="n">mixtureMassDensity</span><span class="p">,</span>
-                <span class="c1"># Heavy metals should almost always have SS.</span>
-                <span class="s2">&quot;heavyMetal&quot;</span><span class="p">:</span> <span class="n">nuclideBase</span><span class="o">.</span><span class="n">isHeavyMetal</span><span class="p">(),</span>
-                <span class="c1"># Sometimes it makes sense to filter out minor nuclides from SS.</span>
-                <span class="s2">&quot;atomFrac&quot;</span><span class="p">:</span> <span class="n">nDens</span> <span class="o">/</span> <span class="n">totalADensityModeled</span><span class="p">,</span>
+<span class="sd">    This subclass assumes that the DRAGON case will represent one or</span>
+<span class="sd">    more armi objects.</span>
+
+<span class="sd">    The current implementation is capable of writing MIX cards for multiple</span>
+<span class="sd">    compositions at once but does not yet have the ability to write geometry</span>
+<span class="sd">    representation for anything beyond 0-D.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="DragonWriterHomogenized._buildTemplateData"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriterHomogenized._buildTemplateData">[docs]</a>    <span class="k">def</span> <span class="nf">_buildTemplateData</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">templateData</span> <span class="o">=</span> <span class="n">DragonWriter</span><span class="o">.</span><span class="n">_buildTemplateData</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">templateData</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;mixtures&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_makeMixtures</span><span class="p">(),</span>
+                <span class="s2">&quot;buckling&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">xsSettings</span><span class="o">.</span><span class="n">criticalBuckling</span><span class="p">,</span>
             <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">templateData</span></div>
 
-            <span class="c1"># This density may be 0.0, and DRAGON will run fine.</span>
-            <span class="n">nDensCardData</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="p">(</span>
-                    <span class="n">f</span><span class="s2">&quot;</span><span class="si">{nuclideBase.label}{self.options.xsID}</span><span class="s2">&quot;</span><span class="p">,</span>
-                    <span class="n">dragonId</span><span class="p">,</span>
-                    <span class="n">nDens</span><span class="p">,</span>
-                    <span class="n">selfShieldingFilterData</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="n">nDensCardData</span>
+<div class="viewcode-block" id="DragonWriterHomogenized._makeMixtures"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriterHomogenized._makeMixtures">[docs]</a>    <span class="k">def</span> <span class="nf">_makeMixtures</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make a DragonMixture from each object slated for inclusion in the input.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">DragonMixture</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">obj</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armiObjs</span><span class="p">)</span>
+        <span class="p">]</span></div></div>
 
-<div class="viewcode-block" id="DragonWriter.getDragLibNucID"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonWriter.getDragLibNucID">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">getDragLibNucID</span><span class="p">(</span><span class="n">nucBase</span><span class="p">):</span>
+
+<div class="viewcode-block" id="MixtureNuclide"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.MixtureNuclide">[docs]</a><span class="k">class</span> <span class="nc">MixtureNuclide</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Data structure for a nuclide in a DRAGON mixture.&quot;&quot;&quot;</span>
+
+    <span class="n">armiName</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">dragName</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">xsid</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">ndens</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">selfShield</span><span class="p">:</span> <span class="nb">str</span></div>
+
+
+<div class="viewcode-block" id="DragonMixture"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonMixture">[docs]</a><span class="k">class</span> <span class="nc">DragonMixture</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Data structure for a single mixture in Dragon.</span>
+
+<span class="sd">    Each mixture can be associated with:</span>
+<span class="sd">        * A temperature</span>
+<span class="sd">        * A number density vector</span>
+<span class="sd">        * A mapping between library names and internal nuclide names</span>
+<span class="sd">        * A self-shielding vector</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">armiObj</span><span class="p">,</span> <span class="n">options</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">armiObj</span> <span class="o">=</span> <span class="n">armiObj</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">index</span>
+
+<div class="viewcode-block" id="DragonMixture.getTempInK"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonMixture.getTempInK">[docs]</a>    <span class="k">def</span> <span class="nf">getTempInK</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return the DRAGLIB isotope name for this nuclide.</span>
-<span class="sd">        </span>
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        nucBase : NuclideBase</span>
-<span class="sd">            The nuclide to get the DRAGLIB ID for.</span>
+<span class="sd">        Return the mixture temperature in Kelvin.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        These IDs are compatible with DRAGLIB nuclear data format which is available:</span>
-<span class="sd">        https://www.polymtl.ca/merlin/libraries.htm</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">metastable</span> <span class="o">=</span> <span class="n">nucBase</span><span class="o">.</span><span class="n">state</span>
-        <span class="c1"># DRAGON is case sensitive on nuc names so lower().capitalize() matters.</span>
-        <span class="n">dragLibId</span> <span class="o">=</span> <span class="n">f</span><span class="s2">&quot;{nucBase.element.symbol.lower().capitalize()}</span><span class="si">{nucBase.a}</span><span class="s2">&quot;</span>
-        <span class="k">if</span> <span class="n">metastable</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="c1"># Am242m, etc</span>
-            <span class="n">dragLibId</span> <span class="o">+=</span> <span class="s2">&quot;m&quot;</span>
-        <span class="k">return</span> <span class="n">dragLibId</span></div>
-
-    <span class="k">def</span> <span class="nf">_getFuelTempInK</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return the fuel temperature in Kelvin.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        Only 1 temperature can be specified per mixture in DRAGON. For this 0-D</span>
-<span class="sd">        case, the temperature of the fuel component is used for the entire</span>
-<span class="sd">        mixture. </span>
+<span class="sd">        Only 1 temperature can be specified per mixture in DRAGON. For 0-D</span>
+<span class="sd">        cases, the temperature of the fuel component is used for the entire</span>
+<span class="sd">        mixture.</span>
 
 <span class="sd">        For heterogeneous models, component temperature should be used.</span>
-<span class="sd">        Component temperature may not work well yet for non BOL cases since </span>
+<span class="sd">        Component temperature may not work well yet for non BOL cases since</span>
 
-<span class="sd">        .. warning:: </span>
+<span class="sd">        .. warning::</span>
 <span class="sd">            The ARMI cross section group manager does not currently set the</span>
 <span class="sd">            fuel component temperature to the average component temperatures</span>
-<span class="sd">            when making a representative block. Thus, for the time being, </span>
-<span class="sd">            fuel temperature of an arbitrary block in each representative </span>
+<span class="sd">            when making a representative block. Thus, for the time being,</span>
+<span class="sd">            fuel temperature of an arbitrary block in each representative</span>
 <span class="sd">            block&#39;s parents will be obtained.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">avgNum</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">avgDenom</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">for</span> <span class="n">fuel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">getChildrenWithFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armiObj</span><span class="o">.</span><span class="n">doChildrenHaveFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)):</span>
+            <span class="n">typeSpec</span> <span class="o">=</span> <span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">typeSpec</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">fuel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">armiObj</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">):</span>
             <span class="n">vol</span> <span class="o">=</span> <span class="n">fuel</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
             <span class="n">avgNum</span> <span class="o">+=</span> <span class="n">fuel</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">*</span> <span class="n">vol</span>
             <span class="n">avgDenom</span> <span class="o">+=</span> <span class="n">vol</span>
         <span class="k">return</span> <span class="n">units</span><span class="o">.</span><span class="n">getTk</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="n">avgNum</span> <span class="o">/</span> <span class="n">avgDenom</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DragonMixture.getMixVector"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonMixture.getMixVector">[docs]</a>    <span class="k">def</span> <span class="nf">getMixVector</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate mixture composition table.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nucs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">nuclides</span>
+        <span class="n">nucData</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">numberDensities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">armiObj</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">nucs</span><span class="p">)</span>
+        <span class="n">thermalScatteringInfo</span> <span class="o">=</span> <span class="n">getNuclideThermalScatteringData</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armiObj</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">numberDensities</span><span class="p">):</span>
+            <span class="c1"># This is an empty armiObj. Can happen with zero-volume dummy components.</span>
+            <span class="c1"># This writer&#39;s job is to accurately reflect the state of the reactor,</span>
+            <span class="c1"># we simply return an empty set of number densities.</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">nDens</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nucs</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">):</span>
+            <span class="n">nuclideBase</span> <span class="o">=</span> <span class="n">nb</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
+                <span class="n">nuclideBase</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">LumpNuclideBase</span><span class="p">,</span> <span class="n">nb</span><span class="o">.</span><span class="n">DummyNuclideBase</span><span class="p">),</span>
+            <span class="p">):</span>
+                <span class="c1"># This skips lumped fission products.</span>
+                <span class="k">continue</span>
+
+            <span class="n">nucData</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">MixtureNuclide</span><span class="p">(</span>
+                    <span class="n">armiName</span><span class="o">=</span><span class="n">nuclideBase</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+                    <span class="n">xsid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">xsID</span><span class="p">,</span>
+                    <span class="n">dragName</span><span class="o">=</span><span class="n">getDragLibNucID</span><span class="p">(</span><span class="n">nuclideBase</span><span class="p">,</span> <span class="n">thermalScatteringInfo</span><span class="p">),</span>
+                    <span class="n">ndens</span><span class="o">=</span><span class="n">nDens</span><span class="p">,</span>
+                    <span class="n">selfShield</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getSelfShieldingFlag</span><span class="p">(</span><span class="n">nuclideBase</span><span class="p">,</span> <span class="n">nDens</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">nucData</span></div>
+
+    <span class="c1"># pylint: disable=unused-argument</span>
+<div class="viewcode-block" id="DragonMixture.getSelfShieldingFlag"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.DragonMixture.getSelfShieldingFlag">[docs]</a>    <span class="k">def</span> <span class="nf">getSelfShieldingFlag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucBase</span><span class="p">,</span> <span class="n">nDens</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get self shielding flag for a given nuclide.</span>
+
+<span class="sd">        Figuring out how to structure resonant region index (inrs)</span>
+<span class="sd">        requires some engineering judgment.</span>
+
+<span class="sd">        Need index to make sure each mixture gets different fine-group flux.</span>
+
+<span class="sd">        Flags self-sheilding if density is greater than a threshold or if it is a heavy metal</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">nucBase</span><span class="o">.</span><span class="n">isHeavyMetal</span><span class="p">()</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">armiObj</span><span class="o">.</span><span class="n">density</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">0.0001</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span></div></div>
+
+
+<div class="viewcode-block" id="getDragLibNucID"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.getDragLibNucID">[docs]</a><span class="k">def</span> <span class="nf">getDragLibNucID</span><span class="p">(</span><span class="n">nucBase</span><span class="p">,</span> <span class="n">thermalScatteringInfo</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the DRAGLIB isotope name for this nuclide.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    nucBase : NuclideBase</span>
+<span class="sd">        The nuclide to get the DRAGLIB ID for.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    These IDs are compatible with DRAGLIB nuclear data format which is available:</span>
+<span class="sd">    https://www.polymtl.ca/merlin/libraries.htm</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">metastable</span> <span class="o">=</span> <span class="n">nucBase</span><span class="o">.</span><span class="n">state</span>
+    <span class="k">if</span> <span class="n">nucBase</span> <span class="ow">in</span> <span class="n">thermalScatteringInfo</span><span class="p">:</span>
+        <span class="c1"># use DRAGON-specific thermal scattering names. These are unfortunately library-specific</span>
+        <span class="n">dragLibId</span> <span class="o">=</span> <span class="n">DRAGON_TSL</span><span class="p">[</span><span class="n">thermalScatteringInfo</span><span class="p">[</span><span class="n">nucBase</span><span class="p">]]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># DRAGON is case sensitive on nuc names so lower().capitalize() matters.</span>
+        <span class="n">dragLibId</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">nucBase</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span><span class="si">}{</span><span class="n">nucBase</span><span class="o">.</span><span class="n">a</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">if</span> <span class="n">metastable</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Am242m, etc</span>
+            <span class="n">dragLibId</span> <span class="o">+=</span> <span class="s2">&quot;m&quot;</span>
+    <span class="k">return</span> <span class="n">dragLibId</span></div>
+
+
+<div class="viewcode-block" id="getNuclideThermalScatteringData"><a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonWriter.html#terrapower.physics.neutronics.dragon.dragonWriter.getNuclideThermalScatteringData">[docs]</a><span class="k">def</span> <span class="nf">getNuclideThermalScatteringData</span><span class="p">(</span><span class="n">armiObj</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Make a mapping between nuclideBases in an armiObj and relevant thermal scattering laws.</span>
+
+<span class="sd">    In some cases, a nuclide will be present both with a TSL and without (e.g. hydrogen in water</span>
+<span class="sd">    and hydrogen in concrete in the same armiObj). While this could conceptually be handled</span>
+<span class="sd">    somehow, we simply error out at this time.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This code is copy/pasted originally from the test case in the framework. The code</span>
+<span class="sd">    reviewer would not allow this to be put in the framework so we are forced to copy</span>
+<span class="sd">    paste... Sorry.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tslByNuclideBase : dict</span>
+<span class="sd">        A dictionary with NuclideBase keys and ThermalScattering values</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    RuntimeError</span>
+<span class="sd">        When a armiObj has nuclides subject to more than one TSL, or subject to a TLS</span>
+<span class="sd">        in one case and no TSL in another.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; tslInfo = getNuclideThermalScatteringData(armiObj)</span>
+<span class="sd">    &gt;&gt;&gt; if nucBase in tslInfo:</span>
+<span class="sd">    &gt;&gt;&gt;     aceLabel = tslInfo[nucBase].aceLabel</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tslByNuclideBase</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">freeNuclideBases</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">armiObj</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">():</span>
+        <span class="n">nucs</span> <span class="o">=</span> <span class="p">{</span><span class="n">nb</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nn</span><span class="p">]</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()}</span>
+        <span class="n">freeNucsHere</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">freeNucsHere</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">nucs</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">tsl</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">thermalScatteringLaws</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">subjectNb</span> <span class="ow">in</span> <span class="n">tsl</span><span class="o">.</span><span class="n">getSubjectNuclideBases</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">subjectNb</span> <span class="ow">in</span> <span class="n">nucs</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="p">(</span>
+                        <span class="n">subjectNb</span> <span class="ow">in</span> <span class="n">tslByNuclideBase</span>
+                        <span class="ow">and</span> <span class="n">tslByNuclideBase</span><span class="p">[</span><span class="n">subjectNb</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">tsl</span>
+                    <span class="p">):</span>
+                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subjectNb</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">armiObj</span><span class="si">}</span><span class="s2"> is subject to more than 1 different TSL: &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">tsl</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">tslByNuclideBase</span><span class="p">[</span><span class="n">subjectNb</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
+                    <span class="n">tslByNuclideBase</span><span class="p">[</span><span class="n">subjectNb</span><span class="p">]</span> <span class="o">=</span> <span class="n">tsl</span>
+                    <span class="n">freeNucsHere</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">subjectNb</span><span class="p">)</span>
+        <span class="n">freeNuclideBases</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">freeNucsHere</span><span class="p">)</span>
+
+    <span class="n">freeAndBound</span> <span class="o">=</span> <span class="n">freeNuclideBases</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">tslByNuclideBase</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+    <span class="k">if</span> <span class="n">freeAndBound</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">freeAndBound</span><span class="si">}</span><span class="s2"> is/are present in both bound and free forms in </span><span class="si">{</span><span class="n">armiObj</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">tslByNuclideBase</span></div>
 </pre></div>
 
            </div>
            
           </div>
           <footer>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        
-        &copy; Copyright 2019, TerraPower, LLC
+        &#169; Copyright 2019, TerraPower, LLC.
 
     </p>
   </div>
     
     
     
-    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     
-    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     
     provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
