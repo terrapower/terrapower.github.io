@@ -509,6 +509,13 @@
 <span class="sd">        both the volume and area based on its context within the scope</span>
 <span class="sd">        of the parent object by considering the volumes and areas of</span>
 <span class="sd">        the surrounding components.</span>
+
+<span class="sd">        Since some components are volumetric shapes, this must consider the volume</span>
+<span class="sd">        so that it wraps around in all three dimensions.</span>
+
+<span class="sd">        But there are also situations where we need to handle zero-height blocks</span>
+<span class="sd">        with purely 2D components. Thus we track area and volume fractions here</span>
+<span class="sd">        when possible.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -518,8 +525,8 @@
 
         <span class="c1"># Determine the volume/areas of the non-derived shape components</span>
         <span class="c1"># within the parent.</span>
-        <span class="n">siblingArea</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">siblingVolume</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">siblingArea</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">sibling</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getChildren</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">sibling</span> <span class="ow">is</span> <span class="bp">self</span><span class="p">:</span>
                 <span class="k">continue</span>
@@ -528,20 +535,25 @@
                     <span class="sa">f</span><span class="s2">&quot;More than one ``DerivedShape`` component in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span><span class="s2"> is not allowed.&quot;</span>
                 <span class="p">)</span>
 
-            <span class="n">siblingArea</span> <span class="o">+=</span> <span class="n">sibling</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
             <span class="n">siblingVolume</span> <span class="o">+=</span> <span class="n">sibling</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">siblingArea</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">siblingArea</span> <span class="o">+=</span> <span class="n">sibling</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="n">siblingArea</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">remainingArea</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getMaxArea</span><span class="p">()</span> <span class="o">-</span> <span class="n">siblingArea</span>
         <span class="n">remainingVolume</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getMaxVolume</span><span class="p">()</span> <span class="o">-</span> <span class="n">siblingVolume</span>
+        <span class="k">if</span> <span class="n">siblingArea</span><span class="p">:</span>
+            <span class="n">remainingArea</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getMaxArea</span><span class="p">()</span> <span class="o">-</span> <span class="n">siblingArea</span>
 
-        <span class="c1"># Check for negative area</span>
-        <span class="k">if</span> <span class="n">remainingArea</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Check for negative</span>
+        <span class="k">if</span> <span class="n">remainingVolume</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;The component areas in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span><span class="s2"> exceed the maximum &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;allowable area based on the geometry. Check that the &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;allowable volume based on the geometry. Check that the &quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;geometry is defined correctly.</span><span class="se">\n</span><span class="s2">&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;Maximum allowable area: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getMaxArea</span><span class="p">()</span><span class="si">}</span><span class="s2"> cm^2</span><span class="se">\n</span><span class="s2">&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;Area of all non-derived shape components: </span><span class="si">{</span><span class="n">siblingArea</span><span class="si">}</span><span class="s2"> cm^2</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Maximum allowable volume: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getMaxVolume</span><span class="p">()</span><span class="si">}</span><span class="s2"> cm^3</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Volume of all non-derived shape components: </span><span class="si">{</span><span class="n">siblingVolume</span><span class="si">}</span><span class="s2"> cm^3</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="p">)</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -549,7 +561,14 @@
                 <span class="s2">&quot;Check log for errors.&quot;</span>
             <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">area</span> <span class="o">=</span> <span class="n">remainingArea</span>
+        <span class="n">height</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">height</span><span class="p">:</span>
+            <span class="c1"># special handling for 0-height blocks</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">remainingArea</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot derive area in 0-height block </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">area</span> <span class="o">=</span> <span class="n">remainingArea</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">area</span> <span class="o">=</span> <span class="n">remainingVolume</span> <span class="o">/</span> <span class="n">height</span>
         <span class="k">return</span> <span class="n">remainingVolume</span></div>
 
 <div class="viewcode-block" id="DerivedShape.getVolume"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.components.html#armi.reactor.components.DerivedShape.getVolume">[docs]</a>    <span class="k">def</span> <span class="nf">getVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

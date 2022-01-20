@@ -199,15 +199,17 @@
 
 <span class="sd">Special logic is required for handling component links.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">six</span>
 <span class="kn">import</span> <span class="nn">yamlize</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">materials</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">components</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">composites</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">densityTools</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
+
+<span class="n">COMPONENT_GROUP_SHAPE</span> <span class="o">=</span> <span class="s2">&quot;group&quot;</span>
 
 
 <div class="viewcode-block" id="ComponentDimension"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.blockBlueprint.ComponentDimension">[docs]</a><span class="k">class</span> <span class="nc">ComponentDimension</span><span class="p">(</span><span class="n">yamlize</span><span class="o">.</span><span class="n">Object</span><span class="p">):</span>
@@ -220,7 +222,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
         <span class="c1"># note: yamlizable does not call an __init__ method, instead it uses __new__ and setattr</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">value</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">six</span><span class="o">.</span><span class="n">string_types</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">components</span><span class="o">.</span><span class="n">COMPONENT_LINK_REGEX</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;Bad component link `</span><span class="si">{}</span><span class="s2">`, must be in form `name.dimension`&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
@@ -306,20 +308,30 @@
 
     <span class="nd">@name</span><span class="o">.</span><span class="n">validator</span>
     <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>  <span class="c1"># pylint: disable=no-self-use; reason=yamlize requirement</span>
-        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;cladding&quot;</span><span class="p">}:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot set ComponentBlueprint.name to </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+        <span class="sd">&quot;&quot;&quot;Validate component names.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;cladding&quot;</span><span class="p">:</span>
+            <span class="c1"># many users were mixing cladding and clad and it caused issues downstream</span>
+            <span class="c1"># where physics plugins checked for clad.</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot set ComponentBlueprint.name to </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">. Prefer &#39;clad&#39;.&quot;</span>
+            <span class="p">)</span>
 
     <span class="n">shape</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
 
     <span class="nd">@shape</span><span class="o">.</span><span class="n">validator</span>
     <span class="k">def</span> <span class="nf">shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>  <span class="c1"># pylint: disable=no-self-use; reason=yamlize requirement</span>
         <span class="n">normalizedShape</span> <span class="o">=</span> <span class="n">shape</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">normalizedShape</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">components</span><span class="o">.</span><span class="n">ComponentType</span><span class="o">.</span><span class="n">TYPES</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot set ComponentBlueprint.shape to </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">shape</span><span class="p">))</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">normalizedShape</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">components</span><span class="o">.</span><span class="n">ComponentType</span><span class="o">.</span><span class="n">TYPES</span>
+            <span class="ow">and</span> <span class="n">normalizedShape</span> <span class="o">!=</span> <span class="n">COMPONENT_GROUP_SHAPE</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot set ComponentBlueprint.shape to unknown shape: </span><span class="si">{</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
 
-    <span class="n">material</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
-    <span class="n">Tinput</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-    <span class="n">Thot</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">material</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">Tinput</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">Thot</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
     <span class="n">isotopics</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
     <span class="n">latticeIDs</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
     <span class="n">origin</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">list</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
@@ -328,28 +340,27 @@
     <span class="n">area</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ComponentBlueprint.construct"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.blockBlueprint.ComponentBlueprint.construct">[docs]</a>    <span class="k">def</span> <span class="nf">construct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Construct a component&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Construct a component or group&quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Constructing component </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
         <span class="n">kwargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_conformKwargs</span><span class="p">(</span><span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="p">)</span>
-        <span class="n">component</span> <span class="o">=</span> <span class="n">components</span><span class="o">.</span><span class="n">factory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="p">[],</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">shape</span> <span class="o">==</span> <span class="n">COMPONENT_GROUP_SHAPE</span><span class="p">:</span>
+            <span class="n">group</span> <span class="o">=</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">componentGroups</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+            <span class="n">constructedObject</span> <span class="o">=</span> <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">groupedComponent</span> <span class="ow">in</span> <span class="n">group</span><span class="p">:</span>
+                <span class="n">componentDesign</span> <span class="o">=</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">componentDesigns</span><span class="p">[</span><span class="n">groupedComponent</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+                <span class="n">component</span> <span class="o">=</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="o">=</span><span class="nb">dict</span><span class="p">())</span>
+                <span class="c1"># override free component multiplicity if it&#39;s set based on the group definition</span>
+                <span class="n">component</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">,</span> <span class="n">groupedComponent</span><span class="o">.</span><span class="n">mult</span><span class="p">)</span>
+                <span class="n">_setComponentFlags</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">flags</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">)</span>
+                <span class="n">_insertDepletableNuclideKeys</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">)</span>
+                <span class="n">constructedObject</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">component</span><span class="p">)</span>
 
-        <span class="c1"># the component __init__ calls setType(), which gives us our initial guess at</span>
-        <span class="c1"># what the flags should be.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flags</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># override the flags from __init__ with the ones from the blueprint</span>
-            <span class="n">component</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="n">Flags</span><span class="o">.</span><span class="n">fromString</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flags</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># potentially add the DEPLETABLE flag. Don&#39;t do this if we set flags</span>
-            <span class="c1"># explicitly. WARNING: If you add flags explicitly, it will</span>
-            <span class="c1"># turn off depletion so be sure to add depletable to your list of flags</span>
-            <span class="c1"># if you expect depletion</span>
-            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">nuc</span> <span class="ow">in</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">activeNuclides</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">component</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()):</span>
-                <span class="n">component</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span> <span class="o">|=</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DEPLETABLE</span>
-
-        <span class="k">if</span> <span class="n">component</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">DEPLETABLE</span><span class="p">):</span>
-            <span class="c1"># depletable components, whether auto-derived or explicitly flagged need expanded nucs</span>
-            <span class="n">_insertDepletableNuclideKeys</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">component</span></div>
+            <span class="n">constructedObject</span> <span class="o">=</span> <span class="n">components</span><span class="o">.</span><span class="n">factory</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="p">[],</span> <span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">_setComponentFlags</span><span class="p">(</span><span class="n">constructedObject</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">flags</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">)</span>
+            <span class="n">_insertDepletableNuclideKeys</span><span class="p">(</span><span class="n">constructedObject</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">constructedObject</span></div>
 
 <div class="viewcode-block" id="ComponentBlueprint._conformKwargs"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.blockBlueprint.ComponentBlueprint._conformKwargs">[docs]</a>    <span class="k">def</span> <span class="nf">_conformKwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;This method gets the relevant kwargs to construct the component&quot;&quot;&quot;</span>
@@ -470,9 +481,11 @@
 <span class="sd">    armi.physics.neutronics.isotopicDepletion.isotopicDepletionInterface.isDepletable :</span>
 <span class="sd">        contains design docs describing the ``DEPLETABLE`` flagging situation</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">nuclideBases</span><span class="o">.</span><span class="n">initReachableActiveNuclidesThroughBurnChain</span><span class="p">(</span>
-        <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">numberDensities</span><span class="p">,</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">activeNuclides</span>
-    <span class="p">)</span></div>
+    <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">DEPLETABLE</span><span class="p">):</span>
+        <span class="c1"># depletable components, whether auto-derived or explicitly flagged need expanded nucs</span>
+        <span class="n">nuclideBases</span><span class="o">.</span><span class="n">initReachableActiveNuclidesThroughBurnChain</span><span class="p">(</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">numberDensities</span><span class="p">,</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">activeNuclides</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ComponentKeyedList"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.blockBlueprint.ComponentKeyedList">[docs]</a><span class="k">class</span> <span class="nc">ComponentKeyedList</span><span class="p">(</span><span class="n">yamlize</span><span class="o">.</span><span class="n">KeyedList</span><span class="p">):</span>
@@ -487,6 +500,46 @@
 
     <span class="n">item_type</span> <span class="o">=</span> <span class="n">ComponentBlueprint</span>
     <span class="n">key_attr</span> <span class="o">=</span> <span class="n">ComponentBlueprint</span><span class="o">.</span><span class="n">name</span></div>
+
+
+<div class="viewcode-block" id="GroupedComponent"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.blockBlueprint.GroupedComponent">[docs]</a><span class="k">class</span> <span class="nc">GroupedComponent</span><span class="p">(</span><span class="n">yamlize</span><span class="o">.</span><span class="n">Object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A pointer to a component with a multiplicity to be used in a ComponentGroup.</span>
+
+<span class="sd">    Multiplicity can be a fraction (e.g. to set volume fractions)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">mult</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ComponentGroup"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.blockBlueprint.ComponentGroup">[docs]</a><span class="k">class</span> <span class="nc">ComponentGroup</span><span class="p">(</span><span class="n">yamlize</span><span class="o">.</span><span class="n">KeyedList</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A single component group containing multiple GroupedComponents</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    triso:</span>
+<span class="sd">      kernel:</span>
+<span class="sd">        mult: 0.7</span>
+<span class="sd">      buffer:</span>
+<span class="sd">        mult: 0.3</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">group_name</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">key_attr</span> <span class="o">=</span> <span class="n">GroupedComponent</span><span class="o">.</span><span class="n">name</span>
+    <span class="n">item_type</span> <span class="o">=</span> <span class="n">GroupedComponent</span></div>
+
+
+<div class="viewcode-block" id="ComponentGroups"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.blockBlueprint.ComponentGroups">[docs]</a><span class="k">class</span> <span class="nc">ComponentGroups</span><span class="p">(</span><span class="n">yamlize</span><span class="o">.</span><span class="n">KeyedList</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A list of component groups.</span>
+
+<span class="sd">    This is used in the top-level blueprints file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">key_attr</span> <span class="o">=</span> <span class="n">ComponentGroup</span><span class="o">.</span><span class="n">group_name</span>
+    <span class="n">item_type</span> <span class="o">=</span> <span class="n">ComponentGroup</span></div>
 
 
 <span class="c1"># This import-time magic requires all possible components</span>
@@ -506,6 +559,22 @@
         <span class="n">dimName</span><span class="p">,</span>
         <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">dimName</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">ComponentDimension</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
     <span class="p">)</span>
+
+
+<div class="viewcode-block" id="_setComponentFlags"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.blockBlueprint._setComponentFlags">[docs]</a><span class="k">def</span> <span class="nf">_setComponentFlags</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">flags</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Update component flags based on user input in blueprint&quot;&quot;&quot;</span>
+    <span class="c1"># the component __init__ calls setType(), which gives us our initial guess at</span>
+    <span class="c1"># what the flags should be.</span>
+    <span class="k">if</span> <span class="n">flags</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># override the flags from __init__ with the ones from the blueprint</span>
+        <span class="n">component</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="n">Flags</span><span class="o">.</span><span class="n">fromString</span><span class="p">(</span><span class="n">flags</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># potentially add the DEPLETABLE flag. Don&#39;t do this if we set flags</span>
+        <span class="c1"># explicitly. WARNING: If you add flags explicitly, it will</span>
+        <span class="c1"># turn off depletion so be sure to add depletable to your list of flags</span>
+        <span class="c1"># if you expect depletion</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">nuc</span> <span class="ow">in</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">activeNuclides</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">component</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()):</span>
+            <span class="n">component</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span> <span class="o">|=</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DEPLETABLE</span></div>
 </pre></div>
 
            </div>
