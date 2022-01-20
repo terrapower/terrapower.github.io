@@ -277,7 +277,10 @@
 <span class="sd">            String representing the xsType of this block.</span>
 
 <span class="sd">        materialInput : dict</span>
-<span class="sd">            dict containing material modification names and values</span>
+<span class="sd">            Double-layered dict.</span>
+<span class="sd">            Top layer groups the by-block material modifications under the `byBlock` key</span>
+<span class="sd">            and the by-component material modifications under the component&#39;s name.</span>
+<span class="sd">            The inner dict under each key contains material modification names and values.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Constructing block </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
         <span class="n">components</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
@@ -288,8 +291,14 @@
             <span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">spatialGrid</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkByComponentMaterialInput</span><span class="p">(</span><span class="n">materialInput</span><span class="p">)</span>
+
         <span class="k">for</span> <span class="n">componentDesign</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
-            <span class="n">c</span> <span class="o">=</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">blueprint</span><span class="p">,</span> <span class="n">materialInput</span><span class="p">)</span>
+            <span class="n">filteredMaterialInput</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filterMaterialInput</span><span class="p">(</span>
+                <span class="n">materialInput</span><span class="p">,</span> <span class="n">componentDesign</span>
+            <span class="p">)</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">blueprint</span><span class="p">,</span> <span class="n">filteredMaterialInput</span><span class="p">)</span>
             <span class="n">components</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span>
             <span class="k">if</span> <span class="n">spatialGrid</span><span class="p">:</span>
                 <span class="n">componentLocators</span> <span class="o">=</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">getMultiLocator</span><span class="p">(</span>
@@ -351,6 +360,46 @@
             <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">NotImplementedError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">b</span></div>
+
+<div class="viewcode-block" id="BlockBlueprint._checkByComponentMaterialInput"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.blockBlueprint.html#armi.reactor.blueprints.blockBlueprint.BlockBlueprint._checkByComponentMaterialInput">[docs]</a>    <span class="k">def</span> <span class="nf">_checkByComponentMaterialInput</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">materialInput</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">component</span> <span class="o">!=</span> <span class="s2">&quot;byBlock&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">component</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="n">componentDesign</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">componentDesign</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="n">materialInput</span><span class="p">[</span><span class="n">component</span><span class="p">]:</span>  <span class="c1"># ensure it is not empty</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;The component &#39;</span><span class="si">{</span><span class="n">component</span><span class="si">}</span><span class="s2">&#39; used to specify a by-component&quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot; material modification is not in block &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="BlockBlueprint._filterMaterialInput"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.blockBlueprint.html#armi.reactor.blueprints.blockBlueprint.BlockBlueprint._filterMaterialInput">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_filterMaterialInput</span><span class="p">(</span><span class="n">materialInput</span><span class="p">,</span> <span class="n">componentDesign</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the by-block material modifications and those specifically for this</span>
+<span class="sd">        component.</span>
+
+<span class="sd">        If a material modification is specified both by-block and by-component</span>
+<span class="sd">        for a given component, the by-component value will be used.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filteredMaterialInput</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># first add the by-block modifications without question</span>
+        <span class="k">if</span> <span class="s2">&quot;byBlock&quot;</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">modName</span><span class="p">,</span> <span class="n">modVal</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">[</span><span class="s2">&quot;byBlock&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">filteredMaterialInput</span><span class="p">[</span><span class="n">modName</span><span class="p">]</span> <span class="o">=</span> <span class="n">modVal</span>
+
+        <span class="c1"># then get the by-component modifications as appropriate</span>
+        <span class="k">for</span> <span class="n">component</span><span class="p">,</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">component</span> <span class="o">==</span> <span class="s2">&quot;byBlock&quot;</span><span class="p">:</span>
+                <span class="k">pass</span>  <span class="c1"># we already added these</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># these are by-component mods, first test if the component matches</span>
+                <span class="c1"># before adding. if component matches, add the modifications,</span>
+                <span class="c1"># overwriting any by-block modifications of the same type</span>
+                <span class="k">if</span> <span class="n">component</span> <span class="o">==</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">modName</span><span class="p">,</span> <span class="n">modVal</span> <span class="ow">in</span> <span class="n">mod</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="n">filteredMaterialInput</span><span class="p">[</span><span class="n">modName</span><span class="p">]</span> <span class="o">=</span> <span class="n">modVal</span>
+
+        <span class="k">return</span> <span class="n">filteredMaterialInput</span></div>
 
 <div class="viewcode-block" id="BlockBlueprint._getGridDesign"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.blockBlueprint.html#armi.reactor.blueprints.blockBlueprint.BlockBlueprint._getGridDesign">[docs]</a>    <span class="k">def</span> <span class="nf">_getGridDesign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
