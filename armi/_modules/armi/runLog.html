@@ -424,7 +424,9 @@
     <span class="k">def</span> <span class="nf">startLog</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initialize the streams when parallel processing&quot;&quot;&quot;</span>
         <span class="c1"># open the main logger</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">STDOUT_LOGGER_NAME</span> <span class="o">+</span> <span class="n">SEP</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span>
+            <span class="n">STDOUT_LOGGER_NAME</span> <span class="o">+</span> <span class="n">SEP</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="n">SEP</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span><span class="p">)</span>
+        <span class="p">)</span>
 
         <span class="c1"># if there was a pre-existing _verbosity, use it now</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verbosity</span> <span class="o">!=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">:</span>
@@ -486,41 +488,58 @@
 
     <span class="n">info</span><span class="p">(</span><span class="s2">&quot;Concatenating </span><span class="si">{0}</span><span class="s2"> log files&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">stdoutFiles</span><span class="p">)))</span>
 
-    <span class="k">for</span> <span class="n">stdoutName</span> <span class="ow">in</span> <span class="n">stdoutFiles</span><span class="p">:</span>
-        <span class="c1"># NOTE: If the log file name format changes, this will need to change.</span>
-        <span class="n">rank</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">stdoutName</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
+    <span class="c1"># default worker log name if none is found</span>
+    <span class="n">caseTitle</span> <span class="o">=</span> <span class="s2">&quot;armi-workers&quot;</span>
+    <span class="k">for</span> <span class="n">stdoutPath</span> <span class="ow">in</span> <span class="n">stdoutFiles</span><span class="p">:</span>
+        <span class="n">stdoutFile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">normpath</span><span class="p">(</span><span class="n">stdoutPath</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="n">STDOUT_LOGGER_NAME</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span>
+        <span class="k">if</span> <span class="n">stdoutFile</span><span class="p">[</span><span class="mi">0</span> <span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">)]</span> <span class="o">==</span> <span class="n">prefix</span><span class="p">:</span>
+            <span class="n">caseTitle</span> <span class="o">=</span> <span class="n">stdoutFile</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span>
+            <span class="k">break</span>
 
-        <span class="c1"># first, print the log messages for a child process</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stdoutName</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">logFile</span><span class="p">:</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">logFile</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
-                <span class="c1"># only write if there&#39;s something to write</span>
-                <span class="n">rankId</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="si">{0}</span><span class="s2"> RANK </span><span class="si">{1:03d}</span><span class="s2"> STDOUT </span><span class="si">{2}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span>
-                <span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="n">rankId</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
-                <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">stdoutName</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-            <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not delete </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">stdoutName</span><span class="p">))</span>
+    <span class="n">combinedLogName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">logDir</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">-mpi.log&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">caseTitle</span><span class="p">))</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">combinedLogName</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">workerLog</span><span class="p">:</span>
+        <span class="n">workerLog</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="si">{0}</span><span class="s2"> CONCATENATED WORKER LOG FILES </span><span class="si">{1}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="p">)</span>
 
-        <span class="c1"># then print the stderr messages for that child process</span>
-        <span class="n">stderrName</span> <span class="o">=</span> <span class="n">stdoutName</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;err&quot;</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">stderrName</span><span class="p">):</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stderrName</span><span class="p">)</span> <span class="k">as</span> <span class="n">logFile</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">stdoutName</span> <span class="ow">in</span> <span class="n">stdoutFiles</span><span class="p">:</span>
+            <span class="c1"># NOTE: If the log file name format changes, this will need to change.</span>
+            <span class="n">rank</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">stdoutName</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stdoutName</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">logFile</span><span class="p">:</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="n">logFile</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                <span class="c1"># only write if there&#39;s something to write</span>
                 <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
-                    <span class="c1"># only write if there&#39;s something to write.</span>
-                    <span class="n">rankId</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="si">{0}</span><span class="s2"> RANK </span><span class="si">{1:03d}</span><span class="s2"> STDERR </span><span class="si">{2}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">rankId</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="si">{0}</span><span class="s2"> RANK </span><span class="si">{1:03d}</span><span class="s2"> STDOUT </span><span class="si">{2}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                         <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span>
                     <span class="p">)</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="n">rankId</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
-                    <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">rankId</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">workerLog</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">rankId</span><span class="p">)</span>
+                        <span class="n">workerLog</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">stderrName</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">stdoutName</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-                <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not delete </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">stderrName</span><span class="p">))</span></div>
+                <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not delete </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">stdoutName</span><span class="p">))</span>
+
+            <span class="c1"># then print the stderr messages for that child process</span>
+            <span class="n">stderrName</span> <span class="o">=</span> <span class="n">stdoutName</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;err&quot;</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">stderrName</span><span class="p">):</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stderrName</span><span class="p">)</span> <span class="k">as</span> <span class="n">logFile</span><span class="p">:</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="n">logFile</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">data</span><span class="p">:</span>
+                        <span class="c1"># only write if there&#39;s something to write.</span>
+                        <span class="n">rankId</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="si">{0}</span><span class="s2"> RANK </span><span class="si">{1:03d}</span><span class="s2"> STDERR </span><span class="si">{2}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span>
+                        <span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">rankId</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">stderrName</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+                    <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Could not delete </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">stderrName</span><span class="p">))</span></div>
 
 
 <span class="c1"># Here are all the module-level functions that should be used for most outputs.</span>
@@ -626,9 +645,10 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="c1"># optionally, the user can pass in the MPI_RANK by putting it in the logger name after a separator string</span>
+        <span class="c1"># args[0].split(SEP): 0 = &quot;ARMI&quot;, 1 = caseTitle, 2 = MPI_RANK</span>
         <span class="k">if</span> <span class="n">SEP</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
             <span class="n">mpiRank</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">SEP</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
-            <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">SEP</span><span class="p">)[</span><span class="mi">0</span><span class="p">],)</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">SEP</span><span class="p">)[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]),)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">mpiRank</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span>
 
@@ -791,7 +811,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-02-02.
+        Last updated on 2022-02-03.
       </span>
 
     </p>
