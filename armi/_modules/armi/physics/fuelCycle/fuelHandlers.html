@@ -207,17 +207,19 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">InputError</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.operators</span> <span class="kn">import</span> <span class="n">RunTypes</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span><span class="p">,</span> <span class="n">pathTools</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">utils</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">plotting</span>
+
+<span class="n">runLog</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="FuelHandlerInterface"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandlerInterface">[docs]</a><span class="k">class</span> <span class="nc">FuelHandlerInterface</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
@@ -1352,18 +1354,44 @@
 <span class="sd">        findAssembly</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">maxRingInCore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">dischargeRing</span> <span class="o">&gt;</span> <span class="n">maxRingInCore</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Discharge ring </span><span class="si">{</span><span class="n">dischargeRing</span><span class="si">}</span><span class="s2"> is outside the core (max </span><span class="si">{</span><span class="n">maxRingInCore</span><span class="si">}</span><span class="s2">). &quot;</span>
+                <span class="s2">&quot;Changing it to be the max ring&quot;</span>
+            <span class="p">)</span>
+            <span class="n">dischargeRing</span> <span class="o">=</span> <span class="n">maxRingInCore</span>
+        <span class="k">if</span> <span class="n">chargeRing</span> <span class="o">&gt;</span> <span class="n">maxRingInCore</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Charge ring </span><span class="si">{</span><span class="n">chargeRing</span><span class="si">}</span><span class="s2"> is outside the core (max </span><span class="si">{</span><span class="n">maxRingInCore</span><span class="si">}</span><span class="s2">). &quot;</span>
+                <span class="s2">&quot;Changing it to be the max ring.&quot;</span>
+            <span class="p">)</span>
+            <span class="n">chargeRing</span> <span class="o">=</span> <span class="n">maxRingInCore</span>
+
         <span class="c1"># process arguments</span>
         <span class="k">if</span> <span class="n">dischargeRing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># default to convergent</span>
+            <span class="c1"># No discharge ring given, so we default to converging from outside to inside</span>
+            <span class="c1"># and therefore discharging from the center</span>
             <span class="n">dischargeRing</span> <span class="o">=</span> <span class="mi">1</span>
         <span class="k">if</span> <span class="n">chargeRing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">chargeRing</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">()</span>
+            <span class="c1"># Charge ring not specified. Since we default to convergent shuffling, we</span>
+            <span class="c1"># must insert the fuel at the periphery.</span>
+            <span class="n">chargeRing</span> <span class="o">=</span> <span class="n">maxRingInCore</span>
+        <span class="k">if</span> <span class="n">jumpRingFrom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;</span> <span class="n">jumpRingFrom</span> <span class="o">&lt;</span> <span class="n">maxRingInCore</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JumpRingFrom </span><span class="si">{</span><span class="n">jumpRingFrom</span><span class="si">}</span><span class="s2"> is not in the core.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">jumpRingTo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;</span> <span class="n">jumpRingTo</span> <span class="o">&lt;</span> <span class="n">maxRingInCore</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JumpRingTo </span><span class="si">{</span><span class="n">jumpRingTo</span><span class="si">}</span><span class="s2"> is not in the core.&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">chargeRing</span> <span class="o">&gt;</span> <span class="n">dischargeRing</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">jumpRingTo</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">chargeRing</span> <span class="o">&gt;</span> <span class="n">dischargeRing</span> <span class="ow">and</span> <span class="n">jumpRingTo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># a convergent shuffle with no jumping. By setting</span>
+            <span class="c1"># jumpRingTo to be 1, no jumping will be activated</span>
+            <span class="c1"># in the later logic.</span>
             <span class="n">jumpRingTo</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="k">elif</span> <span class="ow">not</span> <span class="n">jumpRingTo</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">jumpRingTo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># divergent case. Disable jumping by putting jumpring</span>
+            <span class="c1"># at periphery.</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">:</span>
-                <span class="n">jumpRingTo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">()</span>
+                <span class="n">jumpRingTo</span> <span class="o">=</span> <span class="n">maxRingInCore</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">jumpRingTo</span> <span class="o">=</span> <span class="mi">18</span>
 
@@ -2292,7 +2320,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-02-10.
+        Last updated on 2022-02-11.
       </span>
 
     </p>
