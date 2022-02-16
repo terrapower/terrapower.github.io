@@ -218,6 +218,7 @@
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span><span class="p">,</span> <span class="n">pathTools</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">utils</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">plotting</span>
+<span class="kn">from</span> <span class="nn">armi.utils.mathematics</span> <span class="kn">import</span> <span class="n">resampleStepwise</span>
 
 <span class="n">runLog</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -1538,12 +1539,12 @@
 <span class="sd">        --------</span>
 <span class="sd">        dischargeSwap : swap assemblies where one is outside the core and the other is inside</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="k">if</span> <span class="n">a1</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">a2</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot swap None assemblies. Check your findAssembly results. Skipping swap&quot;</span>
             <span class="p">)</span>
             <span class="k">return</span>
+
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Swapping </span><span class="si">{}</span><span class="s2"> with </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">))</span>
         <span class="c1"># add assemblies into the moved location</span>
         <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="p">[</span><span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">]:</span>
@@ -1638,29 +1639,78 @@
 <span class="sd">        Assumes assemblies have the same block structure. If not, blocks will be swapped one-for-one until</span>
 <span class="sd">        the shortest one has been used up and then the process will truncate.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">incoming</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">outgoing</span><span class="p">):</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2"> and </span><span class="si">{1}</span><span class="s2"> have different numbers of blocks. Flux swapping (for XS weighting) will &quot;</span>
-                <span class="s2">&quot;be questionable&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">incoming</span><span class="p">,</span> <span class="n">outgoing</span><span class="p">)</span>
+        <span class="c1"># Find the block-based mesh points for each assembly</span>
+        <span class="n">meshIn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">findAllAxialMeshPoints</span><span class="p">([</span><span class="n">incoming</span><span class="p">],</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">meshOut</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">findAllAxialMeshPoints</span><span class="p">([</span><span class="n">outgoing</span><span class="p">],</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># If the assembly mesh points don&#39;t match, the swap won&#39;t be easy</span>
+        <span class="k">if</span> <span class="n">meshIn</span> <span class="o">!=</span> <span class="n">meshOut</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2"> and </span><span class="si">{1}</span><span class="s2"> have different meshes, resampling.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">incoming</span><span class="p">,</span> <span class="n">outgoing</span>
+                <span class="p">)</span>
             <span class="p">)</span>
+
+            <span class="c1"># grab the current values for incoming and outgoing</span>
+            <span class="n">fluxIn</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">incoming</span><span class="p">]</span>
+            <span class="n">mgFluxIn</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">incoming</span><span class="p">]</span>
+            <span class="n">powerIn</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">incoming</span><span class="p">]</span>
+            <span class="n">fluxOut</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">outgoing</span><span class="p">]</span>
+            <span class="n">mgFluxOut</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">outgoing</span><span class="p">]</span>
+            <span class="n">powerOut</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">outgoing</span><span class="p">]</span>
+
+            <span class="c1"># resample incoming to outgoing, and vice versa</span>
+            <span class="n">fluxOutNew</span> <span class="o">=</span> <span class="n">resampleStepwise</span><span class="p">(</span><span class="n">meshIn</span><span class="p">,</span> <span class="n">fluxIn</span><span class="p">,</span> <span class="n">meshOut</span><span class="p">)</span>
+            <span class="n">mgFluxOutNew</span> <span class="o">=</span> <span class="n">resampleStepwise</span><span class="p">(</span><span class="n">meshIn</span><span class="p">,</span> <span class="n">mgFluxIn</span><span class="p">,</span> <span class="n">meshOut</span><span class="p">)</span>
+            <span class="n">powerOutNew</span> <span class="o">=</span> <span class="n">resampleStepwise</span><span class="p">(</span><span class="n">meshIn</span><span class="p">,</span> <span class="n">powerIn</span><span class="p">,</span> <span class="n">meshOut</span><span class="p">,</span> <span class="n">avg</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">fluxInNew</span> <span class="o">=</span> <span class="n">resampleStepwise</span><span class="p">(</span><span class="n">meshOut</span><span class="p">,</span> <span class="n">fluxOut</span><span class="p">,</span> <span class="n">meshIn</span><span class="p">)</span>
+            <span class="n">mgFluxInNew</span> <span class="o">=</span> <span class="n">resampleStepwise</span><span class="p">(</span><span class="n">meshOut</span><span class="p">,</span> <span class="n">mgFluxOut</span><span class="p">,</span> <span class="n">meshIn</span><span class="p">)</span>
+            <span class="n">powerInNew</span> <span class="o">=</span> <span class="n">resampleStepwise</span><span class="p">(</span><span class="n">meshOut</span><span class="p">,</span> <span class="n">powerOut</span><span class="p">,</span> <span class="n">meshIn</span><span class="p">,</span> <span class="n">avg</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+            <span class="c1"># load the new outgoing values into place</span>
+            <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">mgFlux</span><span class="p">,</span> <span class="n">power</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                <span class="n">outgoing</span><span class="p">,</span> <span class="n">fluxOutNew</span><span class="p">,</span> <span class="n">mgFluxOutNew</span><span class="p">,</span> <span class="n">powerOutNew</span>
+            <span class="p">):</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="o">=</span> <span class="n">flux</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="o">=</span> <span class="n">mgFlux</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="n">power</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pdens</span> <span class="o">=</span> <span class="n">power</span> <span class="o">/</span> <span class="n">b</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+
+            <span class="c1"># load the new incoming values into place</span>
+            <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">mgFlux</span><span class="p">,</span> <span class="n">power</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                <span class="n">incoming</span><span class="p">,</span> <span class="n">fluxInNew</span><span class="p">,</span> <span class="n">mgFluxInNew</span><span class="p">,</span> <span class="n">powerInNew</span>
+            <span class="p">):</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="o">=</span> <span class="n">flux</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="o">=</span> <span class="n">mgFlux</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="n">power</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pdens</span> <span class="o">=</span> <span class="n">power</span> <span class="o">/</span> <span class="n">b</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+
+            <span class="k">return</span>
+
+        <span class="c1"># Since the axial mesh points match, do the simple swap</span>
         <span class="k">for</span> <span class="n">bi</span><span class="p">,</span> <span class="p">(</span><span class="n">bIncoming</span><span class="p">,</span> <span class="n">bOutgoing</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">incoming</span><span class="p">,</span> <span class="n">outgoing</span><span class="p">)):</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="n">bi</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;stationaryBlocks&quot;</span><span class="p">]</span>
-            <span class="p">):</span>  <span class="c1"># stationary blocks are already swapped.</span>
-                <span class="n">incomingFlux</span> <span class="o">=</span> <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span>
-                <span class="n">incomingMgFlux</span> <span class="o">=</span> <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span>
-                <span class="n">incomingPower</span> <span class="o">=</span> <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span>
-                <span class="n">outgoingFlux</span> <span class="o">=</span> <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span>
-                <span class="n">outgoingMgFlux</span> <span class="o">=</span> <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span>
-                <span class="n">outgoingPower</span> <span class="o">=</span> <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span>
-                <span class="k">if</span> <span class="n">outgoingFlux</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-                    <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="o">=</span> <span class="n">outgoingFlux</span>
-                    <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="o">=</span> <span class="n">outgoingMgFlux</span>
-                    <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="n">outgoingPower</span>
-                <span class="k">if</span> <span class="n">incomingFlux</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-                    <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="o">=</span> <span class="n">incomingFlux</span>
-                    <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="o">=</span> <span class="n">incomingMgFlux</span>
-                    <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="n">incomingPower</span>
+            <span class="k">if</span> <span class="n">bi</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;stationaryBlocks&quot;</span><span class="p">]:</span>
+                <span class="c1"># stationary blocks are already swapped</span>
+                <span class="k">continue</span>
+
+            <span class="n">incomingFlux</span> <span class="o">=</span> <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span>
+            <span class="n">incomingMgFlux</span> <span class="o">=</span> <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span>
+            <span class="n">incomingPower</span> <span class="o">=</span> <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span>
+            <span class="n">outgoingFlux</span> <span class="o">=</span> <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span>
+            <span class="n">outgoingMgFlux</span> <span class="o">=</span> <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span>
+            <span class="n">outgoingPower</span> <span class="o">=</span> <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span>
+
+            <span class="k">if</span> <span class="n">outgoingFlux</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="o">=</span> <span class="n">outgoingFlux</span>
+                <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="o">=</span> <span class="n">outgoingMgFlux</span>
+                <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="n">outgoingPower</span>
+                <span class="n">bIncoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pdens</span> <span class="o">=</span> <span class="n">outgoingPower</span> <span class="o">/</span> <span class="n">bIncoming</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">incomingFlux</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="o">=</span> <span class="n">incomingFlux</span>
+                <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="o">=</span> <span class="n">incomingMgFlux</span>
+                <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="n">incomingPower</span>
+                <span class="n">bOutgoing</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pdens</span> <span class="o">=</span> <span class="n">incomingPower</span> <span class="o">/</span> <span class="n">bOutgoing</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
 
 <div class="viewcode-block" id="FuelHandler.swapCascade"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.swapCascade">[docs]</a>    <span class="k">def</span> <span class="nf">swapCascade</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">assemList</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1677,7 +1727,6 @@
 <span class="sd">            [A  &lt;- B &lt;- C &lt;- D]</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="c1"># first check for duplicates</span>
         <span class="k">for</span> <span class="n">assem</span> <span class="ow">in</span> <span class="n">assemList</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">assemList</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">assem</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
@@ -1770,7 +1819,6 @@
 <span class="sd">        makeShuffleReport : writes the file that is read here.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="k">try</span><span class="p">:</span>
             <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
         <span class="k">except</span><span class="p">:</span>
@@ -2084,7 +2132,6 @@
 <span class="sd">        -----</span>
 <span class="sd">        This is a helper function for repeatShufflePattern</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="n">moved</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># shuffle all of the load chain assemblies (These include discharges to SFP</span>
@@ -2320,7 +2367,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-02-11.
+        Last updated on 2022-02-16.
       </span>
 
     </p>
