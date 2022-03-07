@@ -40,6 +40,11 @@
         <script src="../../../_static/underscore.js"></script>
         <script src="../../../_static/doctools.js"></script>
         <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script src="../../../_static/assets/jsonview.bundle.js"></script>
+        <script src="../../../_static/assets/jsonview_loader.js"></script>
+        <script src="../../../_static/sphinx-needs/libs/html/datatables.min.js"></script>
+        <script src="../../../_static/sphinx-needs/libs/html/datatables_loader.js"></script>
+        <script src="../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js"></script>
     
     <script type="text/javascript" src="../../../_static/js/theme.js"></script>
 
@@ -105,6 +110,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../developer/index.html">Developer Docs</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../release/index.html">Release Notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../requirements/index.html">Requirements</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../.apidocs/modules.html">API Docs</a></li>
 </ul>
 
@@ -198,35 +204,41 @@
 <span class="sd">more refinement in representing the physical reactor. The reactor is the owner of many of the</span>
 <span class="sd">plant-wide state variables such as keff, cycle, and node.</span>
 
+<span class="sd">.. impl:: ARMI represents the Reactor heirarchically.</span>
+<span class="sd">   :id: IMPL_REACTOR_HIERARCHY_0</span>
+<span class="sd">   :links: REQ_REACTOR_HIERARCHY</span>
+
+<span class="sd">   The Reactor contains a Core, which contains a heirachical collection of Assemblies, which in turn</span>
+<span class="sd">   each contain a collection of Blocks.</span>
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">tabulate</span>
 <span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">import</span> <span class="nn">os</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">getPluginManagerOrFail</span><span class="p">,</span> <span class="n">materials</span><span class="p">,</span> <span class="n">nuclearDataIO</span><span class="p">,</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi.nuclearDataIO</span> <span class="kn">import</span> <span class="n">xsLibraries</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblies</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblyLists</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">composites</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">geometry</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">systemLayoutInput</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">zones</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">reactorParameters</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">createFormattedStrWithDelimiter</span><span class="p">,</span> <span class="n">units</span>
-<span class="kn">from</span> <span class="nn">armi.utils.iterables</span> <span class="kn">import</span> <span class="n">Sequence</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
-<span class="kn">from</span> <span class="nn">armi.utils.mathematics</span> <span class="kn">import</span> <span class="n">average1DWithinTolerance</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">systemLayoutInput</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">zones</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_MATERIAL_NAMESPACE_ORDER</span>
-<span class="kn">from</span> <span class="nn">armi.nuclearDataIO</span> <span class="kn">import</span> <span class="n">xsLibraries</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">createFormattedStrWithDelimiter</span><span class="p">,</span> <span class="n">units</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
+<span class="kn">from</span> <span class="nn">armi.utils.iterables</span> <span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span> <span class="nn">armi.utils.mathematics</span> <span class="kn">import</span> <span class="n">average1DWithinTolerance</span>
 
 <span class="c1"># init logger</span>
 <span class="n">runLog</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -872,7 +884,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">blockTypeSpec</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-            <span class="c1">## In case assems is empty</span>
+            <span class="c1"># In case assems is empty</span>
             <span class="k">return</span> <span class="mi">0</span></div>
 
 <div class="viewcode-block" id="Core.countFuelAxialBlocks"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.countFuelAxialBlocks">[docs]</a>    <span class="k">def</span> <span class="nf">countFuelAxialBlocks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -889,7 +901,7 @@
         <span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fuel</span><span class="p">)</span> <span class="k">for</span> <span class="n">fuel</span> <span class="ow">in</span> <span class="n">fuelblocks</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>  <span class="c1">## thrown when iterator is empty</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>  <span class="c1"># thrown when iterator is empty</span>
             <span class="k">return</span> <span class="mi">0</span></div>
 
 <div class="viewcode-block" id="Core.getFirstFuelBlockAxialNode"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.getFirstFuelBlockAxialNode">[docs]</a>    <span class="k">def</span> <span class="nf">getFirstFuelBlockAxialNode</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -908,13 +920,13 @@
                 <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-            <span class="c1">## ValueError is thrown if min is called on an empty sequence.</span>
-            <span class="c1">## Since this is expected to be a rare case, try/except is more</span>
-            <span class="c1">## efficient than an if/else condition that checks whether the</span>
-            <span class="c1">## iterator is empty (the latter would require generating a list</span>
-            <span class="c1">## or tuple, which further adds to the inefficiency). Hence Python&#39;s</span>
-            <span class="c1">## mantra, &quot;It&#39;s easier to ask forgiveness than permission.&quot; In fact</span>
-            <span class="c1">## it&#39;s quicker to ask forgiveness than permission.</span>
+            <span class="sd">&quot;&quot;&quot;ValueError is thrown if min is called on an empty sequence.</span>
+<span class="sd">            Since this is expected to be a rare case, try/except is more</span>
+<span class="sd">            efficient than an if/else condition that checks whether the</span>
+<span class="sd">            iterator is empty (the latter would require generating a list</span>
+<span class="sd">            or tuple, which further adds to the inefficiency). Hence Python&#39;s</span>
+<span class="sd">            mantra, &quot;It&#39;s easier to ask forgiveness than permission.&quot; In fact</span>
+<span class="sd">            it&#39;s quicker to ask forgiveness than permission.&quot;&quot;&quot;</span>
             <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Core.getAssembliesInRing"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.getAssembliesInRing">[docs]</a>    <span class="k">def</span> <span class="nf">getAssembliesInRing</span><span class="p">(</span>
@@ -1013,7 +1025,7 @@
             <span class="n">exclusions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">exclusions</span><span class="p">)</span>
             <span class="n">assems</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">exclusions</span><span class="p">)</span>
 
-        <span class="c1">## filter based on geomType</span>
+        <span class="c1"># filter based on geomType</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">geomType</span> <span class="o">==</span> <span class="n">geometry</span><span class="o">.</span><span class="n">GeomType</span><span class="o">.</span><span class="n">CARTESIAN</span>
         <span class="p">):</span>  <span class="c1"># a ring in cartesian is basically a square.</span>
@@ -1023,7 +1035,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">assems</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ring</span><span class="p">))</span>
 
-        <span class="c1">## filter based on typeSpec</span>
+        <span class="c1"># filter based on typeSpec</span>
         <span class="k">if</span> <span class="n">typeSpec</span><span class="p">:</span>
             <span class="n">assems</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="n">exactType</span><span class="p">))</span>
 
@@ -1073,12 +1085,12 @@
 
         <span class="n">assems</span> <span class="o">=</span> <span class="n">Sequence</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
-        <span class="c1">## Remove exclusions</span>
+        <span class="c1"># Remove exclusions</span>
         <span class="k">if</span> <span class="n">exclusions</span><span class="p">:</span>
             <span class="n">exclusions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">exclusions</span><span class="p">)</span>
             <span class="n">assems</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">exclusions</span><span class="p">)</span>
 
-        <span class="c1">## get assemblies at locations</span>
+        <span class="c1"># get assemblies at locations</span>
         <span class="n">locSet</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">circularRingList</span><span class="p">[</span><span class="n">ring</span><span class="p">]</span>
         <span class="n">assems</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">getLocation</span><span class="p">()</span> <span class="ow">in</span> <span class="n">locSet</span><span class="p">)</span>
 
@@ -1110,8 +1122,8 @@
 
         <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
             <span class="n">dist</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">distanceTo</span><span class="p">(</span><span class="n">refLocation</span><span class="p">)</span>
-            <span class="c1">## To reduce numerical sensitivity, round distance to 6 decimal places</span>
-            <span class="c1">## before truncating.</span>
+            <span class="c1"># To reduce numerical sensitivity, round distance to 6 decimal places</span>
+            <span class="c1"># before truncating.</span>
             <span class="n">index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">dist</span> <span class="o">*</span> <span class="n">pitchFactor</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span> <span class="ow">or</span> <span class="mi">1</span>  <span class="c1"># 1 is the smallest ring.</span>
             <span class="n">circularRingDict</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">getLocation</span><span class="p">())</span>
 
@@ -1162,7 +1174,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Generating assemblies-by-name map.&quot;</span><span class="p">)</span>
 
-        <span class="c1">## NOTE: eliminated unnecessary repeated lookups in self for self.assembliesByName</span>
+        <span class="c1"># NOTE: eliminated unnecessary repeated lookups in self for self.assembliesByName</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assembliesByName</span> <span class="o">=</span> <span class="n">assymap</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="c1"># don&#39;t includeAll b/c detailed ones are not ready yet</span>
         <span class="k">for</span> <span class="n">assem</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">includeBolAssems</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">includeSFP</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
@@ -1308,9 +1320,9 @@
             <span class="n">block</span><span class="o">.</span><span class="n">getName</span><span class="p">():</span> <span class="n">block</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">(</span><span class="n">includeAll</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="p">}</span>
 
-    <span class="c1">## An idea: wrap this in an &quot;if not self.blocksByLocName:&quot;</span>
-    <span class="c1">## This will likely fail, but it will help diagnose why property approach</span>
-    <span class="c1">## wasn&#39;t working correctly</span>
+    <span class="c1"># TODO: (Idea) wrap this in an &quot;if not self.blocksByLocName:&quot;</span>
+    <span class="c1"># This will likely fail, but it will help diagnose why property approach</span>
+    <span class="c1"># wasn&#39;t working correctly</span>
 <div class="viewcode-block" id="Core.genBlocksByLocName"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.genBlocksByLocName">[docs]</a>    <span class="k">def</span> <span class="nf">genBlocksByLocName</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        If self.blocksByLocName is deleted, then this will regenerate it or update it if things change</span>
@@ -1397,7 +1409,7 @@
                 <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No assem of type </span><span class="si">{0}</span><span class="s2"> in reactor&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">))</span>
                 <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="c1">## Assumes at least one assembly in `self`.</span>
+        <span class="c1"># Assumes at least one assembly in `self`</span>
         <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="Core.regenAssemblyLists"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.regenAssemblyLists">[docs]</a>    <span class="k">def</span> <span class="nf">regenAssemblyLists</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1533,8 +1545,8 @@
 <span class="sd">        makeLocationLookup : allows caching to speed this up if you call it a lot.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="c1">## Why isn&#39;t locContents an attribute of reactor? It could be another</span>
-        <span class="c1">## property that is generated on demand</span>
+        <span class="c1"># Why isn&#39;t locContents an attribute of reactor? It could be another</span>
+        <span class="c1"># property that is generated on demand</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">locContents</span><span class="p">:</span>
             <span class="n">locContents</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeLocationLookup</span><span class="p">(</span><span class="n">assemblyLevel</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
@@ -1560,7 +1572,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">{</span><span class="n">b</span><span class="o">.</span><span class="n">getLocation</span><span class="p">():</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">}</span></div>
 
-    <span class="c1">## Can be cleaned up, but need test case to guard agains breakage</span>
+    <span class="c1"># TODO: Can be cleaned up, but need test case to guard agains breakage</span>
 <div class="viewcode-block" id="Core.getFluxVector"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.getFluxVector">[docs]</a>    <span class="k">def</span> <span class="nf">getFluxVector</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">energyOrder</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">adjoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">extSrc</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">volumeIntegrated</span><span class="o">=</span><span class="kc">True</span>
     <span class="p">):</span>
@@ -1829,7 +1841,7 @@
 <div class="viewcode-block" id="Core.setMoveList"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.setMoveList">[docs]</a>    <span class="k">def</span> <span class="nf">setMoveList</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">oldLoc</span><span class="p">,</span> <span class="n">newLoc</span><span class="p">,</span> <span class="n">enrichList</span><span class="p">,</span> <span class="n">assemblyType</span><span class="p">,</span> <span class="n">assemName</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Tracks the movements in terms of locations and enrichments.&quot;&quot;&quot;</span>
         <span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="n">oldLoc</span><span class="p">,</span> <span class="n">newLoc</span><span class="p">,</span> <span class="n">enrichList</span><span class="p">,</span> <span class="n">assemblyType</span><span class="p">,</span> <span class="n">assemName</span><span class="p">)</span>
-        <span class="c1">## NOTE: moveList is actually a moveDict (misnomer)</span>
+        <span class="c1"># NOTE: moveList is actually a moveDict (misnomer)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">moveList</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">moveList</span><span class="p">[</span><span class="n">cycle</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">moveList</span><span class="p">[</span><span class="n">cycle</span><span class="p">]:</span>
@@ -2489,7 +2501,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-03-02.
+        Last updated on 2022-03-07.
       </span>
 
     </p>

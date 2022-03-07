@@ -40,6 +40,11 @@
         <script src="../../../_static/underscore.js"></script>
         <script src="../../../_static/doctools.js"></script>
         <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script src="../../../_static/assets/jsonview.bundle.js"></script>
+        <script src="../../../_static/assets/jsonview_loader.js"></script>
+        <script src="../../../_static/sphinx-needs/libs/html/datatables.min.js"></script>
+        <script src="../../../_static/sphinx-needs/libs/html/datatables_loader.js"></script>
+        <script src="../../../_static/sphinx-needs/libs/html/sphinx_needs_collapse.js"></script>
     
     <script type="text/javascript" src="../../../_static/js/theme.js"></script>
 
@@ -105,6 +110,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../developer/index.html">Developer Docs</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../release/index.html">Release Notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../requirements/index.html">Requirements</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../.apidocs/modules.html">API Docs</a></li>
 </ul>
 
@@ -199,6 +205,10 @@
 <span class="sd">This is analogous to a real reactor operating over some period of time,</span>
 <span class="sd">often from initial startup, through the various cycles, and out to</span>
 <span class="sd">the end of plant life.</span>
+
+<span class="sd">.. impl:: ARMI controls the time flow of the reactor, by running a sequence of Interfaces at each time step.</span>
+<span class="sd">   :id: IMPL_EVOLVING_STATE_0</span>
+<span class="sd">   :links: REQ_EVOLVING_STATE</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
@@ -207,16 +217,16 @@
 
 <span class="kn">import</span> <span class="nn">armi</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">memoryProfiler</span>
-<span class="kn">from</span> <span class="nn">armi.utils.mathematics</span> <span class="kn">import</span> <span class="n">expandRepeatedFloats</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">codeTiming</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">pathTools</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">memoryProfiler</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping.report</span> <span class="kn">import</span> <span class="n">reportingUtils</span>
 <span class="kn">from</span> <span class="nn">armi.operators</span> <span class="kn">import</span> <span class="n">settingsValidation</span>
 <span class="kn">from</span> <span class="nn">armi.operators.runTypes</span> <span class="kn">import</span> <span class="n">RunTypes</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
-<span class="kn">from</span> <span class="nn">armi.bookkeeping.report</span> <span class="kn">import</span> <span class="n">reportingUtils</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">codeTiming</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">pathTools</span>
+<span class="kn">from</span> <span class="nn">armi.utils.mathematics</span> <span class="kn">import</span> <span class="n">expandRepeatedFloats</span>
 
 
 <div class="viewcode-block" id="Operator"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator">[docs]</a><span class="k">class</span> <span class="nc">Operator</span><span class="p">:</span>  <span class="c1"># pylint: disable=too-many-public-methods</span>
@@ -597,7 +607,7 @@
 
 <div class="viewcode-block" id="Operator.interactAllInit"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllInit">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllInit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Call interactInit on all interfaces in the stack after they are initialized.&quot;&quot;&quot;</span>
-        <span class="n">allInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">[:]</span>  <span class="c1">## copy just in case</span>
+        <span class="n">allInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">[:]</span>  <span class="c1"># copy just in case</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;Init&quot;</span><span class="p">,</span> <span class="n">allInterfaces</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Operator.interactAllBOL"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllBOL">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="p">()):</span>
@@ -1171,7 +1181,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-03-02.
+        Last updated on 2022-03-07.
       </span>
 
     </p>
