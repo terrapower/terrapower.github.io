@@ -302,9 +302,13 @@
 <span class="sd">    A component with undefined dimensions.</span>
 
 <span class="sd">    Useful for situations where you just want to enter the area directly.</span>
-<span class="sd">    For instance, in filler situations where the exact shape of this component is</span>
-<span class="sd">    is unknown but you have some left-over space between other components filled</span>
-<span class="sd">    with a known material you might need to model.</span>
+
+<span class="sd">    For instance, when you want to model neutronic behavior of an assembly based</span>
+<span class="sd">    on only knowing the area fractions of each material in the assembly.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    DerivedShape : Useful to just fill leftover space in a block with a material</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">pDefs</span> <span class="o">=</span> <span class="n">componentParameters</span><span class="o">.</span><span class="n">getUnshapedParameterDefinitions</span><span class="p">()</span>
@@ -343,11 +347,11 @@
 <span class="sd">        cold : bool, optional</span>
 <span class="sd">            Ignored for this component</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">area</span></div>
+        <span class="n">coldArea</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">area</span>
+        <span class="k">if</span> <span class="n">cold</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">coldArea</span>
 
-<div class="viewcode-block" id="UnshapedComponent.setArea"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.components.html#armi.reactor.components.UnshapedComponent.setArea">[docs]</a>    <span class="k">def</span> <span class="nf">setArea</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">area</span> <span class="o">=</span> <span class="n">val</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">clearCache</span><span class="p">()</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getThermalExpansionFactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">coldArea</span></div>
 
 <div class="viewcode-block" id="UnshapedComponent.getBoundingCircleOuterDiameter"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.components.html#armi.reactor.components.UnshapedComponent.getBoundingCircleOuterDiameter">[docs]</a>    <span class="k">def</span> <span class="nf">getBoundingCircleOuterDiameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tc</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cold</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -355,8 +359,12 @@
 
 <span class="sd">        This is the smallest it can possibly be. Since this is used to determine</span>
 <span class="sd">        the outer component, it will never be allowed to be the outer one.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Tc is not used in this method for this particular component.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">area</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getComponentArea</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="n">cold</span><span class="p">)</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="UnshapedComponent.fromComponent"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.components.html#armi.reactor.components.UnshapedComponent.fromComponent">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">fromComponent</span><span class="p">(</span><span class="n">otherComponent</span><span class="p">):</span>
@@ -364,11 +372,16 @@
 <span class="sd">        Build a new UnshapedComponent that has area equal to that of another component.</span>
 
 <span class="sd">        This can be used to &quot;freeze&quot; a DerivedShape, among other things.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Components created in this manner will not thermally expand beyond the expanded</span>
+<span class="sd">        area of the original component, but will retain their hot temperature.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">newC</span> <span class="o">=</span> <span class="n">UnshapedComponent</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="n">otherComponent</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
             <span class="n">material</span><span class="o">=</span><span class="n">otherComponent</span><span class="o">.</span><span class="n">material</span><span class="p">,</span>
-            <span class="n">Tinput</span><span class="o">=</span><span class="n">otherComponent</span><span class="o">.</span><span class="n">inputTemperatureInC</span><span class="p">,</span>
+            <span class="n">Tinput</span><span class="o">=</span><span class="n">otherComponent</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span>
             <span class="n">Thot</span><span class="o">=</span><span class="n">otherComponent</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span>
             <span class="n">area</span><span class="o">=</span><span class="n">otherComponent</span><span class="o">.</span><span class="n">getComponentArea</span><span class="p">(),</span>
         <span class="p">)</span>
