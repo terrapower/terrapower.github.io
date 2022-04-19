@@ -215,20 +215,21 @@
 <span class="sd">tasks are on the same machine. Everything goes through MPI. This can </span>
 <span class="sd">be optimized as needed.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">gc</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">traceback</span>
 
-<span class="kn">import</span> <span class="nn">armi</span>
-<span class="kn">from</span> <span class="nn">armi.operators.operator</span> <span class="kn">import</span> <span class="n">Operator</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">getPluginManager</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">mpiActions</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">memoryProfiler</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">reactors</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblies</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">memoryProfiler</span>
+<span class="kn">from</span> <span class="nn">armi.operators.operator</span> <span class="kn">import</span> <span class="n">Operator</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblies</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">reactors</span>
 
 
 <div class="viewcode-block" id="OperatorMPI"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operatorMPI.html#armi.operators.operatorMPI.OperatorMPI">[docs]</a><span class="k">class</span> <span class="nc">OperatorMPI</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
@@ -240,8 +241,8 @@
         <span class="k">except</span><span class="p">:</span>
             <span class="c1"># kill the workers too so everything dies.</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Master node failed on init. Quitting.&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">armi</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="p">:</span>  <span class="c1"># else it&#39;s a single cpu case.</span>
-                <span class="n">armi</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">&quot;quit&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="p">:</span>  <span class="c1"># else it&#39;s a single cpu case.</span>
+                <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">&quot;quit&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
             <span class="k">raise</span>
 
 <div class="viewcode-block" id="OperatorMPI.operate"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operatorMPI.html#armi.operators.operatorMPI.OperatorMPI.operate">[docs]</a>    <span class="k">def</span> <span class="nf">operate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -252,7 +253,7 @@
 <span class="sd">        handles errors.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;OperatorMPI.operate&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">armi</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="c1"># this is the master</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="c1"># run the regular old operate function</span>
@@ -264,15 +265,15 @@
                 <span class="p">)</span>
                 <span class="k">raise</span>
             <span class="k">finally</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">armi</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
                         <span class="s2">&quot;Stopping all MPI worker nodes and cleaning temps.&quot;</span>
                     <span class="p">)</span>
-                    <span class="n">armi</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span>
+                    <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span>
                         <span class="s2">&quot;quit&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span>
                     <span class="p">)</span>  <span class="c1"># send the quit command to the workers.</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Waiting for all nodes to close down&quot;</span><span class="p">)</span>
-                    <span class="n">armi</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span>
+                    <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span>
                         <span class="s2">&quot;finished&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span>
                     <span class="p">)</span>  <span class="c1"># wait until they&#39;re done cleaning up.</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;All worker nodes stopped.&quot;</span><span class="p">)</span>
@@ -322,8 +323,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
             <span class="c1"># sit around waiting for a command from the master</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Node </span><span class="si">{0}</span><span class="s2"> ready and waiting&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">armi</span><span class="o">.</span><span class="n">MPI_RANK</span><span class="p">))</span>
-            <span class="n">cmd</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Node </span><span class="si">{0}</span><span class="s2"> ready and waiting&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span><span class="p">))</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;worker received command </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cmd</span><span class="p">))</span>
             <span class="c1"># got a command. go use it.</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">mpiActions</span><span class="o">.</span><span class="n">MpiAction</span><span class="p">):</span>
@@ -340,7 +341,7 @@
             <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;sync&quot;</span><span class="p">:</span>
                 <span class="c1"># wait around for a sync</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Worker syncing&quot;</span><span class="p">)</span>
-                <span class="n">note</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">&quot;wait&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">note</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">&quot;wait&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">note</span> <span class="o">!=</span> <span class="s2">&quot;wait&quot;</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;did not get &quot;wait&quot;. Got </span><span class="si">{0}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">note</span><span class="p">))</span>
             <span class="k">else</span><span class="p">:</span>
@@ -352,7 +353,7 @@
                     <span class="k">if</span> <span class="n">handled</span><span class="p">:</span>
                         <span class="k">break</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">handled</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">armi</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Interfaces&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">))</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                         <span class="s2">&quot;No interface understood worker command </span><span class="si">{0}</span><span class="se">\n</span><span class="s2"> check stdout for err</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -369,7 +370,7 @@
                             <span class="n">cmd</span>
                         <span class="p">)</span>
                     <span class="p">)</span>
-            <span class="n">pm</span> <span class="o">=</span> <span class="n">armi</span><span class="o">.</span><span class="n">getPluginManager</span><span class="p">()</span>
+            <span class="n">pm</span> <span class="o">=</span> <span class="n">getPluginManager</span><span class="p">()</span>
             <span class="n">resetFlags</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">hook</span><span class="o">.</span><span class="n">mpiActionRequiresReset</span><span class="p">(</span><span class="n">cmd</span><span class="o">=</span><span class="n">cmd</span><span class="p">)</span>
             <span class="c1"># only reset if all the plugins agree to reset</span>
             <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">resetFlags</span><span class="p">):</span>
@@ -393,7 +394,6 @@
 
 <span class="sd">        .. warning:: This should build empty non-core systems too.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="n">xsGroups</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;xsGroups&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">xsGroups</span><span class="p">:</span>
             <span class="n">xsGroups</span><span class="o">.</span><span class="n">clearRepresentativeBlocks</span><span class="p">()</span>
@@ -412,7 +412,7 @@
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Worker ending&quot;</span><span class="p">)</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>  <span class="c1"># no more messages.</span>
         <span class="c1"># wait until all workers are closed so we can delete them.</span>
-        <span class="n">armi</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">&quot;finished&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">&quot;finished&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="OperatorMPI.collapseAllStderrs"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operatorMPI.html#armi.operators.operatorMPI.OperatorMPI.collapseAllStderrs">[docs]</a>    <span class="k">def</span> <span class="nf">collapseAllStderrs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Takes all the individual stderr files from each processor and arranges them nicely into one file&quot;&quot;&quot;</span>
