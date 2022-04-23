@@ -213,6 +213,8 @@
 <span class="kn">from</span> <span class="nn">armi.cli.reportsEntryPoint</span> <span class="kn">import</span> <span class="n">ReportsEntryPoint</span>
 <span class="kn">from</span> <span class="nn">armi.cli.run</span> <span class="kn">import</span> <span class="n">RunEntryPoint</span>
 <span class="kn">from</span> <span class="nn">armi.cli.runSuite</span> <span class="kn">import</span> <span class="n">RunSuiteCommand</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.diffIsotxs</span> <span class="kn">import</span> <span class="n">CompareIsotxsLibraries</span>
+<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
 
 
 <div class="viewcode-block" id="TestCheckInputEntryPoint"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestCheckInputEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">TestCheckInputEntryPoint</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -273,7 +275,14 @@
         <span class="n">cdb</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake.h5&quot;</span><span class="p">])</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">cdb</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;convert-db&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">cdb</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">cdb</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
+
+        <span class="c1"># Since the file is fake, invoke() should exit early.</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">cdb</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+                <span class="n">cdb</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Converting the&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">_outputStream</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="TestCopyDB"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestCopyDB">[docs]</a><span class="k">class</span> <span class="nc">TestCopyDB</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -290,12 +299,18 @@
 
 <div class="viewcode-block" id="TestExpandBlueprints"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestExpandBlueprints">[docs]</a><span class="k">class</span> <span class="nc">TestExpandBlueprints</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
 <div class="viewcode-block" id="TestExpandBlueprints.test_expandBlueprintsBasics"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestExpandBlueprints.test_expandBlueprintsBasics">[docs]</a>    <span class="k">def</span> <span class="nf">test_expandBlueprintsBasics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">eb</span> <span class="o">=</span> <span class="n">ExpandBlueprints</span><span class="p">()</span>
-        <span class="n">eb</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
-        <span class="n">eb</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake.yaml&quot;</span><span class="p">])</span>
+        <span class="n">ebp</span> <span class="o">=</span> <span class="n">ExpandBlueprints</span><span class="p">()</span>
+        <span class="n">ebp</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
+        <span class="n">ebp</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake.yaml&quot;</span><span class="p">])</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">eb</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;expand-bp&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">eb</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">blueprints</span><span class="p">,</span> <span class="s2">&quot;/path/to/fake.yaml&quot;</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">ebp</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;expand-bp&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">ebp</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">blueprints</span><span class="p">,</span> <span class="s2">&quot;/path/to/fake.yaml&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Since the file is fake, invoke() should exit early.</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">_outputStream</span><span class="p">)</span>
+            <span class="n">ebp</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;does not exist&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">_outputStream</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="TestExtractInputs"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestExtractInputs">[docs]</a><span class="k">class</span> <span class="nc">TestExtractInputs</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -346,6 +361,18 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">rep</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;report&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">rep</span><span class="o">.</span><span class="n">settingsArgument</span><span class="p">,</span> <span class="s2">&quot;optional&quot;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestCompareIsotxsLibsEntryPoint"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestCompareIsotxsLibsEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">TestCompareIsotxsLibsEntryPoint</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestCompareIsotxsLibsEntryPoint.test_compareIsotxsLibsBasics"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestCompareIsotxsLibsEntryPoint.test_compareIsotxsLibsBasics">[docs]</a>    <span class="k">def</span> <span class="nf">test_compareIsotxsLibsBasics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">com</span> <span class="o">=</span> <span class="n">CompareIsotxsLibraries</span><span class="p">()</span>
+        <span class="n">com</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
+        <span class="n">com</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;--fluxFile&quot;</span><span class="p">,</span> <span class="s2">&quot;/path/to/fluxfile.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;reference&quot;</span><span class="p">,</span> <span class="s2">&quot;comparisonFiles&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">com</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;diff-isotxs&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">com</span><span class="o">.</span><span class="n">settingsArgument</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="TestRunEntryPoint"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestRunEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">TestRunEntryPoint</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -401,7 +428,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-04-22.
+        Last updated on 2022-04-23.
       </span>
 
     </p>
