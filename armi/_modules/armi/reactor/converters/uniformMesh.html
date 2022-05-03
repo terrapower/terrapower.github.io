@@ -236,8 +236,11 @@
 <span class="sd">.. figure:: /.static/axial_homogenization.png</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">glob</span>
 <span class="kn">import</span> <span class="nn">copy</span>
-<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">from</span> <span class="nn">timeit</span> <span class="kn">import</span> <span class="n">default_timer</span> <span class="k">as</span> <span class="n">timer</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
@@ -254,8 +257,6 @@
 <span class="c1"># unfortunate physics coupling, but still in the framework</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.globalFlux</span> <span class="kn">import</span> <span class="n">globalFluxInterface</span>
 
-<span class="n">runLog</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter">[docs]</a><span class="k">class</span> <span class="nc">UniformMeshGeometryConverter</span><span class="p">(</span><span class="n">GeometryConverter</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Build uniform mesh version of the source reactor&quot;&quot;&quot;</span>
@@ -263,12 +264,14 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">GeometryConverter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_uniformMesh</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockDetailedAxialExpansionParamNames</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span> <span class="o">=</span> <span class="p">[]</span>
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter.convert"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.convert">[docs]</a>    <span class="k">def</span> <span class="nf">convert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a new reactor with a uniform mesh.&quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Building copy of </span><span class="si">{}</span><span class="s2"> with a uniform axial mesh&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+
+        <span class="n">completeStartTime</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span> <span class="o">=</span> <span class="n">r</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initNewReactor</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_setParamsToUpdate</span><span class="p">()</span>
@@ -278,6 +281,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">updateAxialMesh</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkConversion</span><span class="p">()</span>
+        <span class="n">completeEndTime</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Reactor core conversion time: </span><span class="si">{</span><span class="n">completeEndTime</span><span class="o">-</span><span class="n">completeStartTime</span><span class="si">}</span><span class="s2"> seconds&quot;</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span></div>
 
     <span class="k">def</span> <span class="nf">_checkConversion</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -346,10 +353,8 @@
         <span class="n">newAssem</span> <span class="o">=</span> <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_createNewAssembly</span><span class="p">(</span><span class="n">sourceAssem</span><span class="p">)</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating a uniform mesh of </span><span class="si">{</span><span class="n">newAssem</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">bottom</span> <span class="o">=</span> <span class="mf">0.0</span>
+
         <span class="k">for</span> <span class="n">topMeshPoint</span> <span class="ow">in</span> <span class="n">newMesh</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;From axial elevation </span><span class="si">{</span><span class="n">bottom</span><span class="si">:</span><span class="s2">&lt;6.2f</span><span class="si">}</span><span class="s2"> cm to </span><span class="si">{</span><span class="n">topMeshPoint</span><span class="si">:</span><span class="s2">&lt;6.2f</span><span class="si">}</span><span class="s2"> cm&quot;</span>
-            <span class="p">)</span>
             <span class="n">overlappingBlockInfo</span> <span class="o">=</span> <span class="n">sourceAssem</span><span class="o">.</span><span class="n">getBlocksBetweenElevations</span><span class="p">(</span>
                 <span class="n">bottom</span><span class="p">,</span> <span class="n">topMeshPoint</span>
             <span class="p">)</span>
@@ -396,17 +401,6 @@
                 <span class="n">sourceBlock</span> <span class="o">=</span> <span class="n">blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
                 <span class="n">xsType</span> <span class="o">=</span> <span class="n">blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span>
 
-            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;  - The source block for this region is </span><span class="si">{</span><span class="n">sourceBlock</span><span class="si">}</span><span class="s2"> with XS type </span><span class="si">{</span><span class="n">xsType</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
-
-            <span class="c1"># Report the homogenization fractions for debugging purposes</span>
-            <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">heightOverlap</span> <span class="ow">in</span> <span class="n">overlappingBlockInfo</span><span class="p">:</span>
-                <span class="n">totalHeight</span> <span class="o">=</span> <span class="n">topMeshPoint</span> <span class="o">-</span> <span class="n">bottom</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;  - </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> accounts for </span><span class="si">{</span><span class="n">heightOverlap</span><span class="o">/</span><span class="n">totalHeight</span> <span class="o">*</span> <span class="mf">100.0</span><span class="si">:</span><span class="s2">&lt;5.2f</span><span class="si">}</span><span class="s2">% of the homogenized region&quot;</span>
-                <span class="p">)</span>
-
             <span class="n">block</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">sourceBlock</span><span class="p">)</span>
             <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span> <span class="o">=</span> <span class="n">xsType</span>
             <span class="n">block</span><span class="o">.</span><span class="n">setHeight</span><span class="p">(</span><span class="n">topMeshPoint</span> <span class="o">-</span> <span class="n">bottom</span><span class="p">)</span>
@@ -422,7 +416,6 @@
     <span class="k">def</span> <span class="nf">_buildAllUniformAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Loop through each new block for each mesh point and apply conservation of atoms.</span>
-
 <span class="sd">        We use the submesh and allow blocks to be as small as the smallest submesh to</span>
 <span class="sd">        avoid unnecessarily diffusing small blocks into huge ones (e.g. control blocks</span>
 <span class="sd">        into plenum).</span>
@@ -438,11 +431,34 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">newAssem</span><span class="p">,</span> <span class="n">newLoc</span><span class="p">)</span>
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter.plotConvertedReactor"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.plotConvertedReactor">[docs]</a>    <span class="k">def</span> <span class="nf">plotConvertedReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">assemsToPlot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="p">[:</span><span class="mi">12</span><span class="p">]</span>
-        <span class="k">for</span> <span class="n">plotNum</span><span class="p">,</span> <span class="n">assemBatch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">iterables</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">assemsToPlot</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-            <span class="n">assemPlotName</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">AssemblyTypes</span><span class="si">{</span><span class="n">plotNum</span><span class="si">}</span><span class="s2">.png&quot;</span>
+        <span class="n">bpAssems</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">assemblies</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">assemsToPlot</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">bpAssem</span> <span class="ow">in</span> <span class="n">bpAssems</span><span class="p">:</span>
+            <span class="n">coreAssems</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">bpAssem</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">coreAssems</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">assemsToPlot</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coreAssems</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="c1"># Obtain the plot numbering based on the existing files so that existing plots</span>
+        <span class="c1"># are not overwritten.</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">existingFiles</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">AssemblyTypes&quot;</span> <span class="o">+</span> <span class="s2">&quot;*&quot;</span> <span class="o">+</span> <span class="s2">&quot;.png&quot;</span>
+        <span class="p">)</span>
+        <span class="c1"># This loops over the existing files for the assembly types outputs</span>
+        <span class="c1"># and makes a unique integer value so that plots are not overwritten. The</span>
+        <span class="c1"># regular expression here captures the first integer as AssemblyTypesX and</span>
+        <span class="c1"># then ensures that the numbering in the next enumeration below is 1 above that.</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">existingFiles</span><span class="p">:</span>
+            <span class="n">newStart</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\d+&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">newStart</span> <span class="o">&gt;</span> <span class="n">start</span><span class="p">:</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">newStart</span>
+        <span class="k">for</span> <span class="n">plotNum</span><span class="p">,</span> <span class="n">assemBatch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+            <span class="n">iterables</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">assemsToPlot</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">start</span><span class="o">=</span><span class="n">start</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="p">):</span>
+            <span class="n">assemPlotName</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">AssemblyTypes</span><span class="si">{</span><span class="n">plotNum</span><span class="si">}</span><span class="s2">-rank</span><span class="si">{</span><span class="n">armi</span><span class="o">.</span><span class="n">MPI_RANK</span><span class="si">}</span><span class="s2">.png&quot;</span>
             <span class="n">plotting</span><span class="o">.</span><span class="n">plotAssemblyTypes</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">blueprints</span><span class="p">,</span>
                 <span class="n">assemPlotName</span><span class="p">,</span>
                 <span class="n">assemBatch</span><span class="p">,</span>
                 <span class="n">maxAssems</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
@@ -463,7 +479,7 @@
             <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">rp</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
 
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
-            <span class="k">for</span> <span class="n">bp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">bp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockDetailedAxialExpansionParamNames</span><span class="p">:</span>
                 <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">bp</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter.applyStateToOriginal"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.applyStateToOriginal">[docs]</a>    <span class="k">def</span> <span class="nf">applyStateToOriginal</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -471,12 +487,15 @@
 <span class="sd">        Now that state is computed on the uniform mesh, map it back to ARMI mesh.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
-            <span class="s2">&quot;Applying uniform neutronics mesh results on </span><span class="si">{0}</span><span class="s2"> to ARMI mesh on </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span>
-            <span class="p">)</span>
+            <span class="sa">f</span><span class="s2">&quot;Applying uniform neutronics mesh results from </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="si">}</span><span class="s2"> to ARMI mesh on </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
+        <span class="n">completeStartTime</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">)</span>
+        <span class="n">completeEndTime</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Parameter remapping time: </span><span class="si">{</span><span class="n">completeEndTime</span><span class="o">-</span><span class="n">completeStartTime</span><span class="si">}</span><span class="s2"> seconds&quot;</span>
+        <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sourceReactor</span><span class="p">,</span> <span class="n">destReactor</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -515,6 +534,7 @@
 <span class="sd">            not be calculated.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockMultigroupParamNames</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">calcReactionRates</span> <span class="o">=</span> <span class="n">calcReactionRates</span>
 
     <span class="k">def</span> <span class="nf">_checkConversion</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -548,82 +568,92 @@
     <span class="k">def</span> <span class="nf">_setParamsToUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Activate conversion of various neutronics paramters.&quot;&quot;&quot;</span>
         <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_setParamsToUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">()</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span>
-            <span class="n">parameters</span><span class="o">.</span><span class="n">Category</span><span class="o">.</span><span class="n">detailedAxialExpansion</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">names</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span>
             <span class="n">parameters</span><span class="o">.</span><span class="n">Category</span><span class="o">.</span><span class="n">neutronics</span>
         <span class="p">)</span><span class="o">.</span><span class="n">names</span>
 
-        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="s2">&quot;Block params that will be converted include: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span>
-            <span class="p">)</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Reactor parameters that will be mapped are: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="s2">&quot;Reactor params that will be converted include: </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span>
-            <span class="p">)</span>
+
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockMultigroupParamNames</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">.</span><span class="n">Category</span><span class="o">.</span><span class="n">multiGroupQuantities</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockDetailedAxialExpansionParamNames</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span>
+            <span class="n">parameters</span><span class="o">.</span><span class="n">Category</span><span class="o">.</span><span class="n">detailedAxialExpansion</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">names</span>
+
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Block params that will be mapped are: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">blockMultigroupParamNames</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockDetailedAxialExpansionParamNames</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Also clear mgFlux params&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Clear all multi-group block parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">)</span>
-
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
-            <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">adjMgFlux</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">fluxParam</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockMultigroupParamNames</span><span class="p">:</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">fluxParam</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">def</span> <span class="nf">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sourceReactor</span><span class="p">,</span> <span class="n">destReactor</span><span class="p">):</span>
         <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_mapStateFromReactorToOther</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">sourceReactor</span><span class="p">,</span> <span class="n">destReactor</span>
         <span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">paramSetter</span><span class="p">(</span><span class="n">armiObject</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">paramSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">paramNames</span><span class="p">,</span> <span class="n">vals</span><span class="p">):</span>
-                <span class="n">armiObject</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
 
-        <span class="k">def</span> <span class="nf">paramGetter</span><span class="p">(</span><span class="n">armiObject</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">paramGetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
             <span class="n">paramVals</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">paramNames</span><span class="p">:</span>
-                <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">armiObject</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">])</span>
-            <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">paramVals</span><span class="p">)</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">val</span><span class="p">:</span>
+                    <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">paramVals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">fluxSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">_paramNames</span><span class="p">):</span>
-            <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">flux</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">multiGroupParamSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">multiGroupVals</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">paramNames</span><span class="p">,</span> <span class="n">multiGroupVals</span><span class="p">):</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">fluxGetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">_paramNames</span><span class="p">):</span>
-            <span class="n">val</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span>
-            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># so the merger can detect and just use incremental value.</span>
-                <span class="k">return</span> <span class="kc">None</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
-
-        <span class="k">def</span> <span class="nf">adjointFluxSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">_paramNames</span><span class="p">):</span>
-            <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">adjMgFlux</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">flux</span><span class="p">)</span>
-
-        <span class="k">def</span> <span class="nf">adjointFluxGetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">_paramNames</span><span class="p">):</span>
-            <span class="n">val</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">adjMgFlux</span>
-            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># so the merger can detect and just use incremental value.</span>
-                <span class="k">return</span> <span class="kc">None</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">multiGroupParamGetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
+            <span class="n">paramVals</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">paramNames</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">paramVals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span><span class="p">:</span>
             <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
 
         <span class="k">for</span> <span class="n">aSource</span> <span class="ow">in</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="p">:</span>
             <span class="n">aDest</span> <span class="o">=</span> <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyByName</span><span class="p">(</span><span class="n">aSource</span><span class="o">.</span><span class="n">getName</span><span class="p">())</span>
-            <span class="n">_setStateFromOverlaps</span><span class="p">(</span><span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="n">fluxSetter</span><span class="p">,</span> <span class="n">fluxGetter</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;mgFlux&quot;</span><span class="p">])</span>
+
+            <span class="c1"># Map the multi-group flux parameters</span>
             <span class="n">_setStateFromOverlaps</span><span class="p">(</span>
-                <span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="n">adjointFluxSetter</span><span class="p">,</span> <span class="n">adjointFluxGetter</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;adjMgFlux&quot;</span><span class="p">]</span>
+                <span class="n">aSource</span><span class="p">,</span>
+                <span class="n">aDest</span><span class="p">,</span>
+                <span class="n">multiGroupParamSetter</span><span class="p">,</span>
+                <span class="n">multiGroupParamGetter</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">blockMultigroupParamNames</span><span class="p">,</span>
             <span class="p">)</span>
+
+            <span class="c1"># Map the detailed axial expansion parameters</span>
             <span class="n">_setStateFromOverlaps</span><span class="p">(</span>
-                <span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="n">paramSetter</span><span class="p">,</span> <span class="n">paramGetter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span>
+                <span class="n">aSource</span><span class="p">,</span>
+                <span class="n">aDest</span><span class="p">,</span>
+                <span class="n">paramSetter</span><span class="p">,</span>
+                <span class="n">paramGetter</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">blockDetailedAxialExpansionParamNames</span><span class="p">,</span>
             <span class="p">)</span>
 
             <span class="c1"># If requested, the reaction rates will be calculated based on the</span>
@@ -654,6 +684,7 @@
 <span class="sd">    _setStateFromOverlaps : does this for state other than number densities.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">totalDensities</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">block</span><span class="o">.</span><span class="n">clearNumberDensities</span><span class="p">()</span>
     <span class="n">blockHeightInCm</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">overlappingBlock</span><span class="p">,</span> <span class="n">overlappingHeightInCm</span> <span class="ow">in</span> <span class="n">overlappingBlockInfo</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">numberDensity</span> <span class="ow">in</span> <span class="n">overlappingBlock</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -661,13 +692,11 @@
                 <span class="n">totalDensities</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
                 <span class="o">+</span> <span class="n">numberDensity</span> <span class="o">*</span> <span class="n">overlappingHeightInCm</span> <span class="o">/</span> <span class="n">blockHeightInCm</span>
             <span class="p">)</span>
-
-    <span class="n">block</span><span class="o">.</span><span class="n">clearNumberDensities</span><span class="p">()</span>
     <span class="n">block</span><span class="o">.</span><span class="n">setNumberDensities</span><span class="p">(</span><span class="n">totalDensities</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">_setStateFromOverlaps</span><span class="p">(</span>
-    <span class="n">sourceAssembly</span><span class="p">,</span> <span class="n">destinationAssembly</span><span class="p">,</span> <span class="n">setter</span><span class="p">,</span> <span class="n">getter</span><span class="p">,</span> <span class="n">paramNames</span><span class="o">=</span><span class="kc">None</span>
+    <span class="n">sourceAssembly</span><span class="p">,</span> <span class="n">destinationAssembly</span><span class="p">,</span> <span class="n">setter</span><span class="p">,</span> <span class="n">getter</span><span class="p">,</span> <span class="n">paramNames</span>
 <span class="p">):</span>
     <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Set state info on a assembly based on a source assembly with a different axial mesh</span>
@@ -678,10 +707,6 @@
 <span class="sd">        &lt;P&gt; = \frac{\int_{z_1}^{z_2} P(z) dz}{\int_{z_1}^{z_2} dz}</span>
 
 <span class="sd">    which can be solved piecewise for z-coordinates along the source blocks.</span>
-
-<span class="sd">    For volume-integrated params (like block power), one must note that the piecewise</span>
-<span class="sd">    integrals have the fraction of overlapping source height in them, not the overlapping</span>
-<span class="sd">    height itself.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -694,7 +719,7 @@
 <span class="sd">    getter : function</span>
 <span class="sd">        takes block as an argument, returns relevant state that has __add__ capabilities.</span>
 <span class="sd">    paramNames : list</span>
-<span class="sd">        List of param names to set/get. Ok to skip if getter does not use param names.</span>
+<span class="sd">        List of param names to set/get.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
@@ -704,72 +729,88 @@
 <span class="sd">    --------</span>
 <span class="sd">    _setNumberDensitiesFromOverlaps : does this but does smarter caching for number densities.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">block</span> <span class="o">=</span> <span class="n">destinationAssembly</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">volumeIntegratedFlags</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span>
-            <span class="n">parameters</span><span class="o">.</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">VOLUME_INTEGRATED</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">paramNames</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The parameters names are not provided &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;as a list. Value(s) given: </span><span class="si">{</span><span class="n">paramNames</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
-        <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">paramNames</span>
-    <span class="p">]</span>
 
-    <span class="k">for</span> <span class="n">destinationBlock</span><span class="p">,</span> <span class="n">bottomMeshPoint</span> <span class="ow">in</span> <span class="n">destinationAssembly</span><span class="o">.</span><span class="n">getBlocksAndZ</span><span class="p">(</span>
-        <span class="n">returnBottomZ</span><span class="o">=</span><span class="kc">True</span>
-    <span class="p">):</span>
-        <span class="n">destBlockHeightInCm</span> <span class="o">=</span> <span class="n">destinationBlock</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
-        <span class="n">topMeshPoint</span> <span class="o">=</span> <span class="n">bottomMeshPoint</span> <span class="o">+</span> <span class="n">destBlockHeightInCm</span>
-        <span class="n">overlappingBlockInfo</span> <span class="o">=</span> <span class="n">sourceAssembly</span><span class="o">.</span><span class="n">getBlocksBetweenElevations</span><span class="p">(</span>
-            <span class="n">bottomMeshPoint</span><span class="p">,</span> <span class="n">topMeshPoint</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">overlappingBlockInfo</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">overlappingSourceBlock</span><span class="p">,</span> <span class="n">overlappingHeightInCm</span> <span class="ow">in</span> <span class="n">overlappingBlockInfo</span><span class="p">:</span>
-                <span class="n">sourceBlockHeightInCm</span> <span class="o">=</span> <span class="n">overlappingSourceBlock</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
-                <span class="n">existingVals</span> <span class="o">=</span> <span class="n">getter</span><span class="p">(</span><span class="n">destinationBlock</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">)</span>
-                <span class="n">sourceValOnOverlapper</span> <span class="o">=</span> <span class="n">getter</span><span class="p">(</span><span class="n">overlappingSourceBlock</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">sourceValOnOverlapper</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="c1"># could be b.p.adjMgFlux before it&#39;s set.</span>
+    <span class="c1"># The mapping of data from the source assembly to the destination assembly assumes that</span>
+    <span class="c1"># the parameter values returned from the given ``getter`` have been cleared. If any</span>
+    <span class="c1"># of these do not return a None before the conversion occurs then the mapping will</span>
+    <span class="c1"># be incorrect. This checks that the parameters have been cleared and fails otherwise.</span>
+    <span class="k">for</span> <span class="n">destBlock</span> <span class="ow">in</span> <span class="n">destinationAssembly</span><span class="p">:</span>
+        <span class="n">existingDestBlockParamVals</span> <span class="o">=</span> <span class="n">getter</span><span class="p">(</span><span class="n">destBlock</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">)</span>
+        <span class="n">clearedValues</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="kc">True</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">val</span> <span class="k">else</span> <span class="kc">False</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">existingDestBlockParamVals</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">clearedValues</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The state of </span><span class="si">{</span><span class="n">destBlock</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">destinationAssembly</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;was not cleared prior to calling ``_setStateFromOverlaps``. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;This is an implementation bug in the mesh converter that should &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;be reported to the developers. The following parameters should be cleared:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Parameters: </span><span class="si">{</span><span class="n">paramNames</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Values: </span><span class="si">{</span><span class="n">existingDestBlockParamVals</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+    <span class="c1"># The destination assembly is the assembly that the results are being mapped to</span>
+    <span class="c1"># whereas the source assembly is the assembly that is from the uniform model. This</span>
+    <span class="c1"># loop iterates over each block in the destination assembly and determines the mesh</span>
+    <span class="c1"># coordinates that the uniform mesh (source assembly) will be mapped to.</span>
+    <span class="k">for</span> <span class="n">destBlock</span> <span class="ow">in</span> <span class="n">destinationAssembly</span><span class="p">:</span>
+        <span class="n">zLower</span> <span class="o">=</span> <span class="n">destBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span>
+        <span class="n">zUpper</span> <span class="o">=</span> <span class="n">destBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span>
+        <span class="n">destinationBlockHeight</span> <span class="o">=</span> <span class="n">destBlock</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+        <span class="c1"># Determine which blocks in the uniform mesh source assembly are</span>
+        <span class="c1"># within the lower and upper bounds of the destination block.</span>
+        <span class="n">sourceBlocksInfo</span> <span class="o">=</span> <span class="n">sourceAssembly</span><span class="o">.</span><span class="n">getBlocksBetweenElevations</span><span class="p">(</span><span class="n">zLower</span><span class="p">,</span> <span class="n">zUpper</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sourceBlocksInfo</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;An error occurred when attempting to map to the &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;results from </span><span class="si">{</span><span class="n">sourceAssembly</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">destinationAssembly</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;No blocks in </span><span class="si">{</span><span class="n">sourceAssembly</span><span class="si">}</span><span class="s2"> exist between the axial &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;elevations of </span><span class="si">{</span><span class="n">zLower</span><span class="si">:</span><span class="s2">&lt;8.3e</span><span class="si">}</span><span class="s2"> cm and </span><span class="si">{</span><span class="n">zUpper</span><span class="si">:</span><span class="s2">&lt;8.3e</span><span class="si">}</span><span class="s2"> cm. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;This a major bug in the uniform mesh converter that should &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;be reported to the developers.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Iterate over each of the blocks that were found in the uniform mesh</span>
+        <span class="c1"># source assembly within the lower and upper bounds of the destination</span>
+        <span class="c1"># block and perform the parameter mapping.</span>
+        <span class="n">updatedDestVals</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">sourceBlock</span><span class="p">,</span> <span class="n">sourceBlockOverlapHeight</span> <span class="ow">in</span> <span class="n">sourceBlocksInfo</span><span class="p">:</span>
+            <span class="n">sourceBlockVals</span> <span class="o">=</span> <span class="n">getter</span><span class="p">(</span><span class="n">sourceBlock</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">)</span>
+            <span class="n">sourceBlockHeight</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+
+            <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">sourceBlockVal</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">paramNames</span><span class="p">,</span> <span class="n">sourceBlockVals</span><span class="p">):</span>
+                <span class="c1"># The value can be `None` if it has not been set yet. In this case,</span>
+                <span class="c1"># the mapping should be skipped.</span>
+                <span class="k">if</span> <span class="n">sourceBlockVal</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">continue</span>
 
-                <span class="n">integrationFactors</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">volIntFlag</span> <span class="ow">in</span> <span class="n">volumeIntegratedFlags</span><span class="p">:</span>
-                    <span class="c1"># make array with terms to properly handle volume-integrated params.</span>
-                    <span class="c1"># these need fractional contributions.</span>
-                    <span class="k">if</span> <span class="n">volIntFlag</span><span class="p">:</span>
-                        <span class="c1"># sum up fractions of the source into the dest</span>
-                        <span class="n">integrationFactors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                            <span class="n">overlappingHeightInCm</span> <span class="o">/</span> <span class="n">sourceBlockHeightInCm</span>
-                        <span class="p">)</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="c1"># average the source onto the dest</span>
-                        <span class="n">integrationFactors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                            <span class="n">overlappingHeightInCm</span> <span class="o">/</span> <span class="n">destBlockHeightInCm</span>
-                        <span class="p">)</span>
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">volumeIntegratedFlags</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="c1"># hack for multigroup valued flux/adjoint</span>
-                    <span class="n">integrationFactors</span> <span class="o">=</span> <span class="n">integrationFactors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">integrationFactors</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">integrationFactors</span><span class="p">)</span>
+                <span class="c1"># Determine if the parameter is volumed integrated or not.</span>
+                <span class="n">isVolIntegrated</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span>
+                    <span class="n">parameters</span><span class="o">.</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">VOLUME_INTEGRATED</span>
+                <span class="p">)</span>
 
-                <span class="n">incrementalValue</span> <span class="o">=</span> <span class="n">sourceValOnOverlapper</span> <span class="o">*</span> <span class="n">integrationFactors</span>
-                <span class="k">if</span> <span class="n">existingVals</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="c1"># deal with adding a vector to None before flux exists.</span>
-                    <span class="n">setter</span><span class="p">(</span><span class="n">destinationBlock</span><span class="p">,</span> <span class="n">incrementalValue</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">)</span>
+                <span class="c1"># If the parameter is volume integrated (e.g., flux, linear power)</span>
+                <span class="c1"># then calculate the fractional contribution from the source block.</span>
+                <span class="k">if</span> <span class="n">isVolIntegrated</span><span class="p">:</span>
+                    <span class="n">integrationFactor</span> <span class="o">=</span> <span class="n">sourceBlockOverlapHeight</span> <span class="o">/</span> <span class="n">sourceBlockHeight</span>
+
+                <span class="c1"># If the parameter is not volume integrated (e.g., volumetric reaction rate)</span>
+                <span class="c1"># then calculate the fraction contribution on the destination block.</span>
+                <span class="c1"># This smears the parameter over the destination block.</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">setter</span><span class="p">(</span>
-                        <span class="n">destinationBlock</span><span class="p">,</span> <span class="n">existingVals</span> <span class="o">+</span> <span class="n">incrementalValue</span><span class="p">,</span> <span class="n">paramNames</span>
+                    <span class="n">integrationFactor</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">sourceBlockOverlapHeight</span> <span class="o">/</span> <span class="n">destinationBlockHeight</span>
                     <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">destinationBlock</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="s2">&quot;A fuel block is not being mapped in the meshing routine.  This is likely serious.&quot;</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;Block </span><span class="si">{}</span><span class="s2"> is not being mapped in the meshing routine&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                        <span class="n">destinationBlock</span>
-                    <span class="p">),</span>
-                    <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;uniformMeshWarning&quot;</span><span class="p">,</span>
-                <span class="p">)</span>
+
+                <span class="n">updatedDestVals</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sourceBlockVal</span> <span class="o">*</span> <span class="n">integrationFactor</span>
+
+            <span class="n">setter</span><span class="p">(</span><span class="n">destBlock</span><span class="p">,</span> <span class="n">updatedDestVals</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">updatedDestVals</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 </pre></div>
 
            </div>
@@ -783,7 +824,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-05-02.
+        Last updated on 2022-05-03.
       </span>
 
     </p>
