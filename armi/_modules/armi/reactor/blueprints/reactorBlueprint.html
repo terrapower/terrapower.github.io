@@ -223,6 +223,7 @@
 <span class="kn">import</span> <span class="nn">tabulate</span>
 <span class="kn">import</span> <span class="nn">yamlize</span>
 
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">getPluginManagerOrFail</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">geometry</span>
@@ -260,25 +261,29 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_resolveSystemType</span><span class="p">(</span><span class="n">typ</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="c1"># avoid circular import, though ideally reactors shouldnt depend on blueprints!</span>
-        <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">reactors</span>
-        <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblyLists</span>
+        <span class="c1"># Loop over all plugins that could be attached and determine if any</span>
+        <span class="c1"># tell us how to build a specific systems attribute. Sub-optimial</span>
+        <span class="c1"># as this check is called for each system (e.g., core, spent fuel pool).</span>
+        <span class="c1"># It is assumed that the number of systems is currently low enough to justify</span>
+        <span class="c1"># this structure.</span>
 
-        <span class="c1"># TODO: This is far from the the perfect place for this; most likely plugins</span>
-        <span class="c1"># will need to be able to extend it. Also, the concept of &quot;system&quot; will need to</span>
-        <span class="c1"># be well-defined, and most systems will probably need their own, rather</span>
-        <span class="c1"># dissimilar Blueprints. We may need to break with yamlize unfortunately.</span>
-        <span class="n">_map</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;core&quot;</span><span class="p">:</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Core</span><span class="p">,</span> <span class="s2">&quot;sfp&quot;</span><span class="p">:</span> <span class="n">assemblyLists</span><span class="o">.</span><span class="n">SpentFuelPool</span><span class="p">}</span>
+        <span class="n">manager</span> <span class="o">=</span> <span class="n">getPluginManagerOrFail</span><span class="p">()</span>
 
-        <span class="k">try</span><span class="p">:</span>
-            <span class="bp">cls</span> <span class="o">=</span> <span class="n">_map</span><span class="p">[</span><span class="n">typ</span><span class="p">]</span>
-        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Could not determine an appropriate class for handling a &quot;</span>
-                <span class="s2">&quot;system of type `</span><span class="si">{}</span><span class="s2">`. Supported types are </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">typ</span><span class="p">,</span> <span class="n">_map</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-            <span class="p">)</span>
+        <span class="c1"># Only need this to handle the case we don&#39;t find the system we expect</span>
+        <span class="n">seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">options</span> <span class="ow">in</span> <span class="n">manager</span><span class="o">.</span><span class="n">hook</span><span class="o">.</span><span class="n">defineSystemBuilders</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">builder</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="c1"># Take the first match we find. This would allow other plugins to</span>
+                <span class="c1"># define a new core builder before finding those defined by the</span>
+                <span class="c1"># ReactorPlugin</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="n">typ</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">builder</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="bp">cls</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Could not determine an appropriate class for handling a &quot;</span>
+            <span class="s2">&quot;system of type `</span><span class="si">{}</span><span class="s2">`. Supported types are </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">typ</span><span class="p">,</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">seen</span><span class="p">))</span>
+        <span class="p">)</span>
 
 <div class="viewcode-block" id="SystemBlueprint.construct"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.reactorBlueprint.html#armi.reactor.blueprints.reactorBlueprint.SystemBlueprint.construct">[docs]</a>    <span class="k">def</span> <span class="nf">construct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">,</span> <span class="n">reactor</span><span class="p">,</span> <span class="n">geom</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">loadAssems</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Build a core/IVS/EVST/whatever and fill it with children.</span>
