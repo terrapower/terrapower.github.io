@@ -237,6 +237,7 @@
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">textProcessors</span>
 <span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">DirectoryChanger</span>
 <span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">ForcedCreationDirectoryChanger</span>
+<span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">NonexistentSetting</span>
 
 <span class="c1"># change from default .coverage to help with Windows dotfile issues.</span>
 <span class="c1"># Must correspond with data_file entry in `coveragerc`!!</span>
@@ -745,8 +746,8 @@
             <span class="p">)</span>
 
         <span class="n">newSettings</span> <span class="o">=</span> <span class="n">copyInterfaceInputs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">clone</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">settingName</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">newSettings</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">clone</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="n">newCs</span> <span class="o">=</span> <span class="n">clone</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="n">newSettings</span><span class="p">)</span>
+        <span class="n">clone</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="n">newCs</span>
 
         <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;writing settings file </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">clone</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span><span class="p">))</span>
         <span class="n">clone</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">writeToYamlFile</span><span class="p">(</span><span class="n">clone</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
@@ -951,10 +952,17 @@
         <span class="c1"># guess. In future, it might be nice to have interfaces specify which</span>
         <span class="c1"># explicitly.</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">files</span> <span class="ow">in</span> <span class="n">interfaceFileNames</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">Setting</span><span class="p">):</span>
-                <span class="n">label</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">name</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">label</span> <span class="o">=</span> <span class="n">key</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">Setting</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">key</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">getSetting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">NonexistentSetting</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> is not a valid setting. Ensure the relevant specifyInputs method uses a correct setting name.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="n">key</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">name</span>
 
             <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
                 <span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
@@ -985,13 +993,9 @@
                     <span class="k">for</span> <span class="n">sourceFullPath</span> <span class="ow">in</span> <span class="n">srcFiles</span><span class="p">:</span>
                         <span class="k">if</span> <span class="ow">not</span> <span class="n">sourceFullPath</span><span class="p">:</span>
                             <span class="k">continue</span>
-                        <span class="n">_sourceDir</span><span class="p">,</span> <span class="n">sourceName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">sourceFullPath</span><span class="p">)</span>
-                        <span class="n">sourceName</span> <span class="o">=</span> <span class="n">sourceFullPath</span><span class="o">.</span><span class="n">name</span>
-                        <span class="n">destFile</span> <span class="o">=</span> <span class="p">(</span><span class="n">destPath</span> <span class="o">/</span> <span class="n">sourceName</span><span class="p">)</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">destPath</span><span class="p">)</span>
-                        <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span>
-                            <span class="n">label</span><span class="p">,</span> <span class="n">sourceFullPath</span><span class="p">,</span> <span class="n">destPath</span> <span class="o">/</span> <span class="n">sourceName</span>
-                        <span class="p">)</span>
-
+                        <span class="n">sourceName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">sourceFullPath</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                        <span class="n">destFilePath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">destPath</span> <span class="o">/</span> <span class="n">sourceName</span><span class="p">)</span>
+                        <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">sourceFullPath</span><span class="p">,</span> <span class="n">destFilePath</span><span class="p">)</span>
                     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">srcFiles</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                             <span class="sa">f</span><span class="s2">&quot;No input files for `</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">` could be resolved &quot;</span>
@@ -1003,8 +1007,8 @@
                             <span class="sa">f</span><span class="s2">&quot;than one file; cannot update settings safely. &quot;</span>
                             <span class="sa">f</span><span class="s2">&quot;Discovered input files: </span><span class="si">{</span><span class="n">srcFiles</span><span class="si">}</span><span class="s2">&quot;</span>
                         <span class="p">)</span>
-                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">srcFiles</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">Setting</span><span class="p">):</span>
-                        <span class="n">newSettings</span><span class="p">[</span><span class="n">key</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">destFile</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">srcFiles</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">destFilePath</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">newSettings</span></div>
 </pre></div>
