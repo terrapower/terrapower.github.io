@@ -403,7 +403,7 @@
     <span class="k">return</span> <span class="n">moduleAttributeName</span> <span class="ow">in</span> <span class="n">userSpecifiedModule</span><span class="o">.</span><span class="vm">__dict__</span></div>
 
 
-<div class="viewcode-block" id="cleanPath"><a class="viewcode-back" href="../../../.apidocs/armi.utils.pathTools.html#armi.utils.pathTools.cleanPath">[docs]</a><span class="k">def</span> <span class="nf">cleanPath</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<div class="viewcode-block" id="cleanPath"><a class="viewcode-back" href="../../../.apidocs/armi.utils.pathTools.html#armi.utils.pathTools.cleanPath">[docs]</a><span class="k">def</span> <span class="nf">cleanPath</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">mpiRank</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Recursively delete a path.</span>
 
 <span class="sd">    !!! careful with this !!! It can delete the entire cluster.</span>
@@ -421,7 +421,6 @@
 <span class="sd">    -------</span>
 <span class="sd">    success : bool</span>
 <span class="sd">        True if file was deleted. False if it was not.</span>
-
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">valid</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
@@ -447,23 +446,27 @@
             <span class="s2">&quot;You tried to delete </span><span class="si">{0}</span><span class="s2">, but it does not seem safe to do so.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
         <span class="p">)</span>
 
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-                <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-                <span class="c1"># it&#39;s just a file. Delete it.</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-        <span class="k">except</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="k">pass</span>
-            <span class="c1"># in case the OS is behind or something</span>
-            <span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+    <span class="c1"># delete the file/directory from only one process</span>
+    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="n">mpiRank</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="c1"># it&#39;s just a file. Delete it.</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 
-        <span class="n">sleep</span><span class="p">(</span><span class="mf">0.3</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="c1"># Potentially, wait for the deletion to finish.</span>
+    <span class="n">maxLoops</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="n">waitTime</span> <span class="o">=</span> <span class="mf">0.5</span>
+    <span class="n">loopCounter</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="n">loopCounter</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">loopCounter</span> <span class="o">&gt;</span> <span class="n">maxLoops</span><span class="p">:</span>
             <span class="k">break</span>
-        <span class="n">sleep</span><span class="p">(</span><span class="mf">0.3</span><span class="p">)</span>
+        <span class="n">sleep</span><span class="p">(</span><span class="n">waitTime</span><span class="p">)</span>
+
+    <span class="c1"># Potentially, wait for all the processes to catch up.</span>
+    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
 
     <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">False</span>
@@ -482,7 +485,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-05-07.
+        Last updated on 2022-05-10.
       </span>
 
     </p>
