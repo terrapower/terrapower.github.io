@@ -224,8 +224,16 @@
 <span class="kn">from</span> <span class="nn">armi.operators</span> <span class="kn">import</span> <span class="n">settingsValidation</span>
 <span class="kn">from</span> <span class="nn">armi.operators.runTypes</span> <span class="kn">import</span> <span class="n">RunTypes</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">codeTiming</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">pathTools</span>
-<span class="kn">from</span> <span class="nn">armi.utils.mathematics</span> <span class="kn">import</span> <span class="n">expandRepeatedFloats</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">pathTools</span><span class="p">,</span>
+    <span class="n">getPowerFractions</span><span class="p">,</span>
+    <span class="n">getAvailabilityFactors</span><span class="p">,</span>
+    <span class="n">getStepLengths</span><span class="p">,</span>
+    <span class="n">getCycleLengths</span><span class="p">,</span>
+    <span class="n">getBurnSteps</span><span class="p">,</span>
+    <span class="n">getMaxBurnSteps</span><span class="p">,</span>
+    <span class="n">getCycleNames</span><span class="p">,</span>
+<span class="p">)</span>
 
 
 <div class="viewcode-block" id="Operator"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator">[docs]</a><span class="k">class</span> <span class="nc">Operator</span><span class="p">:</span>  <span class="c1"># pylint: disable=too-many-public-methods</span>
@@ -249,16 +257,30 @@
 <span class="sd">    cs : CaseSettings object</span>
 <span class="sd">            Global settings that define the run.</span>
 
-<span class="sd">    cycleLengths : list</span>
+<span class="sd">    cycleNames : list of str</span>
+<span class="sd">        The name of each cycle. Cycles without a name are `None`.</span>
+
+<span class="sd">    stepLengths : list of list of float</span>
+<span class="sd">        A two-tiered list, where primary indices correspond to cycle and</span>
+<span class="sd">        secondary indices correspond to the length of each intra-cycle step (in days).</span>
+
+<span class="sd">    cycleLengths : list of float</span>
 <span class="sd">        The duration of each individual cycle in a run (in days). This is the entire cycle,</span>
 <span class="sd">        from startup to startup and includes outage time.</span>
 
-<span class="sd">    availabilityFactors : list</span>
+<span class="sd">    burnSteps : list of int</span>
+<span class="sd">        The number of sub-cycles in each cycle.</span>
+
+<span class="sd">    availabilityFactors : list of float</span>
 <span class="sd">        The fraction of time in a cycle that the plant is producing power. Note that capacity factor</span>
 <span class="sd">        is always less than or equal to this, depending on the power fraction achieved during each cycle.</span>
+<span class="sd">        Note that this is not a two-tiered list like stepLengths or powerFractions,</span>
+<span class="sd">        because each cycle can have only one availabilityFactor.</span>
 
-<span class="sd">    powerFractions : list</span>
-<span class="sd">        The fraction of full rated capacity that the plant achieves while it is online in each cycle.</span>
+<span class="sd">    powerFractions : list of list of float</span>
+<span class="sd">        A two-tiered list, where primary indices correspond to cycles and secondary</span>
+<span class="sd">        indices correspond to the fraction of full rated capacity that the plant achieves</span>
+<span class="sd">        during that step of the cycle.</span>
 <span class="sd">        Zero power fraction can indicate decay-only cycles.</span>
 
 <span class="sd">    interfaces : list</span>
@@ -288,15 +310,80 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restartData</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loadedRestartData</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cycleLengths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getCycleLengths</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">availabilityFactors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAvailabilityFactors</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">powerFractions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getPowerFractions</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_checkReactorCycleAttrs</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cycleNames</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stepLengths</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cycleLengths</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_burnSteps</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_maxBurnSteps</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_powerFractions</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_availabilityFactors</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Create the welcome headers for the case (case, input, machine, and some basic reactor information)</span>
         <span class="n">reportingUtils</span><span class="o">.</span><span class="n">writeWelcomeHeaders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_initFastPath</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">burnSteps</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_burnSteps</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_burnSteps</span> <span class="o">=</span> <span class="n">getBurnSteps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_burnSteps</span> <span class="o">==</span> <span class="p">[]</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nCycles&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># it is possible for there to be one cycle with zero burn up,</span>
+                <span class="c1"># in which case burnSteps is an empty list</span>
+                <span class="k">pass</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_checkReactorCycleAttrs</span><span class="p">({</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_burnSteps</span><span class="p">})</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_burnSteps</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">maxBurnSteps</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxBurnSteps</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_maxBurnSteps</span> <span class="o">=</span> <span class="n">getMaxBurnSteps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxBurnSteps</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">stepLengths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stepLengths</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_stepLengths</span> <span class="o">=</span> <span class="n">getStepLengths</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stepLengths</span> <span class="o">==</span> <span class="p">[]</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nCycles&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># it is possible for there to be one cycle with zero burn up,</span>
+                <span class="c1"># in which case stepLengths is an empty list</span>
+                <span class="k">pass</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_checkReactorCycleAttrs</span><span class="p">({</span><span class="s2">&quot;Step lengths&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stepLengths</span><span class="p">})</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_consistentPowerFractionsAndStepLengths</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stepLengths</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cycleLengths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycleLengths</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cycleLengths</span> <span class="o">=</span> <span class="n">getCycleLengths</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkReactorCycleAttrs</span><span class="p">({</span><span class="s2">&quot;cycleLengths&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycleLengths</span><span class="p">})</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycleLengths</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">powerFractions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_powerFractions</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_powerFractions</span> <span class="o">=</span> <span class="n">getPowerFractions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkReactorCycleAttrs</span><span class="p">({</span><span class="s2">&quot;powerFractions&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_powerFractions</span><span class="p">})</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_consistentPowerFractionsAndStepLengths</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_powerFractions</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">availabilityFactors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_availabilityFactors</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_availabilityFactors</span> <span class="o">=</span> <span class="n">getAvailabilityFactors</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkReactorCycleAttrs</span><span class="p">(</span>
+                <span class="p">{</span><span class="s2">&quot;availabilityFactors&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_availabilityFactors</span><span class="p">}</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_availabilityFactors</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cycleNames</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycleNames</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cycleNames</span> <span class="o">=</span> <span class="n">getCycleNames</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkReactorCycleAttrs</span><span class="p">({</span><span class="s2">&quot;Cycle names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycleNames</span><span class="p">})</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycleNames</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_initFastPath</span><span class="p">():</span>
@@ -327,31 +414,9 @@
                 <span class="c1"># if it actually doesn&#39;t exist, that&#39;s an actual error. Raise</span>
                 <span class="k">raise</span>
 
-    <span class="k">def</span> <span class="nf">_getCycleLengths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return the cycle length for each cycle of the system as a list.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">expandRepeatedFloats</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;cycleLengths&quot;</span><span class="p">])</span> <span class="ow">or</span> <span class="p">(</span>
-            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;cycleLength&quot;</span><span class="p">]]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nCycles&quot;</span><span class="p">]</span>
-        <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_getAvailabilityFactors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return the availability factors (capacity factor) for each cycle of the system as a list.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">expandRepeatedFloats</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;availabilityFactors&quot;</span><span class="p">])</span> <span class="ow">or</span> <span class="p">(</span>
-            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;availabilityFactor&quot;</span><span class="p">]]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nCycles&quot;</span><span class="p">]</span>
-        <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_getPowerFractions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return the power fractions for each cycle of the system as a list.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">expandRepeatedFloats</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;powerFractions&quot;</span><span class="p">])</span> <span class="ow">or</span> <span class="p">(</span>
-            <span class="p">[</span><span class="mf">1.0</span> <span class="k">for</span> <span class="n">_cl</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycleLengths</span><span class="p">]</span>
-        <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_checkReactorCycleAttrs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">operatingParams</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;Cycle Lengths:&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycleLengths</span><span class="p">,</span>
-            <span class="s2">&quot;Availability Factors:&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">availabilityFactors</span><span class="p">,</span>
-            <span class="s2">&quot;Power Fractions:&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">powerFractions</span><span class="p">,</span>
-        <span class="p">}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">operatingParams</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">def</span> <span class="nf">_checkReactorCycleAttrs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attrsDict</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check that the list has nCycles number of elements.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">attrsDict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nCycles&quot;</span><span class="p">]:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;The `</span><span class="si">{}</span><span class="s2">` setting did not have a length consistent with the number of cycles.</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -360,6 +425,21 @@
                         <span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nCycles&quot;</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">param</span><span class="p">),</span> <span class="n">param</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_consistentPowerFractionsAndStepLengths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check that the internally-resolved _powerFractions and _stepLengths have</span>
+<span class="sd">        consistent shapes, if they both exist.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_powerFractions</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stepLengths</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">cycleIdx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_powerFractions</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_powerFractions</span><span class="p">[</span><span class="n">cycleIdx</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_stepLengths</span><span class="p">[</span><span class="n">cycleIdx</span><span class="p">]</span>
+                <span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;The number of entries in lists for subcycle power &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;fractions and sub-steps are inconsistent in cycle </span><span class="si">{</span><span class="n">cycleIdx</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">atEOL</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -439,10 +519,6 @@
         <span class="sd">&quot;&quot;&quot;Run the portion of the main loop that happens each cycle.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycleLength</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycleLengths</span><span class="p">[</span><span class="n">cycle</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">availabilityFactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">availabilityFactors</span><span class="p">[</span><span class="n">cycle</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">powerFractions</span><span class="p">[</span><span class="n">cycle</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;power&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">capacityFactor</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">availabilityFactor</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">powerFractions</span><span class="p">[</span><span class="n">cycle</span><span class="p">]</span>
-        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span> <span class="o">=</span> <span class="n">cycle</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">coupledIteration</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">if</span> <span class="n">cycle</span> <span class="o">==</span> <span class="n">startingCycle</span><span class="p">:</span>
@@ -454,7 +530,18 @@
         <span class="k">if</span> <span class="n">halt</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
 
-        <span class="k">for</span> <span class="n">timeNode</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">startingNode</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">timeNode</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">startingNode</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">burnSteps</span><span class="p">[</span><span class="n">cycle</span><span class="p">])):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">powerFractions</span><span class="p">[</span><span class="n">cycle</span><span class="p">][</span><span class="n">timeNode</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;power&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">capacityFactor</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">availabilityFactor</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">powerFractions</span><span class="p">[</span><span class="n">cycle</span><span class="p">][</span><span class="n">timeNode</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">stepLength</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stepLengths</span><span class="p">[</span><span class="n">cycle</span><span class="p">][</span><span class="n">timeNode</span><span class="p">]</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_timeNodeLoop</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># do one last node at the end using the same power as the previous node</span>
+            <span class="n">timeNode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">burnSteps</span><span class="p">[</span><span class="n">cycle</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_timeNodeLoop</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">interactAllEOC</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span><span class="p">)</span>
@@ -1180,7 +1267,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-05-10.
+        Last updated on 2022-05-12.
       </span>
 
     </p>

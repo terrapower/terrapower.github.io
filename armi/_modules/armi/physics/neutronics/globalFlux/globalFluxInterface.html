@@ -207,8 +207,7 @@
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">codeTiming</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span><span class="p">,</span> <span class="n">codeTiming</span><span class="p">,</span> <span class="n">getMaxBurnSteps</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">geometry</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">reactors</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="kn">import</span> <span class="n">uniformMesh</span>
@@ -242,7 +241,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">cycleFmt</span> <span class="o">=</span> <span class="s2">&quot;03d&quot;</span>  <span class="c1"># produce ig001.inp</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">getMaxBurnSteps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">nodeFmt</span> <span class="o">=</span> <span class="s2">&quot;03d&quot;</span>  <span class="c1"># produce ig001_001.inp</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">nodeFmt</span> <span class="o">=</span> <span class="s2">&quot;1d&quot;</span>  <span class="c1"># produce ig001_1.inp.</span>
@@ -486,7 +485,6 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">dpaPerFluence</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">aclpDoseLimit</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">burnSteps</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loadPadElevation</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loadPadLength</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -518,7 +516,6 @@
         <span class="c1"># dose/dpa specific (should be separate subclass?)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dpaPerFluence</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dpaPerFluence&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">aclpDoseLimit</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;aclpDoseLimit&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">burnSteps</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loadPadElevation</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadPadElevation&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loadPadLength</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadPadLength&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">boundaries</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;boundaries&quot;</span><span class="p">]</span>
@@ -946,8 +943,14 @@
 
 <span class="sd">        These parameters are left as zeroes at BOC because no dose has been accumulated yet.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">cycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span>
+        <span class="n">timeNode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span>
+
+        <span class="k">if</span> <span class="n">timeNode</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span>
+
+        <span class="n">daysIntoCycle</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">stepLengths</span><span class="p">[</span><span class="n">cycle</span><span class="p">][:</span><span class="n">timeNode</span><span class="p">])</span>
+        <span class="n">cycleLength</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycleLength</span>
 
         <span class="n">maxDetailedDpaThisCycle</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">peakDoseAssem</span> <span class="o">=</span> <span class="kc">None</span>
@@ -976,9 +979,7 @@
             <span class="p">)</span>
 
         <span class="n">aclpDoseLimit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">aclpDoseLimit</span>
-        <span class="n">aclpDoseLimit3</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">aclpDoseLimit</span> <span class="o">/</span> <span class="mf">3.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">burnSteps</span>
-        <span class="p">)</span>
+        <span class="n">aclpDoseLimit3</span> <span class="o">=</span> <span class="n">aclpDoseLimit</span> <span class="o">/</span> <span class="mf">3.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">daysIntoCycle</span> <span class="o">/</span> <span class="n">cycleLength</span><span class="p">)</span>
         <span class="n">aclpLocations3</span> <span class="o">=</span> <span class="n">peakDoseAssem</span><span class="o">.</span><span class="n">getElevationsMatchingParamValue</span><span class="p">(</span>
             <span class="s2">&quot;detailedDpaThisCycle&quot;</span><span class="p">,</span> <span class="n">aclpDoseLimit3</span>
         <span class="p">)</span>
@@ -992,9 +993,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">elevationOfACLP3Cycles</span> <span class="o">=</span> <span class="n">aclpLocations3</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
-        <span class="n">aclpDoseLimit7</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">aclpDoseLimit</span> <span class="o">/</span> <span class="mf">7.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">burnSteps</span>
-        <span class="p">)</span>
+        <span class="n">aclpDoseLimit7</span> <span class="o">=</span> <span class="n">aclpDoseLimit</span> <span class="o">/</span> <span class="mf">7.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">daysIntoCycle</span> <span class="o">/</span> <span class="n">cycleLength</span><span class="p">)</span>
         <span class="n">aclpLocations7</span> <span class="o">=</span> <span class="n">peakDoseAssem</span><span class="o">.</span><span class="n">getElevationsMatchingParamValue</span><span class="p">(</span>
             <span class="s2">&quot;detailedDpaThisCycle&quot;</span><span class="p">,</span> <span class="n">aclpDoseLimit7</span>
         <span class="p">)</span>
@@ -1290,7 +1289,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-05-10.
+        Last updated on 2022-05-12.
       </span>
 
     </p>

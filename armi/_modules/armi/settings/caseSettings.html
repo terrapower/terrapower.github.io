@@ -223,6 +223,15 @@
 
 <span class="n">DEP_WARNING</span> <span class="o">=</span> <span class="s2">&quot;Deprecation Warning: Settings will not be mutable mid-run: </span><span class="si">{}</span><span class="s2">&quot;</span>
 
+<span class="n">SIMPLE_CYCLES_INPUTS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;availabilityFactor&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;availabilityFactors&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;powerFractions&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;burnSteps&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cycleLength&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cycleLengths&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
 
 <div class="viewcode-block" id="Settings"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings">[docs]</a><span class="k">class</span> <span class="nc">Settings</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
@@ -319,11 +328,43 @@
             <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">caseTitle</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">altered</span>
         <span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">_directAccessOfSettingAllowed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A way to check if specific settings can be grabbed out of the case settings.</span>
+
+<span class="sd">        Could be updated with other specific instances as necessary.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Checking the validity of grabbing specific settings at this point,</span>
+<span class="sd">        as is done for the SIMPLE_CYCLES_INPUT&#39;s, feels</span>
+<span class="sd">        a bit intrusive and out of place. In particular, the fact that the check</span>
+<span class="sd">        is done every time that a setting is reached for, no matter if it is the</span>
+<span class="sd">        setting in question, is quite clunky. In the future, it would be desirable</span>
+<span class="sd">        if the settings system were more flexible to control this type of thing</span>
+<span class="sd">        at a deeper level.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__settings</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">NonexistentSetting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">SIMPLE_CYCLES_INPUTS</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">__settings</span><span class="p">[</span><span class="s2">&quot;cycles&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span> <span class="o">!=</span> <span class="p">[]:</span>
+            <span class="n">err</span> <span class="o">=</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot grab simple cycles information from the case settings&quot;</span>
+                <span class="s2">&quot; when detailed cycles information is also entered.</span><span class="se">\n</span><span class="s2"> In general&quot;</span>
+                <span class="s2">&quot; cycles information should be pulled off the operator or parsed&quot;</span>
+                <span class="s2">&quot; using the appropriate getter in the utils.&quot;</span>
+            <span class="p">)</span>
+
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="n">err</span>
+
+        <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">None</span>
+
     <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__settings</span><span class="p">:</span>
+        <span class="n">settingIsOkayToGrab</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_directAccessOfSettingAllowed</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">settingIsOkayToGrab</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__settings</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">NonexistentSetting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">err</span>
 
 <div class="viewcode-block" id="Settings.getSetting"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.getSetting">[docs]</a>    <span class="k">def</span> <span class="nf">getSetting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -571,7 +612,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-05-10.
+        Last updated on 2022-05-12.
       </span>
 
     </p>

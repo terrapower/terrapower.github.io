@@ -214,6 +214,7 @@
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
 <span class="kn">from</span> <span class="nn">armi.settings</span> <span class="kn">import</span> <span class="n">setting</span>
+<span class="kn">from</span> <span class="nn">armi.utils.mathematics</span> <span class="kn">import</span> <span class="n">isMonotonic</span>
 
 
 <span class="c1"># Framework settings</span>
@@ -292,6 +293,7 @@
 <span class="n">CONF_MATERIAL_NAMESPACE_ORDER</span> <span class="o">=</span> <span class="s2">&quot;materialNamespaceOrder&quot;</span>
 <span class="n">CONF_DETAILED_AXIAL_EXPANSION</span> <span class="o">=</span> <span class="s2">&quot;detailedAxialExpansion&quot;</span>
 <span class="n">CONF_BLOCK_AUTO_GRID</span> <span class="o">=</span> <span class="s2">&quot;autoGenerateBlockGrids&quot;</span>
+<span class="n">CONF_CYCLES</span> <span class="o">=</span> <span class="s2">&quot;cycles&quot;</span>
 
 <span class="c1"># Unused by ARMI, slated for removal</span>
 <span class="n">CONF_CONDITIONAL_MODULE_NAME</span> <span class="o">=</span> <span class="s2">&quot;conditionalModuleName&quot;</span>  <span class="c1"># mcfr</span>
@@ -397,33 +399,35 @@
             <span class="n">CONF_CYCLE_LENGTH</span><span class="p">,</span>
             <span class="n">default</span><span class="o">=</span><span class="mf">365.242199</span><span class="p">,</span>
             <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Cycle Length&quot;</span><span class="p">,</span>
-            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Duration of one single cycle in days. If availability factor is below &quot;</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Duration of one single cycle in days. If `availabilityFactor` is below &quot;</span>
             <span class="s2">&quot;1, the reactor will be at power less than this. If variable, use &quot;</span>
-            <span class="s2">&quot;cycleLengths setting.&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;`cycleLengths` setting.&quot;</span><span class="p">,</span>
             <span class="n">oldNames</span><span class="o">=</span><span class="p">[</span>
                 <span class="p">(</span><span class="s2">&quot;burnTime&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
             <span class="p">],</span>
+            <span class="n">schema</span><span class="o">=</span><span class="p">(</span><span class="n">vol</span><span class="o">.</span><span class="n">Any</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
         <span class="p">),</span>
         <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
             <span class="n">CONF_CYCLE_LENGTHS</span><span class="p">,</span>
             <span class="n">default</span><span class="o">=</span><span class="p">[],</span>
             <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Cycle durations&quot;</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="s2">&quot;List of durations of each cycle in days. The at-power &quot;</span>
-            <span class="s2">&quot;duration will be affected by the availability factor. R is repeat. For &quot;</span>
+            <span class="s2">&quot;duration will be affected by `availabilityFactor`. R is repeat. For &quot;</span>
             <span class="s2">&quot;example [100, 150, &#39;9R&#39;] is 1 100 day cycle followed by 10 150 day &quot;</span>
-            <span class="s2">&quot;cycles. Empty list is constant duration set by &#39;cycleLength&#39;.&quot;</span><span class="p">,</span>
-            <span class="n">schema</span><span class="o">=</span><span class="n">vol</span><span class="o">.</span><span class="n">Schema</span><span class="p">([</span><span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">str</span><span class="p">)]),</span>
+            <span class="s2">&quot;cycles. Empty list is constant duration set by `cycleLength`.&quot;</span><span class="p">,</span>
+            <span class="n">schema</span><span class="o">=</span><span class="n">vol</span><span class="o">.</span><span class="n">Any</span><span class="p">([</span><span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">str</span><span class="p">)],</span> <span class="kc">None</span><span class="p">),</span>
         <span class="p">),</span>
         <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
             <span class="n">CONF_AVAILABILITY_FACTOR</span><span class="p">,</span>
             <span class="n">default</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
             <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Plant Availability Factor&quot;</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Availability factor of the plant. This is the fraction of the &quot;</span>
-            <span class="s2">&quot;time that the plant is operating. If variable, use availabilityFactors &quot;</span>
+            <span class="s2">&quot;time that the plant is operating. If variable, use `availabilityFactors` &quot;</span>
             <span class="s2">&quot;setting.&quot;</span><span class="p">,</span>
             <span class="n">oldNames</span><span class="o">=</span><span class="p">[</span>
                 <span class="p">(</span><span class="s2">&quot;capacityFactor&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
             <span class="p">],</span>
+            <span class="n">schema</span><span class="o">=</span><span class="p">(</span><span class="n">vol</span><span class="o">.</span><span class="n">Any</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
         <span class="p">),</span>
         <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
             <span class="n">CONF_AVAILABILITY_FACTORS</span><span class="p">,</span>
@@ -431,9 +435,9 @@
             <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Availability factors&quot;</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="s2">&quot;List of availability factor of each cycle as a fraction &quot;</span>
             <span class="s2">&quot;(fraction of time plant is not in an outage). R is repeat. For example &quot;</span>
-            <span class="s2">&quot;[0.5, 1.0, &#39;9R&#39;] is 1 50% CF followed by 10 100 CF. Empty list is &quot;</span>
-            <span class="s2">&quot;constant duration set by &#39;availabilityFactor&#39;.&quot;</span><span class="p">,</span>
-            <span class="n">schema</span><span class="o">=</span><span class="n">vol</span><span class="o">.</span><span class="n">Schema</span><span class="p">([</span><span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">str</span><span class="p">)]),</span>
+            <span class="s2">&quot;[0.5, 1.0, &#39;9R&#39;] is 1 50</span><span class="si">% f</span><span class="s2">ollowed by 10 100%. Empty list is &quot;</span>
+            <span class="s2">&quot;constant duration set by `availabilityFactor`.&quot;</span><span class="p">,</span>
+            <span class="n">schema</span><span class="o">=</span><span class="n">vol</span><span class="o">.</span><span class="n">Any</span><span class="p">([</span><span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">str</span><span class="p">)],</span> <span class="kc">None</span><span class="p">),</span>
         <span class="p">),</span>
         <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
             <span class="n">CONF_POWER_FRACTIONS</span><span class="p">,</span>
@@ -441,10 +445,10 @@
             <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Power fractions&quot;</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="s2">&quot;List of power fractions at each cycle (fraction of rated &quot;</span>
             <span class="s2">&quot;thermal power the plant achieves). R is repeat. For example [0.5, 1.0, &quot;</span>
-            <span class="s2">&quot;&#39;9R&#39;] is 1 50% PF followed by 10 100% PF. Specify zeros to indicate &quot;</span>
-            <span class="s2">&quot;decay-only cycles (i.e. for decay heat analysis). Empty list implies &quot;</span>
+            <span class="s2">&quot;&#39;9R&#39;] is 1 50</span><span class="si">% f</span><span class="s2">ollowed by 10 100%. Specify zeros to indicate &quot;</span>
+            <span class="s2">&quot;decay-only cycles (i.e. for decay heat analysis). None implies &quot;</span>
             <span class="s2">&quot;always full rated power.&quot;</span><span class="p">,</span>
-            <span class="n">schema</span><span class="o">=</span><span class="n">vol</span><span class="o">.</span><span class="n">Schema</span><span class="p">([</span><span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">str</span><span class="p">)]),</span>
+            <span class="n">schema</span><span class="o">=</span><span class="n">vol</span><span class="o">.</span><span class="n">Any</span><span class="p">([</span><span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">str</span><span class="p">)],</span> <span class="kc">None</span><span class="p">),</span>
         <span class="p">),</span>
         <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
             <span class="n">CONF_BURN_STEPS</span><span class="p">,</span>
@@ -452,7 +456,8 @@
             <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Burnup Steps per Cycle&quot;</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Number of depletion substeps, n, in one cycle. Note: There &quot;</span>
             <span class="s2">&quot;will be n+1 time nodes and the burnup step time will be computed as cycle &quot;</span>
-            <span class="s2">&quot;length/n.&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;length/n when the simple cycles input format is used.&quot;</span><span class="p">,</span>
+            <span class="n">schema</span><span class="o">=</span><span class="p">(</span><span class="n">vol</span><span class="o">.</span><span class="n">Any</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
         <span class="p">),</span>
         <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
             <span class="n">CONF_BETA</span><span class="p">,</span>
@@ -734,7 +739,7 @@
             <span class="n">default</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
             <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Reactor Thermal Power (W)&quot;</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Nameplate thermal power of the reactor. Can be varied by &quot;</span>
-            <span class="s2">&quot;setting the powerFraction setting.&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;setting the powerFractions setting.&quot;</span><span class="p">,</span>
         <span class="p">),</span>
         <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
             <span class="n">CONF_REMOVE_PER_CYCLE</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Move per cycle&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;None&quot;</span>
@@ -923,8 +928,73 @@
             <span class="s2">&quot;grid upon construction? This feature makes heavy use of multi-index &quot;</span>
             <span class="s2">&quot;locations, which are not yet universally supported.&quot;</span><span class="p">,</span>
         <span class="p">),</span>
+        <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
+            <span class="n">CONF_CYCLES</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="p">[],</span>
+            <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Cycle information&quot;</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;YAML list defining the cycle history of the case. Options&quot;</span>
+            <span class="s2">&quot; at each cycle include: `name`, `cumulative days`, `step days`, `availability&quot;</span>
+            <span class="s2">&quot; factor`, `cycle length`, `burn steps`, and `power fractions`.&quot;</span>
+            <span class="s2">&quot; If specified, do not use any of the case settings `cycleLength(s)`,&quot;</span>
+            <span class="s2">&quot; `availabilityFactor(s)`, `powerFractions`, or `burnSteps`. Must also&quot;</span>
+            <span class="s2">&quot; specify `nCycles` and `power`.&quot;</span><span class="p">,</span>
+            <span class="n">schema</span><span class="o">=</span><span class="n">vol</span><span class="o">.</span><span class="n">Schema</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">vol</span><span class="o">.</span><span class="n">All</span><span class="p">(</span>
+                        <span class="p">{</span>
+                            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="s2">&quot;cumulative days&quot;</span><span class="p">:</span> <span class="n">vol</span><span class="o">.</span><span class="n">All</span><span class="p">(</span>
+                                <span class="p">[</span><span class="n">vol</span><span class="o">.</span><span class="n">Any</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">)],</span> <span class="n">_isMonotonicIncreasing</span>
+                            <span class="p">),</span>
+                            <span class="s2">&quot;step days&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">str</span><span class="p">)],</span>
+                            <span class="s2">&quot;power fractions&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">str</span><span class="p">)],</span>
+                            <span class="s2">&quot;availability factor&quot;</span><span class="p">:</span> <span class="n">vol</span><span class="o">.</span><span class="n">All</span><span class="p">(</span>
+                                <span class="n">vol</span><span class="o">.</span><span class="n">Any</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="n">vol</span><span class="o">.</span><span class="n">Range</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                            <span class="p">),</span>
+                            <span class="s2">&quot;cycle length&quot;</span><span class="p">:</span> <span class="n">vol</span><span class="o">.</span><span class="n">All</span><span class="p">(</span>
+                                <span class="n">vol</span><span class="o">.</span><span class="n">Any</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">),</span> <span class="n">vol</span><span class="o">.</span><span class="n">Range</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                            <span class="p">),</span>
+                            <span class="s2">&quot;burn steps&quot;</span><span class="p">:</span> <span class="n">vol</span><span class="o">.</span><span class="n">All</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">vol</span><span class="o">.</span><span class="n">Range</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+                        <span class="p">},</span>
+                        <span class="n">_mutuallyExclusiveCyclesInputs</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">]</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
     <span class="p">]</span>
     <span class="k">return</span> <span class="n">settings</span></div>
+
+
+<span class="k">def</span> <span class="nf">_isMonotonicIncreasing</span><span class="p">(</span><span class="n">inputList</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">isMonotonic</span><span class="p">(</span><span class="n">inputList</span><span class="p">,</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">inputList</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">vol</span><span class="o">.</span><span class="n">error</span><span class="o">.</span><span class="n">Invalid</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;List must be monotonicically increasing: </span><span class="si">{</span><span class="n">inputList</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_mutuallyExclusiveCyclesInputs</span><span class="p">(</span><span class="n">cycle</span><span class="p">):</span>
+    <span class="n">cycleKeys</span> <span class="o">=</span> <span class="n">cycle</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">sum</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="s2">&quot;cumulative days&quot;</span> <span class="ow">in</span> <span class="n">cycleKeys</span><span class="p">,</span>
+                <span class="s2">&quot;step days&quot;</span> <span class="ow">in</span> <span class="n">cycleKeys</span><span class="p">,</span>
+                <span class="s2">&quot;cycle length&quot;</span> <span class="ow">in</span> <span class="n">cycleKeys</span> <span class="ow">or</span> <span class="s2">&quot;burn steps&quot;</span> <span class="ow">in</span> <span class="n">cycleKeys</span><span class="p">,</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="o">!=</span> <span class="mi">1</span>
+    <span class="p">):</span>
+        <span class="n">baseErrMsg</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;Must have exactly one of either &#39;cumulative days&#39;, &#39;step days&#39;, or&quot;</span>
+            <span class="s2">&quot; &#39;cycle length&#39; + &#39;burn steps&#39; in each cycle definition.&quot;</span>
+        <span class="p">)</span>
+
+        <span class="k">raise</span> <span class="n">vol</span><span class="o">.</span><span class="n">Invalid</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">baseErrMsg</span> <span class="o">+</span> <span class="s2">&quot; Check cycle </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cycle</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]))</span>
+            <span class="k">if</span> <span class="s2">&quot;name&quot;</span> <span class="ow">in</span> <span class="n">cycleKeys</span>
+            <span class="k">else</span> <span class="n">baseErrMsg</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">cycle</span>
 </pre></div>
 
            </div>
@@ -938,7 +1008,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-05-10.
+        Last updated on 2022-05-12.
       </span>
 
     </p>

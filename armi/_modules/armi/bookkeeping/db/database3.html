@@ -289,6 +289,7 @@
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.db.typedefs</span> <span class="kn">import</span> <span class="n">History</span><span class="p">,</span> <span class="n">Histories</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.db</span> <span class="kn">import</span> <span class="n">database</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">systemLayoutInput</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">getPreviousTimeNode</span><span class="p">,</span> <span class="n">getStepLengths</span>
 <span class="kn">from</span> <span class="nn">armi.utils.textProcessors</span> <span class="kn">import</span> <span class="n">resolveMarkupInclusions</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.databaseSettings</span> <span class="kn">import</span> <span class="p">(</span>
@@ -433,7 +434,7 @@
 <span class="sd">        DBs should receive the state information of the run at each node.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># skip writing for last burn step since it will be written at interact EOC</span>
-        <span class="k">if</span> <span class="n">node</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">node</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">burnSteps</span><span class="p">[</span><span class="n">cycle</span><span class="p">]:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">minutesSinceStart</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">timeOfStart</span>
             <span class="p">)</span> <span class="o">/</span> <span class="mf">60.0</span>
@@ -490,29 +491,73 @@
 <div class="viewcode-block" id="DatabaseInterface.distributable"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.DatabaseInterface.distributable">[docs]</a>    <span class="k">def</span> <span class="nf">distributable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">Distribute</span><span class="o">.</span><span class="n">SKIP</span></div>
 
-<div class="viewcode-block" id="DatabaseInterface.prepRestartRun"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.DatabaseInterface.prepRestartRun">[docs]</a>    <span class="k">def</span> <span class="nf">prepRestartRun</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dbCycle</span><span class="p">,</span> <span class="n">dbNode</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Load the data history from the database being restarted from.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="DatabaseInterface.prepRestartRun"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.DatabaseInterface.prepRestartRun">[docs]</a>    <span class="k">def</span> <span class="nf">prepRestartRun</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load the data history from the database requested in the case setting</span>
+<span class="sd">        `reloadDBName`.</span>
+
+<span class="sd">        Reactor state is put at the cycle/node requested in the case settings</span>
+<span class="sd">        `startCycle` and `startNode`, having loaded the state from all cycles prior</span>
+<span class="sd">        to that in the requested database.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Mixing the use of simple vs detailed cycles settings is allowed, provided</span>
+<span class="sd">        that the cycle histories prior to `startCycle`/`startNode` are equivalent.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">reloadDBName</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;reloadDBName&quot;</span><span class="p">]</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Merging database history from </span><span class="si">{</span><span class="n">reloadDBName</span><span class="si">}</span><span class="s2"> for restart analysis.&quot;</span>
         <span class="p">)</span>
+        <span class="n">startCycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startCycle&quot;</span><span class="p">]</span>
+        <span class="n">startNode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startNode&quot;</span><span class="p">]</span>
+
         <span class="k">with</span> <span class="n">Database3</span><span class="p">(</span><span class="n">reloadDBName</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">inputDB</span><span class="p">:</span>
             <span class="n">loadDbCs</span> <span class="o">=</span> <span class="n">inputDB</span><span class="o">.</span><span class="n">loadCS</span><span class="p">()</span>
 
-            <span class="c1"># Not beginning or end of cycle so burnSteps matter to get consistent time.</span>
-            <span class="n">isMOC</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startNode&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">loadDbCs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">])</span>
-            <span class="k">if</span> <span class="n">loadDbCs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">isMOC</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Time nodes per cycle are inconsistent between loadDB and &quot;</span>
-                    <span class="s2">&quot;current case settings. This will create a mismatch in the &quot;</span>
-                    <span class="s2">&quot;total time per cycle for the load cycle. Change current case &quot;</span>
-                    <span class="s2">&quot;settings to </span><span class="si">{0}</span><span class="s2"> steps per node, or set `startNode` == 0 or </span><span class="si">{0}</span><span class="s2"> &quot;</span>
-                    <span class="s2">&quot;so that it loads the BOC or EOC of the load database.&quot;</span>
-                    <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">loadDbCs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">])</span>
-                <span class="p">)</span>
+            <span class="c1"># pull the history up to the cycle/node prior to `startCycle`/`startNode`</span>
+            <span class="n">dbCycle</span><span class="p">,</span> <span class="n">dbNode</span> <span class="o">=</span> <span class="n">getPreviousTimeNode</span><span class="p">(</span>
+                <span class="n">startCycle</span><span class="p">,</span>
+                <span class="n">startNode</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span>
+            <span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">mergeHistory</span><span class="p">(</span><span class="n">inputDB</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startCycle&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startNode&quot;</span><span class="p">])</span>
+            <span class="c1"># check that cycle histories are equivalent up to this point</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkThatCyclesHistoriesAreEquivalentUpToRestartTime</span><span class="p">(</span>
+                <span class="n">loadDbCs</span><span class="p">,</span> <span class="n">dbCycle</span><span class="p">,</span> <span class="n">dbNode</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_db</span><span class="o">.</span><span class="n">mergeHistory</span><span class="p">(</span><span class="n">inputDB</span><span class="p">,</span> <span class="n">startCycle</span><span class="p">,</span> <span class="n">startNode</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loadState</span><span class="p">(</span><span class="n">dbCycle</span><span class="p">,</span> <span class="n">dbNode</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_checkThatCyclesHistoriesAreEquivalentUpToRestartTime</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">loadDbCs</span><span class="p">,</span> <span class="n">dbCycle</span><span class="p">,</span> <span class="n">dbNode</span>
+    <span class="p">):</span>
+        <span class="n">dbStepLengths</span> <span class="o">=</span> <span class="n">getStepLengths</span><span class="p">(</span><span class="n">loadDbCs</span><span class="p">)</span>
+        <span class="n">currentCaseStepLengths</span> <span class="o">=</span> <span class="n">getStepLengths</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+        <span class="n">dbStepHistory</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">currentCaseStepHistory</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">cycleIdx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dbCycle</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">cycleIdx</span> <span class="o">==</span> <span class="n">dbCycle</span><span class="p">:</span>
+                    <span class="c1"># truncate it at dbNode</span>
+                    <span class="n">dbStepHistory</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dbStepLengths</span><span class="p">[</span><span class="n">cycleIdx</span><span class="p">][:</span><span class="n">dbNode</span><span class="p">])</span>
+                    <span class="n">currentCaseStepHistory</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">currentCaseStepLengths</span><span class="p">[</span><span class="n">cycleIdx</span><span class="p">][:</span><span class="n">dbNode</span><span class="p">]</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">dbStepHistory</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dbStepLengths</span><span class="p">[</span><span class="n">cycleIdx</span><span class="p">])</span>
+                    <span class="n">currentCaseStepHistory</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">currentCaseStepLengths</span><span class="p">[</span><span class="n">cycleIdx</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;DB cannot be loaded to this time: cycle=</span><span class="si">{</span><span class="n">dbCycle</span><span class="si">}</span><span class="s2">, node=</span><span class="si">{</span><span class="n">dbNode</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">raise</span>
+
+        <span class="k">if</span> <span class="n">dbStepHistory</span> <span class="o">!=</span> <span class="n">currentCaseStepHistory</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;The cycle history up to the restart cycle/node must be equivalent.&quot;</span>
+            <span class="p">)</span>
 
     <span class="c1"># TODO: The use of &quot;yield&quot; here is suspect.</span>
     <span class="k">def</span> <span class="nf">_getLoadDB</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fileName</span><span class="p">):</span>
@@ -3095,7 +3140,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-05-10.
+        Last updated on 2022-05-12.
       </span>
 
     </p>
