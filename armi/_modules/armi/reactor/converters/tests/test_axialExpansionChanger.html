@@ -198,6 +198,7 @@
 
 <span class="sd">&quot;&quot;&quot;Test axialExpansionChanger&quot;&quot;&quot;</span>
 
+<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">from</span> <span class="nn">statistics</span> <span class="kn">import</span> <span class="n">mean</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
 <span class="kn">from</span> <span class="nn">numpy</span> <span class="kn">import</span> <span class="n">linspace</span><span class="p">,</span> <span class="n">ones</span><span class="p">,</span> <span class="n">array</span><span class="p">,</span> <span class="n">vstack</span><span class="p">,</span> <span class="n">zeros</span>
@@ -744,6 +745,66 @@
 
             <span class="n">the_exception</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">exception</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">the_exception</span><span class="o">.</span><span class="n">error_code</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestInputHeightsConsideredHot"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_axialExpansionChanger.html#armi.reactor.converters.tests.test_axialExpansionChanger.TestInputHeightsConsideredHot">[docs]</a><span class="k">class</span> <span class="nc">TestInputHeightsConsideredHot</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;verify thermal expansion for process loading of core&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;provide the base case&quot;&quot;&quot;</span>
+        <span class="n">_o</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="s2">&quot;detailedAxialExpansion&quot;</span><span class="p">),</span>
+            <span class="p">{</span><span class="s2">&quot;inputHeightsConsideredHot&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stdAssems</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">()]</span>
+
+        <span class="n">_oCold</span><span class="p">,</span> <span class="n">rCold</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="s2">&quot;detailedAxialExpansion&quot;</span><span class="p">),</span>
+            <span class="p">{</span><span class="s2">&quot;inputHeightsConsideredHot&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">testAssems</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">rCold</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">()]</span>
+
+<div class="viewcode-block" id="TestInputHeightsConsideredHot.test_coldAssemblyHeight"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_axialExpansionChanger.html#armi.reactor.converters.tests.test_axialExpansionChanger.TestInputHeightsConsideredHot.test_coldAssemblyHeight">[docs]</a>    <span class="k">def</span> <span class="nf">test_coldAssemblyHeight</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;block heights are cold and should be expanded</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Two assertions here:</span>
+<span class="sd">            1. total assembly height should be preserved (through use of top dummy block)</span>
+<span class="sd">            2. in armi.tests.detailedAxialExpansion.refSmallReactorBase.yaml,</span>
+<span class="sd">               Thot &gt; Tinput resulting in a non-zero DeltaT. Each block in the</span>
+<span class="sd">               expanded case should therefore be a different height than that of the standard case.</span>
+<span class="sd">               - The one exception is for control assemblies. These designs can be unique from regular</span>
+<span class="sd">                 pin type assemblies by allowing downward expansion. Because of this, they are skipped</span>
+<span class="sd">                 for axial expansion.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">aStd</span><span class="p">,</span> <span class="n">aExp</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stdAssems</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">testAssems</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+                <span class="n">aStd</span><span class="o">.</span><span class="n">getTotalHeight</span><span class="p">(),</span>
+                <span class="n">aExp</span><span class="o">.</span><span class="n">getTotalHeight</span><span class="p">(),</span>
+                <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;Std Assem </span><span class="si">{0}</span><span class="s2"> (</span><span class="si">{1}</span><span class="s2">) and Exp Assem </span><span class="si">{2}</span><span class="s2"> (</span><span class="si">{3}</span><span class="s2">) are not the same height!&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">aStd</span><span class="p">,</span> <span class="n">aStd</span><span class="o">.</span><span class="n">getTotalHeight</span><span class="p">(),</span> <span class="n">aExp</span><span class="p">,</span> <span class="n">aExp</span><span class="o">.</span><span class="n">getTotalHeight</span><span class="p">()</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">bStd</span><span class="p">,</span> <span class="n">bExp</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">aStd</span><span class="p">,</span> <span class="n">aExp</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">aStd</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">):</span>
+                    <span class="n">checkColdBlockHeight</span><span class="p">(</span><span class="n">bStd</span><span class="p">,</span> <span class="n">bExp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">,</span> <span class="s2">&quot;the same&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">checkColdBlockHeight</span><span class="p">(</span><span class="n">bStd</span><span class="p">,</span> <span class="n">bExp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">,</span> <span class="s2">&quot;different&quot;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="checkColdBlockHeight"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_axialExpansionChanger.html#armi.reactor.converters.tests.test_axialExpansionChanger.checkColdBlockHeight">[docs]</a><span class="k">def</span> <span class="nf">checkColdBlockHeight</span><span class="p">(</span><span class="n">bStd</span><span class="p">,</span> <span class="n">bExp</span><span class="p">,</span> <span class="n">assertType</span><span class="p">,</span> <span class="n">strForAssertion</span><span class="p">):</span>
+    <span class="n">assertType</span><span class="p">(</span>
+        <span class="n">bStd</span><span class="o">.</span><span class="n">getHeight</span><span class="p">(),</span>
+        <span class="n">bExp</span><span class="o">.</span><span class="n">getHeight</span><span class="p">(),</span>
+        <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;Std Block </span><span class="si">{0}</span><span class="s2"> (</span><span class="si">{1}</span><span class="s2">) and Exp Block </span><span class="si">{2}</span><span class="s2"> (</span><span class="si">{3}</span><span class="s2">) should have </span><span class="si">{4:s}</span><span class="s2"> heights!&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">bStd</span><span class="p">,</span>
+            <span class="n">bStd</span><span class="o">.</span><span class="n">getHeight</span><span class="p">(),</span>
+            <span class="n">bExp</span><span class="p">,</span>
+            <span class="n">bExp</span><span class="o">.</span><span class="n">getHeight</span><span class="p">(),</span>
+            <span class="n">strForAssertion</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="TestLinkage"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_axialExpansionChanger.html#armi.reactor.converters.tests.test_axialExpansionChanger.TestLinkage">[docs]</a><span class="k">class</span> <span class="nc">TestLinkage</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
