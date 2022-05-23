@@ -448,83 +448,12 @@
         <span class="k">if</span> <span class="n">reportSize</span><span class="p">:</span>
             <span class="n">operator</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="n">reactor</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
 
-<div class="viewcode-block" id="MemoryProfiler.getSpecificReferrers"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.MemoryProfiler.getSpecificReferrers">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">getSpecificReferrers</span><span class="p">(</span><span class="n">klass</span><span class="p">,</span> <span class="n">ancestorKlass</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Try to determine some useful information about the structure of ArmiObjects and potential</span>
-<span class="sd">        orphans.</span>
-
-<span class="sd">        This takes a class and an expected/nominal parent class, which should both be instances of</span>
-<span class="sd">        ArmiObject. It will then locate all instances of klass that are tracked by the GC, igoring</span>
-<span class="sd">        those that have an ancestor of ancestorKlass type. A report will be generated containing</span>
-<span class="sd">        the counts of the instances of klass that are _not_ part of the ancestor_class along with</span>
-<span class="sd">        their referrer class.</span>
-
-<span class="sd">        This is useful for diagnosing memory leaks, as it points to unexpected referrers to</span>
-<span class="sd">        ArmiObjects.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">klass</span><span class="p">,</span> <span class="n">ArmiObject</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span>
-            <span class="n">ancestorKlass</span><span class="p">,</span> <span class="n">ArmiObject</span>
-        <span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">&quot;klass and ancestorKlass should be subclasses of ArmiObject&quot;</span>
-            <span class="p">)</span>
-
-        <span class="c1"># info will be a list containing a tuple for every instance of klass that does not have an</span>
-        <span class="c1"># ancestorKlass somewhere in its chain of parents. Each tuple contains its parent object</span>
-        <span class="c1"># and the set of classes of objects that refer to it</span>
-        <span class="n">info</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">nominalCount</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">exampleObj</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">maxObjects</span> <span class="o">=</span> <span class="mi">100</span>
-        <span class="n">objectsSoFar</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="p">(</span><span class="n">o</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">gc</span><span class="o">.</span><span class="n">get_objects</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">klass</span><span class="p">)):</span>
-            <span class="k">if</span> <span class="n">objectsSoFar</span> <span class="o">&gt;</span> <span class="n">maxObjects</span><span class="p">:</span>
-                <span class="k">break</span>
-
-            <span class="n">isNominal</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="n">o2</span> <span class="o">=</span> <span class="n">obj</span>
-            <span class="k">while</span> <span class="n">o2</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o2</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="n">ancestorKlass</span><span class="p">):</span>
-                    <span class="n">isNominal</span> <span class="o">=</span> <span class="kc">True</span>
-                    <span class="k">break</span>
-                <span class="n">o2</span> <span class="o">=</span> <span class="n">o2</span><span class="o">.</span><span class="n">parent</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;isNominal: </span><span class="si">{}</span><span class="s2"> parent: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">isNominal</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">parent</span><span class="p">))</span>
-            <span class="k">if</span> <span class="n">isNominal</span><span class="p">:</span>
-                <span class="n">nominalCount</span> <span class="o">+=</span> <span class="mi">1</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">exampleObj</span> <span class="o">=</span> <span class="n">obj</span>
-                <span class="n">objectsSoFar</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="n">referrers</span> <span class="o">=</span> <span class="n">gc</span><span class="o">.</span><span class="n">get_referrers</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
-                <span class="n">referrerClasses</span> <span class="o">=</span> <span class="p">{</span><span class="nb">type</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">referrers</span><span class="p">}</span>
-                <span class="n">info</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">obj</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="n">referrerClasses</span><span class="p">))</span>
-
-        <span class="k">if</span> <span class="n">exampleObj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Walking referrers for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exampleObj</span><span class="p">))</span>
-            <span class="n">_walkReferrers</span><span class="p">(</span><span class="n">exampleObj</span><span class="p">,</span> <span class="n">maxLevel</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;All done&quot;</span><span class="p">)</span>
-
-        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-            <span class="s2">&quot;List of </span><span class="si">{}</span><span class="s2"> orphaned ArmiObjects (obj.parent, {{referring object &quot;</span>
-            <span class="s2">&quot;classes}})&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">info</span><span class="p">))</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">item</span><span class="p">))</span></div>
-
 <div class="viewcode-block" id="MemoryProfiler.getReferrers"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.MemoryProfiler.getReferrers">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">getReferrers</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Print referrers in a useful way (as opposed to gigabytes of text&quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Printing first 100 character of first 100 referrers&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">ref</span> <span class="ow">in</span> <span class="n">gc</span><span class="o">.</span><span class="n">get_referrers</span><span class="p">(</span><span class="n">obj</span><span class="p">)[:</span><span class="mi">100</span><span class="p">]:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ref for </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">ref</span><span class="p">)[:</span><span class="mi">100</span><span class="p">]))</span></div>
-
-<div class="viewcode-block" id="MemoryProfiler.discussSkipped"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.MemoryProfiler.discussSkipped">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">discussSkipped</span><span class="p">(</span><span class="n">skipped</span><span class="p">,</span> <span class="n">errors</span><span class="p">):</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Skipped </span><span class="si">{}</span><span class="s2"> objects&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">skipped</span><span class="p">))</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">&quot;errored out on </span><span class="si">{0}</span><span class="s2"> objects:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="nb">len</span><span class="p">(</span><span class="n">errors</span><span class="p">),</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">repr</span><span class="p">(</span><span class="n">ei</span><span class="p">)[:</span><span class="mi">30</span><span class="p">]</span> <span class="k">for</span> <span class="n">ei</span> <span class="ow">in</span> <span class="n">errors</span><span class="p">])</span>
-            <span class="p">)</span>
-        <span class="p">)</span></div></div>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;ref for </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">ref</span><span class="p">)[:</span><span class="mi">100</span><span class="p">]))</span></div></div>
 
 
 <div class="viewcode-block" id="KlassCounter"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.KlassCounter">[docs]</a><span class="k">class</span> <span class="nc">KlassCounter</span><span class="p">:</span>
@@ -800,51 +729,6 @@
                 <span class="n">tablefmt</span><span class="o">=</span><span class="s2">&quot;armi&quot;</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span></div></div>
-
-
-<span class="k">def</span> <span class="nf">_getFunctionObject</span><span class="p">():</span>
-    <span class="sd">&quot;&quot;&quot;Return the function object of the calling function. Useful for debugging&quot;&quot;&quot;</span>
-    <span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">currentframe</span><span class="p">,</span> <span class="n">getframeinfo</span>
-
-    <span class="n">caller</span> <span class="o">=</span> <span class="n">currentframe</span><span class="p">()</span><span class="o">.</span><span class="n">f_back</span>
-    <span class="n">func_name</span> <span class="o">=</span> <span class="n">getframeinfo</span><span class="p">(</span><span class="n">caller</span><span class="p">)[</span><span class="mi">2</span><span class="p">]</span>
-    <span class="n">caller</span> <span class="o">=</span> <span class="n">caller</span><span class="o">.</span><span class="n">f_back</span>
-
-    <span class="n">func</span> <span class="o">=</span> <span class="n">caller</span><span class="o">.</span><span class="n">f_locals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">func_name</span><span class="p">,</span> <span class="n">caller</span><span class="o">.</span><span class="n">f_globals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">func_name</span><span class="p">))</span>
-
-    <span class="k">return</span> <span class="n">func</span>
-
-
-<span class="k">def</span> <span class="nf">_walkReferrers</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">maxLevel</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">memo</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">whitelist</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Walk the tree of objects that refer to the passed object, printing diagnostics.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">maxLevel</span> <span class="ow">and</span> <span class="n">level</span> <span class="o">&gt;</span> <span class="n">maxLevel</span><span class="p">:</span>
-        <span class="k">return</span>
-    <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
-        <span class="n">whitelist</span> <span class="o">=</span> <span class="p">{</span><span class="nb">id</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">gc</span><span class="o">.</span><span class="n">get_objects</span><span class="p">()}</span>
-        <span class="n">whitelist</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">_getFunctionObject</span><span class="p">()))</span>
-        <span class="n">whitelist</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">_getFunctionObject</span><span class="p">))</span>
-
-    <span class="k">if</span> <span class="n">memo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">memo</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
-    <span class="n">referrers</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">(</span><span class="n">referrer</span><span class="p">,</span> <span class="nb">id</span><span class="p">(</span><span class="n">referrer</span><span class="p">),</span> <span class="nb">id</span><span class="p">(</span><span class="n">referrer</span><span class="p">)</span> <span class="ow">in</span> <span class="n">memo</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">referrer</span> <span class="ow">in</span> <span class="n">gc</span><span class="o">.</span><span class="n">get_referrers</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">referrer</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">!=</span> <span class="s2">&quot;frame&quot;</span> <span class="ow">and</span> <span class="nb">id</span><span class="p">(</span><span class="n">referrer</span><span class="p">)</span> <span class="ow">in</span> <span class="n">whitelist</span>
-    <span class="p">]</span>
-    <span class="n">memo</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">oid</span> <span class="k">for</span> <span class="p">(</span><span class="n">_obj</span><span class="p">,</span> <span class="n">oid</span><span class="p">,</span> <span class="n">_seen</span><span class="p">)</span> <span class="ow">in</span> <span class="n">referrers</span><span class="p">})</span>
-    <span class="k">for</span> <span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">seen</span><span class="p">)</span> <span class="ow">in</span> <span class="n">referrers</span><span class="p">:</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-            <span class="s2">&quot;</span><span class="si">{}{}</span><span class="s2">    </span><span class="si">{}</span><span class="s2"> at </span><span class="si">{:x}</span><span class="s2"> seen: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="n">level</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">),</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">obj</span><span class="p">)[:</span><span class="mi">100</span><span class="p">],</span> <span class="nb">id</span><span class="p">(</span><span class="n">obj</span><span class="p">),</span> <span class="n">seen</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">seen</span><span class="p">:</span>
-            <span class="k">return</span>
-        <span class="n">_walkReferrers</span><span class="p">(</span>
-            <span class="n">obj</span><span class="p">,</span> <span class="n">maxLevel</span><span class="o">=</span><span class="n">maxLevel</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">level</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">memo</span><span class="o">=</span><span class="n">memo</span><span class="p">,</span> <span class="n">whitelist</span><span class="o">=</span><span class="n">whitelist</span>
-        <span class="p">)</span>
 </pre></div>
 
            </div>
