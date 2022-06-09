@@ -201,35 +201,31 @@
 
 <span class="sd">There are many approaches to memory profiling.</span>
 
-<span class="sd">1. You can ask psutil for the memory used by the process</span>
-<span class="sd">from an OS perspective. This is great for top-down analysis. This module provides printouts</span>
+<span class="sd">1. You can ask psutil for the memory used by the process from an OS perspective.</span>
+<span class="sd">This is great for top-down analysis. This module provides printouts</span>
 <span class="sd">that show info from every process running. This is very fast.</span>
 
-<span class="sd">2. You can use ``asizeof`` (part of pympler) to measure the size of various individual objects. This will help</span>
-<span class="sd">you pin-point your issue. But it&#39;s slow.</span>
-
-<span class="sd">3. You can use ``gc.get_objects()`` to list all objects that the garbage collector is tracking. If you want, you</span>
+<span class="sd">2. You can use ``gc.get_objects()`` to list all objects that the garbage collector is tracking. If you want, you</span>
 <span class="sd">can filter it down and get the counts and sizes of objects of interest (e.g. all armi objects).</span>
 
 <span class="sd">This module has tools to do all of this. It should help you out.</span>
 
-<span class="sd">Note that if psutil is reporting way more memory usage than the asizeof reports, then you probably are dealing</span>
-<span class="sd">with a garbage collection queue. If you free a large number of objects, call `gc.collect()` to force a</span>
-<span class="sd">garbage collection and the psutil process memory should fall by a lot.</span>
-<span class="sd">Also, it seems that even if your garbage is collected, Windows does not de-allocate all the memory. So if</span>
-<span class="sd">you are a worker and you just got a  1.6GB reactor but then deleted it, Windows will keep you at 1.6GB for a while.</span>
+<span class="sd">NOTE: Psutil and sys.getsizeof will certainly report slightly different results.</span>
 
+<span class="sd">NOTE: In Windows, it seems that even if your garbage is collected, Windows does not de-allocate all the memory.</span>
+<span class="sd">So if you are a worker and you just got a 2GB reactor but then deleted it, Windows will keep you at 2GB for a while.</span>
 
 <span class="sd">See Also:</span>
 
-<span class="sd">http://packages.python.org/Pympler/index.html</span>
 <span class="sd">https://pythonhosted.org/psutil/</span>
-<span class="sd">https://docs.python.org/2/library/gc.html#gc.garbage</span>
+<span class="sd">https://docs.python.org/3/library/gc.html#gc.garbage</span>
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">gc</span>
 <span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">tabulate</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
@@ -249,15 +245,8 @@
     <span class="n">_havePsutil</span> <span class="o">=</span> <span class="kc">False</span>
 
 
-<span class="c1"># disable the import warnings (Issue #88)</span>
-<span class="n">logging</span><span class="o">.</span><span class="n">disable</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">CRITICAL</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">pympler.asizeof</span> <span class="kn">import</span> <span class="n">asizeof</span>
-
-<span class="c1"># This is necessary to reset pympler&#39;s changes to the logging configuration</span>
-<span class="n">logging</span><span class="o">.</span><span class="n">disable</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">NOTSET</span><span class="p">)</span>
-
-
 <span class="n">ORDER</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">POSTPROCESSING</span>
+<span class="n">REPORT_COUNT</span> <span class="o">=</span> <span class="mi">100000</span>
 
 
 <div class="viewcode-block" id="describeInterfaces"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.describeInterfaces">[docs]</a><span class="k">def</span> <span class="nf">describeInterfaces</span><span class="p">(</span><span class="n">cs</span><span class="p">):</span>
@@ -307,8 +296,6 @@
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Print out some information to stdout about the memory usage of ARMI.</span>
 
-<span class="sd">        Makes use of the asizeof utility.</span>
-
 <span class="sd">        Useful when the debugMem setting is set to True.</span>
 
 <span class="sd">        Turn these on as appropriate to find all your problems.</span>
@@ -327,23 +314,22 @@
     <span class="k">def</span> <span class="nf">_reactorAssemblyTrackingBreakdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Reactor attribute ArmiObject tracking count&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">attrName</span><span class="p">,</span> <span class="n">attrObj</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="nb">isinstance</span><span class="p">(</span><span class="n">attrObj</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
-                <span class="ow">and</span> <span class="n">attrObj</span>
-                <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attrObj</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ArmiObject</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">attrObj</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attrObj</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attrObj</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ArmiObject</span><span class="p">):</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
+                    <span class="s2">&quot;List </span><span class="si">{:30s}</span><span class="s2"> has </span><span class="si">{:4d}</span><span class="s2"> ArmiObjects&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">attrName</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">attrObj</span><span class="p">))</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attrObj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span>
+                <span class="nb">list</span><span class="p">(</span><span class="n">attrObj</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ArmiObject</span>
             <span class="p">):</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-                    <span class="s2">&quot;List </span><span class="si">{:30s}</span><span class="s2"> has </span><span class="si">{:4d}</span><span class="s2"> assemblies&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">attrName</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">attrObj</span><span class="p">))</span>
+                    <span class="s2">&quot;Dict </span><span class="si">{:30s}</span><span class="s2"> has </span><span class="si">{:4d}</span><span class="s2"> ArmiObjects&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">attrName</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">attrObj</span><span class="p">))</span>
                 <span class="p">)</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="nb">isinstance</span><span class="p">(</span><span class="n">attrObj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
-                <span class="ow">and</span> <span class="n">attrObj</span>
-                <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">attrObj</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ArmiObject</span><span class="p">)</span>
-            <span class="p">):</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-                    <span class="s2">&quot;Dict </span><span class="si">{:30s}</span><span class="s2"> has </span><span class="si">{:4d}</span><span class="s2"> assemblies&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">attrName</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">attrObj</span><span class="p">))</span>
-                <span class="p">)</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;SFP has </span><span class="si">{:4d}</span><span class="s2"> assemblies&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sfp</span><span class="p">)))</span>
+
+        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;SFP has </span><span class="si">{:4d}</span><span class="s2"> ArmiObjects&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sfp</span><span class="p">)))</span>
 
 <div class="viewcode-block" id="MemoryProfiler.checkForDuplicateObjectsOnArmiModel"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.MemoryProfiler.checkForDuplicateObjectsOnArmiModel">[docs]</a>    <span class="k">def</span> <span class="nf">checkForDuplicateObjectsOnArmiModel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attrName</span><span class="p">,</span> <span class="n">refObject</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Scans thorugh ARMI model for duplicate objects&quot;&quot;&quot;</span>
@@ -394,14 +380,12 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        looks for any class from any module in the garbage collector and prints their count and size</span>
 
-<span class="sd">        Very powerful. Also very slow if you reportSize</span>
-
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        startsWith : str, optional</span>
 <span class="sd">            limit to objects with classes that start with a certain string</span>
 <span class="sd">        reportSize : bool, optional</span>
-<span class="sd">            calculate size as well as counting individual objects. SLLOOOWW.</span>
+<span class="sd">            calculate size as well as counting individual objects.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -413,16 +397,15 @@
         <span class="n">reactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span>
 
         <span class="k">if</span> <span class="n">reportSize</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
 
         <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
         <span class="n">allObjects</span> <span class="o">=</span> <span class="n">gc</span><span class="o">.</span><span class="n">get_objects</span><span class="p">()</span>
-        <span class="n">instanceCounters</span> <span class="o">=</span> <span class="n">KlassCounter</span><span class="p">(</span><span class="n">reportSize</span><span class="p">)</span>
-
         <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;GC returned </span><span class="si">{}</span><span class="s2"> objects&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">allObjects</span><span class="p">)))</span>
 
+        <span class="n">instanceCounters</span> <span class="o">=</span> <span class="n">KlassCounter</span><span class="p">(</span><span class="n">reportSize</span><span class="p">)</span>
         <span class="n">instanceCounters</span><span class="o">.</span><span class="n">countObjects</span><span class="p">(</span><span class="n">allObjects</span><span class="p">)</span>
+
         <span class="k">for</span> <span class="n">counter</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">instanceCounters</span><span class="o">.</span><span class="n">counters</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;UNIQUE_INSTANCE_COUNT: </span><span class="si">{:60s}</span><span class="s2"> </span><span class="si">{:10d}</span><span class="s2">     </span><span class="si">{:10.1f}</span><span class="s2"> MB&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
@@ -457,6 +440,13 @@
 
 
 <div class="viewcode-block" id="KlassCounter"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.KlassCounter">[docs]</a><span class="k">class</span> <span class="nc">KlassCounter</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper class, to allow us to count instances of various classes in the</span>
+<span class="sd">    Python standard library garbage collector (gc).</span>
+
+<span class="sd">    Counting can be done simply, or by memory footprint.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reportSize</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">counters</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reportSize</span> <span class="o">=</span> <span class="n">reportSize</span>
@@ -467,28 +457,19 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">counters</span><span class="p">[</span><span class="n">classType</span><span class="p">]</span> <span class="o">=</span> <span class="n">InstanceCounter</span><span class="p">(</span><span class="n">classType</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reportSize</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">counters</span><span class="p">[</span><span class="n">classType</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="fm">__iadd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
-        <span class="n">klass</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">klass</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">counters</span><span class="p">:</span>
-            <span class="n">counter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">counters</span><span class="p">[</span><span class="n">klass</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">counter</span> <span class="o">=</span> <span class="n">InstanceCounter</span><span class="p">(</span><span class="n">klass</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reportSize</span><span class="p">)</span>
-            <span class="n">counter</span><span class="o">.</span><span class="n">first</span> <span class="o">=</span> <span class="n">item</span>  <span class="c1"># done here for speed</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">counters</span><span class="p">[</span><span class="n">klass</span><span class="p">]</span> <span class="o">=</span> <span class="n">counter</span>
-        <span class="n">counter</span> <span class="o">+=</span> <span class="n">item</span>
-
 <div class="viewcode-block" id="KlassCounter.countObjects"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.KlassCounter.countObjects">[docs]</a>    <span class="k">def</span> <span class="nf">countObjects</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ao</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Recursively find non-list,dict, tuple objects in containers.</span>
+<span class="sd">        Recursively find objects inside arbitrarily-deeply-nested containers.</span>
 
-<span class="sd">        Essential for traversing the garbage collector</span>
+<span class="sd">        This is designed to work with the garbage collector, so it focuses on</span>
+<span class="sd">        objects potentially being held in dict, tuple, list, or sets.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">itemType</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">ao</span><span class="p">)</span>
-        <span class="n">counter</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="n">itemType</span><span class="p">]</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="nb">type</span><span class="p">(</span><span class="n">ao</span><span class="p">)]</span>
         <span class="k">if</span> <span class="n">counter</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ao</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">%</span> <span class="mi">100000</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">%</span> <span class="n">REPORT_COUNT</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Counted </span><span class="si">{}</span><span class="s2"> items&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="p">))</span>
+
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ao</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">ao</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">countObjects</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
@@ -519,7 +500,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">ids</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">itemId</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reportSize</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">memSize</span> <span class="o">+=</span> <span class="n">asizeof</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">memSize</span> <span class="o">+=</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
             <span class="k">except</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">memSize</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
@@ -533,89 +514,6 @@
 
     <span class="k">def</span> <span class="fm">__gt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">that</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">&gt;</span> <span class="n">that</span><span class="o">.</span><span class="n">count</span></div>
-
-
-<span class="k">def</span> <span class="nf">_getClsName</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
-    <span class="k">except</span><span class="p">:</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="vm">__name__</span>
-        <span class="k">except</span><span class="p">:</span>
-            <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="n">obj</span><span class="p">)[:</span><span class="mi">20</span><span class="p">]</span>
-
-
-<span class="k">def</span> <span class="nf">_getModName</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__module__</span>
-    <span class="k">except</span><span class="p">:</span>
-        <span class="k">return</span> <span class="kc">None</span>
-
-
-<div class="viewcode-block" id="ObjectSizeBreakdown"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.ObjectSizeBreakdown">[docs]</a><span class="k">class</span> <span class="nc">ObjectSizeBreakdown</span><span class="p">:</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">name</span><span class="p">,</span>
-        <span class="n">minMBToShowAttrBreakdown</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
-        <span class="n">excludedAttributes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">initialZeroes</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="c1"># don&#39;t hold onto obj, otherwise we&#39;ll bloat like crazy!!</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sizes</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">initialZeroes</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">minMBToShowAttrBreakdown</span> <span class="o">=</span> <span class="n">minMBToShowAttrBreakdown</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">excludedAttributes</span> <span class="o">=</span> <span class="n">excludedAttributes</span> <span class="ow">or</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">attrSizes</span> <span class="o">=</span> <span class="p">{}</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sizes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-
-<div class="viewcode-block" id="ObjectSizeBreakdown.calcSize"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.ObjectSizeBreakdown.calcSize">[docs]</a>    <span class="k">def</span> <span class="nf">calcSize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
-        <span class="n">tempAttrs</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">attrName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">excludedAttributes</span><span class="p">:</span>
-                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">attrName</span><span class="p">):</span>
-                    <span class="n">tempAttrs</span><span class="p">[</span><span class="n">attrName</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">attrName</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                    <span class="nb">setattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">attrName</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">sizes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">asizeof</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1024.0</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_breakdownAttributeSizes</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
-        <span class="k">finally</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">attrName</span><span class="p">,</span> <span class="n">attrObj</span> <span class="ow">in</span> <span class="n">tempAttrs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="nb">setattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">attrName</span><span class="p">,</span> <span class="n">attrObj</span><span class="p">)</span></div>
-
-    <span class="k">def</span> <span class="nf">_breakdownAttributeSizes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">minMBToShowAttrBreakdown</span><span class="p">:</span>
-            <span class="c1"># make a getter where getter(obj, key) gives obj.key or obj[key]</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-                <span class="n">keys</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
-                <span class="n">getter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">obj</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-                <span class="n">keys</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">obj</span><span class="p">))</span>
-                <span class="n">getter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">obj</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">obj</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">keys</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
-                <span class="n">getter</span> <span class="o">=</span> <span class="nb">getattr</span>
-
-            <span class="k">for</span> <span class="n">attrName</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">excludedAttributes</span><span class="p">):</span>
-                <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;  .</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">attrName</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attrSizes</span><span class="p">:</span>
-                    <span class="c1"># arbitrarily, we don&#39;t care unless the attribute is a GB</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">attrSizes</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">ObjectSizeBreakdown</span><span class="p">(</span>
-                        <span class="n">name</span><span class="p">,</span> <span class="mf">1000.0</span><span class="p">,</span> <span class="n">initialZeroes</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sizes</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
-                    <span class="p">)</span>
-                <span class="n">attrSize</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">attrSizes</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-                <span class="n">attrSize</span><span class="o">.</span><span class="n">calcSize</span><span class="p">(</span><span class="n">getter</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">attrName</span><span class="p">))</span>
-
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">message</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">excludedAttributes</span><span class="p">:</span>
-            <span class="n">name</span> <span class="o">+=</span> <span class="s2">&quot; except(.</span><span class="si">{}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;, .&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">excludedAttributes</span><span class="p">))</span>
-        <span class="n">message</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{0:53s}</span><span class="s2"> </span><span class="si">{1:8.4f}</span><span class="s2">MB&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
-        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attrSizes</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-            <span class="n">message</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">attr</span><span class="p">))</span>
-        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ProfileMemoryUsageAction"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.ProfileMemoryUsageAction">[docs]</a><span class="k">class</span> <span class="nc">ProfileMemoryUsageAction</span><span class="p">(</span><span class="n">mpiActions</span><span class="o">.</span><span class="n">MpiAction</span><span class="p">):</span>
@@ -689,7 +587,6 @@
 <span class="sd">            SYS_MEM HOSTNAME     13.9% RAM. Proc mem (MB):   474   473   472   471   460   461</span>
 <span class="sd">            SYS_MEM HOSTNAME     ...</span>
 <span class="sd">            SYS_MEM HOSTNAME     ...</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">printedNodes</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="n">prefix</span> <span class="o">=</span> <span class="n">description</span> <span class="ow">or</span> <span class="s2">&quot;SYS_MEM&quot;</span>
@@ -742,7 +639,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-06-07.
+        Last updated on 2022-06-09.
       </span>
 
     </p>
