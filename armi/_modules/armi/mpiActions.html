@@ -542,10 +542,13 @@
     <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Running </span><span class="si">{}</span><span class="s2"> MPI actions in serial&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">actions</span><span class="p">)))</span>
     <span class="n">numActions</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">aa</span><span class="p">,</span> <span class="n">action</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">actions</span><span class="p">):</span>
+        <span class="n">canDistribute</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_DISTRIBUTABLE</span>
         <span class="n">action</span><span class="o">.</span><span class="n">serial</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_DISTRIBUTABLE</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Running action </span><span class="si">{}</span><span class="s2"> of </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">aa</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">numActions</span><span class="p">,</span> <span class="n">action</span><span class="p">))</span>
         <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">action</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">))</span>
         <span class="n">action</span><span class="o">.</span><span class="n">serial</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># return to original state</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_DISTRIBUTABLE</span> <span class="o">=</span> <span class="n">canDistribute</span>
     <span class="k">return</span> <span class="n">results</span></div>
 
 
@@ -582,7 +585,7 @@
 
 <span class="sd">        Notes</span>
 <span class="sd">        =====</span>
-<span class="sd">        Two things about this method make it non-recursiv</span>
+<span class="sd">        Two things about this method make it non-recursive</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">canDistribute</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_DISTRIBUTABLE</span>
         <span class="n">mpiComm</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span>
@@ -606,11 +609,11 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">action</span> <span class="o">=</span> <span class="n">mpiComm</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_actions</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
             <span class="c1"># create a new communicator that only has these specific dudes running</span>
-            <span class="n">context</span><span class="o">.</span><span class="n">MPI_DISTRIBUTABLE</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="n">hasAction</span> <span class="o">=</span> <span class="n">action</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span> <span class="o">=</span> <span class="n">mpiComm</span><span class="o">.</span><span class="n">Split</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">hasAction</span><span class="p">))</span>
             <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span>
             <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">Get_size</span><span class="p">()</span>
+            <span class="n">context</span><span class="o">.</span><span class="n">MPI_DISTRIBUTABLE</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span>
             <span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">allgather</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAME</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">hasAction</span><span class="p">:</span>
                 <span class="n">actionResult</span> <span class="o">=</span> <span class="n">action</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
@@ -899,7 +902,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-06-09.
+        Last updated on 2022-06-10.
       </span>
 
     </p>
