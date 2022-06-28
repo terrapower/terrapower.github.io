@@ -375,33 +375,43 @@
             <span class="c1"># Iterate over the blocks that are within this region and</span>
             <span class="c1"># select one as a &quot;source&quot; for determining which cross section</span>
             <span class="c1"># type to use. This uses the following rules:</span>
-            <span class="c1">#     1. Select the first block that has either FUEL or CONTROL flags</span>
-            <span class="c1">#     2. Fail if multiple blocks meet this criteria if they have different XS types</span>
-            <span class="c1">#     3. Default to the first block in the list if no blocks meet FUEL or CONTROL flags criteria.</span>
+            <span class="c1">#     1. Determine the total height corresponding to each XS type that</span>
+            <span class="c1">#     appears for blocks with FUEL or CONTROL flags in this domain.</span>
+            <span class="c1">#     2. Determine the single XS type that represents the largest fraction</span>
+            <span class="c1">#     of the total height of FUEL or CONTROL cross sections.</span>
+            <span class="c1">#     3. Use the first block of the majority XS type as the representative block.</span>
+            <span class="n">typeHeight</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
             <span class="n">blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">_h</span> <span class="ow">in</span> <span class="n">overlappingBlockInfo</span><span class="p">]</span>
-            <span class="n">sourceBlock</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">xsType</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">overlappingBlockInfo</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">]):</span>
-                    <span class="k">if</span> <span class="n">sourceBlock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="n">sourceBlock</span> <span class="o">=</span> <span class="n">b</span>
-                        <span class="n">xsType</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="c1"># If there is a duplicate source block candidate that has a different</span>
-                        <span class="c1"># cross section type then this is an error because the code cannot</span>
-                        <span class="c1"># decide which one is correct.</span>
-                        <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span> <span class="o">!=</span> <span class="n">xsType</span><span class="p">:</span>
-                            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-                                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sourceBlock</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">newAssem</span><span class="si">}</span><span class="s2"> have conflicting XS types and are &quot;</span>
-                                <span class="sa">f</span><span class="s2">&quot;candidates for the source block. To fix this, either set their XS types &quot;</span>
-                                <span class="sa">f</span><span class="s2">&quot;to be the same or remove these flags </span><span class="si">{</span><span class="p">[</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">]</span><span class="si">}</span><span class="s2"> &quot;</span>
-                                <span class="sa">f</span><span class="s2">&quot;from one of the blocks.&quot;</span>
-                            <span class="p">)</span>
-                            <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                    <span class="n">typeHeight</span><span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span><span class="p">]</span> <span class="o">+=</span> <span class="n">h</span>
 
-            <span class="c1"># If no blocks meet the criteria above just select the first block</span>
-            <span class="c1"># as the source block and use its cross section type.</span>
+            <span class="n">sourceBlock</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="c1"># xsType is the one with the majority of overlap</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">typeHeight</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">xsType</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                    <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">typeHeight</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span> <span class="o">==</span> <span class="nb">max</span><span class="p">(</span><span class="n">typeHeight</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">]):</span>
+                        <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span> <span class="o">==</span> <span class="n">xsType</span><span class="p">:</span>
+                            <span class="n">sourceBlock</span> <span class="o">=</span> <span class="n">b</span>
+                            <span class="k">break</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">typeHeight</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">sourceBlock</span><span class="p">:</span>
+                    <span class="n">totalHeight</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">typeHeight</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Multiple XS types exist between </span><span class="si">{</span><span class="n">bottom</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">topMeshPoint</span><span class="si">}</span><span class="s2">. &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Using the XS type from the largest region, </span><span class="si">{</span><span class="n">xsType</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">xs</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">typeHeight</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="n">heightFrac</span> <span class="o">=</span> <span class="n">h</span> <span class="o">/</span> <span class="n">totalHeight</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;XSType </span><span class="si">{</span><span class="n">xs</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">heightFrac</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="c1"># If no blocks meet the FUEL or CONTROL criteria above, or there is only one</span>
+            <span class="c1"># XS type present, just select the first block as the source block and use</span>
+            <span class="c1"># its cross section type.</span>
             <span class="k">if</span> <span class="n">sourceBlock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">sourceBlock</span> <span class="o">=</span> <span class="n">blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
                 <span class="n">xsType</span> <span class="o">=</span> <span class="n">blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span>
