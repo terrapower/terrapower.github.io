@@ -200,71 +200,6 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 
 
-<div class="viewcode-block" id="enforceBondRemovalFraction"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelPerformance.utils.html#armi.physics.fuelPerformance.utils.enforceBondRemovalFraction">[docs]</a><span class="k">def</span> <span class="nf">enforceBondRemovalFraction</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">bondRemovedFrac</span><span class="p">):</span>
-    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Update the distribution of coolant in this block to agree with a fraction</span>
-
-<span class="sd">    This pulls coolant material out of the bond component and adds it to the other</span>
-<span class="sd">    coolant-containing components while conserving mass.</span>
-
-<span class="sd">    Useful after db load with sodium bond. See armi.bookkeeping.db.database.updateFromDB</span>
-
-<span class="sd">    :math:`N_{hom} = \sum_{i} a_i N_i`</span>
-
-<span class="sd">    We want :math:`f = \frac{a_{bond} N_{bond}}{N_{hom}}`</span>
-<span class="sd">    So we can solve this for :math:`N_{bond}` and reduce the other</span>
-<span class="sd">    number densities accordingly.</span>
-
-<span class="sd">    Should work for coolants with more than 1 nuclide (e.g. H2O, Pb-Bi, NaK,...)</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    bondRemovedFrac : float</span>
-<span class="sd">        Fraction of the bond that has been removed.</span>
-
-<span class="sd">    See Also</span>
-<span class="sd">    --------</span>
-<span class="sd">    armi.reactor.assemblies.Assembly.applyBondRemovalFractions : does this in the original case</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">bond</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">BOND</span><span class="p">,</span> <span class="n">quiet</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">bond</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">bondRemovedFrac</span><span class="p">:</span>
-        <span class="k">return</span>
-    <span class="n">volFracs</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getVolumeFractions</span><span class="p">()</span>
-    <span class="n">vBond</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getComponentAreaFrac</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">BOND</span><span class="p">)</span>
-    <span class="n">nuclides</span> <span class="o">=</span> <span class="n">bond</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
-    <span class="c1"># reduce to components of the same material.</span>
-    <span class="n">coolantFracs</span> <span class="o">=</span> <span class="p">[]</span>
-
-    <span class="n">totalCoolantFrac</span> <span class="o">=</span> <span class="mf">0.0</span>
-    <span class="k">for</span> <span class="n">comp</span><span class="p">,</span> <span class="n">vFrac</span> <span class="ow">in</span> <span class="n">volFracs</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">comp</span><span class="o">.</span><span class="n">getProperties</span><span class="p">()</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span> <span class="o">==</span> <span class="n">bond</span><span class="o">.</span><span class="n">getProperties</span><span class="p">()</span><span class="o">.</span><span class="n">getName</span><span class="p">():</span>
-            <span class="n">coolantFracs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">comp</span><span class="p">,</span> <span class="n">vFrac</span><span class="p">))</span>
-            <span class="n">totalCoolantFrac</span> <span class="o">+=</span> <span class="n">vFrac</span>
-
-    <span class="n">ndensHomog</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nuclides</span><span class="p">:</span>
-        <span class="n">nh</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># homogenized number density of bond material (e.g. sodium)</span>
-        <span class="k">for</span> <span class="n">comp</span><span class="p">,</span> <span class="n">vFrac</span> <span class="ow">in</span> <span class="n">coolantFracs</span><span class="p">:</span>
-            <span class="n">nh</span> <span class="o">+=</span> <span class="n">comp</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">)</span> <span class="o">*</span> <span class="n">vFrac</span>
-        <span class="n">ndensHomog</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nh</span><span class="p">)</span>
-
-    <span class="c1"># adjust bond values Nb&#39;=(1-f)*Nb_bol</span>
-    <span class="n">newBondNdens</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">nh</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nuclides</span><span class="p">,</span> <span class="n">ndensHomog</span><span class="p">):</span>
-        <span class="n">ni</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">bondBOL</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">bondRemovedFrac</span><span class="p">)</span>
-        <span class="n">newBondNdens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ni</span><span class="p">)</span>
-        <span class="n">bond</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">ni</span><span class="p">)</span>
-
-    <span class="c1"># adjust values of other components (e.g. coolant, interCoolant)</span>
-    <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">nh</span><span class="p">,</span> <span class="n">nbNew</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nuclides</span><span class="p">,</span> <span class="n">ndensHomog</span><span class="p">,</span> <span class="n">newBondNdens</span><span class="p">):</span>
-        <span class="n">newOtherDens</span> <span class="o">=</span> <span class="p">(</span><span class="n">nh</span> <span class="o">-</span> <span class="n">nbNew</span> <span class="o">*</span> <span class="n">vBond</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">totalCoolantFrac</span> <span class="o">-</span> <span class="n">vBond</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">comp</span><span class="p">,</span> <span class="n">vFrac</span> <span class="ow">in</span> <span class="n">coolantFracs</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">comp</span> <span class="ow">is</span> <span class="n">bond</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="n">comp</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">newOtherDens</span><span class="p">)</span></div>
-
-
 <div class="viewcode-block" id="applyFuelDisplacement"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelPerformance.utils.html#armi.physics.fuelPerformance.utils.applyFuelDisplacement">[docs]</a><span class="k">def</span> <span class="nf">applyFuelDisplacement</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">displacementInCm</span><span class="p">):</span>
     <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Expands the fuel radius in a pin by a number of cm.</span>
@@ -361,7 +296,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-06-30.
+        Last updated on 2022-07-01.
       </span>
 
     </p>
