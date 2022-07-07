@@ -2109,7 +2109,9 @@
 
 <div class="viewcode-block" id="HexBlock.getPinCoordinates"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.getPinCoordinates">[docs]</a>    <span class="k">def</span> <span class="nf">getPinCoordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Compute the centroid coordinates of any pins in this block.</span>
+<span class="sd">        Compute the local centroid coordinates of any pins in this block.</span>
+
+<span class="sd">        The pins must have a CLAD-flagged component for this to work.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -2119,47 +2121,34 @@
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        This assumes hexagonal pin lattice and needs to be upgraded once more generic geometry</span>
-<span class="sd">        options are needed.</span>
-
-<span class="sd">        A block with fully-defined pins could just use their individual spatialLocators in a</span>
-<span class="sd">        block-level 2-D grid. However most cases do not have this to minimize overhead and maximize</span>
-<span class="sd">        speed. Thus we want to just come up with a uniform mesh of pins if they&#39;re not explicitly</span>
-<span class="sd">        placed in the grid.</span>
-
+<span class="sd">        options are needed. Only works if pins have clad.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getPinCoordinatesHex</span><span class="p">()</span></div>
-
-    <span class="k">def</span> <span class="nf">_getPinCoordinatesHex</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">pinPitch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getPinPitch</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">pinPitch</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">[]</span>
-
-        <span class="n">coordinates</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">numPins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">()</span>
-        <span class="n">numPinRings</span> <span class="o">=</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">numRingsToHoldNumCells</span><span class="p">(</span><span class="n">numPins</span><span class="p">)</span>
-
-        <span class="c1"># pin lattice is rotated 30 degrees from assembly lattice</span>
-        <span class="n">grid</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">HexGrid</span><span class="o">.</span><span class="n">fromPitch</span><span class="p">(</span><span class="n">pinPitch</span><span class="p">,</span> <span class="n">numPinRings</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">pointedEndUp</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">numPinRings</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">pos</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">getPositionsInRing</span><span class="p">(</span><span class="n">ring</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
-                <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">getIndicesFromRingAndPos</span><span class="p">(</span><span class="n">ring</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">pos</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-                <span class="n">xyz</span> <span class="o">=</span> <span class="n">grid</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span>
-                <span class="n">coordinates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xyz</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">coordinates</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">clad</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getChildrenWithFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">MultiIndexLocation</span><span class="p">):</span>
+                <span class="n">coords</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">locator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span> <span class="k">for</span> <span class="n">locator</span> <span class="ow">in</span> <span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">coords</span></div>
 
 <div class="viewcode-block" id="HexBlock.autoCreateSpatialGrids"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.autoCreateSpatialGrids">[docs]</a>    <span class="k">def</span> <span class="nf">autoCreateSpatialGrids</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Given a block without a spatialGrid, create a spatialGrid and give its children</span>
 <span class="sd">        the corresponding spatialLocators (if it is a simple block).</span>
 
-<span class="sd">        In this case, a simple block would</span>
-<span class="sd">        be one that has either multiplicity of components equal to 1 or N but no other multiplicities. Also, this should only happen when N fits exactly into a given number of hex rings.</span>
-<span class="sd">        Otherwise, do not create a grid for this block.</span>
+<span class="sd">        In this case, a simple block would be one that has either multiplicity of</span>
+<span class="sd">        components equal to 1 or N but no other multiplicities. Also, this should only</span>
+<span class="sd">        happen when N fits exactly into a given number of hex rings.  Otherwise, do not</span>
+<span class="sd">        create a grid for this block.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        If the block meets all the conditions, we gather all components to either be a multiIndexLocation containing all</span>
 <span class="sd">        of the pin positions, otherwise, locator is the center (0,0).</span>
+
+<span class="sd">        Also, this only works on blocks that have &#39;flat side up&#39;.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
@@ -2179,10 +2168,14 @@
                 <span class="p">)</span>
             <span class="p">)</span>
 
-        <span class="n">spatialLocators</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">MultiIndexLocation</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">)</span>
         <span class="n">ringNumber</span> <span class="o">=</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">numRingsToHoldNumCells</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">())</span>
         <span class="c1"># For the below to work, there must not be multiple wire or multiple clad types.</span>
-        <span class="n">grid</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">HexGrid</span><span class="o">.</span><span class="n">fromPitch</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getPinPitch</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">numRings</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># note that it&#39;s the pointed end of the cell hexes that are up (but the</span>
+        <span class="c1"># macro shape of the pins forms a hex with a flat top fitting in the assembly)</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">HexGrid</span><span class="o">.</span><span class="n">fromPitch</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">getPinPitch</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">numRings</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">pointedEndUp</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="n">spatialLocators</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">MultiIndexLocation</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">)</span>
         <span class="n">numLocations</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ringNumber</span><span class="p">):</span>
             <span class="n">numLocations</span> <span class="o">=</span> <span class="n">numLocations</span> <span class="o">+</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">numPositionsInRing</span><span class="p">(</span><span class="n">ring</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
