@@ -552,7 +552,6 @@
 <span class="sd">        armi.settings.setting.Setting</span>
 <span class="sd">        armi.settings.setting.Option</span>
 <span class="sd">        armi.settings.setting.Default</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[]</span></div>
 
@@ -585,7 +584,8 @@
 <span class="sd">        -------</span>
 <span class="sd">        list</span>
 <span class="sd">            Query objects to attach</span>
-<span class="sd">        &quot;&quot;&quot;</span></div>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
 
 <div class="viewcode-block" id="ArmiPlugin.defineCaseDependencies"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.ArmiPlugin.defineCaseDependencies">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="nd">@HOOKSPEC</span>
@@ -782,10 +782,93 @@
 <span class="sd">        &quot;&quot;&quot;</span></div></div>
 
 
-<div class="viewcode-block" id="getNewPluginManager"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.getNewPluginManager">[docs]</a><span class="k">def</span> <span class="nf">getNewPluginManager</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">pluginManager</span><span class="o">.</span><span class="n">ArmiPluginManager</span><span class="p">:</span>
+<div class="viewcode-block" id="UserPlugin"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.UserPlugin">[docs]</a><span class="k">class</span> <span class="nc">UserPlugin</span><span class="p">(</span><span class="n">ArmiPlugin</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Return a new plugin manager with all of the hookspecs pre-registered.</span>
+<span class="sd">    A variation on the ArmiPlugin meant to be created at runtime, from the ``userPlugins`` setting.</span>
+
+<span class="sd">    This is obviously a more limited use-case than the usual ArmiPlugin, as those are meant</span>
+<span class="sd">    to be defined at import time, instead of run time. As such, this class has some built-in</span>
+<span class="sd">    tooling to limit how these run-time plugins are used. They are meant to be more limited.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The usual ArmiPlugin is much more flexible, if the UserPlugin does not support what</span>
+<span class="sd">    you want to do, just use an ArmiPlugin.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">ArmiPlugin</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__enforceLimitations</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__enforceLimitations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This method enforces that UserPlugins are more limited than regular ArmiPlugins.</span>
+
+<span class="sd">        UserPlugins are different from regular plugins in that they can be defined during</span>
+<span class="sd">        a run, and as such, we want to limit how flexible they are, so we can correctly</span>
+<span class="sd">        corral their side effects during a run.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">,</span> <span class="n">UserPlugin</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">defineParameterRenames</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span>
+            <span class="p">),</span> <span class="s2">&quot;UserPlugins cannot define parameter renames, consider using an ArmiPlugin.&quot;</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">defineSettings</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span>
+            <span class="p">),</span> <span class="s2">&quot;UserPlugins cannot define new Settings, consider using an ArmiPlugin.&quot;</span>
+            <span class="c1"># NOTE: These are the class methods that we are staunchly _not_ allowing people</span>
+            <span class="c1"># to change in this class. If you need these, please use a regular ArmiPlugin.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">defineParameterRenames</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">defineSettings</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">defineSettingsValidators</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="UserPlugin.defineParameterRenames"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.UserPlugin.defineParameterRenames">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@HOOKSPEC</span>
+    <span class="k">def</span> <span class="nf">defineParameterRenames</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Prevents parameter renames.</span>
+
+<span class="sd">        .. warning:: This is not overridable.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        It is a designed limitation of user plugins that they not generate parameter renames,</span>
+<span class="sd">        so that they are able to be added to the plugin stack during run time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{}</span></div>
+
+<div class="viewcode-block" id="UserPlugin.defineSettings"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.UserPlugin.defineSettings">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@HOOKSPEC</span>
+    <span class="k">def</span> <span class="nf">defineSettings</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Prevents new settings.</span>
+
+<span class="sd">        .. warning:: This is not overridable.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        It is a designed limitation of user plugins that they not define new settings,</span>
+<span class="sd">        so that they are able to be added to the plugin stack during run time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+<div class="viewcode-block" id="UserPlugin.defineSettingsValidators"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.UserPlugin.defineSettingsValidators">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@HOOKSPEC</span>
+    <span class="k">def</span> <span class="nf">defineSettingsValidators</span><span class="p">(</span><span class="n">inspector</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Prevents new settings validators.</span>
+
+<span class="sd">        .. warning:: This is not overridable.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        It is a designed limitation of user plugins that they not define new settings,</span>
+<span class="sd">        so that they are able to be added to the plugin stack during run time.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[]</span></div></div>
+
+
+<div class="viewcode-block" id="getNewPluginManager"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.getNewPluginManager">[docs]</a><span class="k">def</span> <span class="nf">getNewPluginManager</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">pluginManager</span><span class="o">.</span><span class="n">ArmiPluginManager</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Return a new plugin manager with all of the hookspecs pre-registered.&quot;&quot;&quot;</span>
     <span class="n">pm</span> <span class="o">=</span> <span class="n">pluginManager</span><span class="o">.</span><span class="n">ArmiPluginManager</span><span class="p">(</span><span class="s2">&quot;armi&quot;</span><span class="p">)</span>
     <span class="n">pm</span><span class="o">.</span><span class="n">add_hookspecs</span><span class="p">(</span><span class="n">ArmiPlugin</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">pm</span></div>
