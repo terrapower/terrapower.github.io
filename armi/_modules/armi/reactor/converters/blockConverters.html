@@ -702,7 +702,6 @@
                         <span class="n">driverFuelBlock</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">pinPitch</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">getPinPitch</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mergeIntoClad</span> <span class="o">=</span> <span class="n">mergeIntoClad</span> <span class="ow">or</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interRingComponent</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">COOLANT</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -731,6 +730,13 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_buildNthRing</span><span class="p">(</span><span class="n">pinComponents</span><span class="p">,</span> <span class="n">ring</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_buildNonPinRings</span><span class="p">(</span><span class="n">nonPins</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_addDriverFuelRings</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">convertedBlock</span><span class="o">.</span><span class="n">getComponents</span><span class="p">():</span>
+            <span class="k">assert</span> <span class="n">comp</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">convertedBlock</span><span class="si">}</span><span class="s2"> has a negative area of </span><span class="si">{</span><span class="n">comp</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;Negative areas are not supported.&quot;</span>
+            <span class="p">)</span>
+
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convertedBlock</span></div>
 
     <span class="k">def</span> <span class="nf">_dissolveComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -750,12 +756,25 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Figure out which components are in each pin ring and which are not.</span>
 
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
 <span class="sd">        Assumption is that anything with multiplicity equal to numPins is a pin (clad, wire, bond, etc.)</span>
-<span class="sd">        Non-pins will include things like coolant, duct, interduct, whatever else.</span>
+<span class="sd">        Non-pins will include things like coolant, duct, interduct, etc.</span>
+
+<span class="sd">        This skips components that have a negative area, which can exist if a user implements a linked</span>
+<span class="sd">        component containing void or non-solid materials (e.g., gaps)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">pinComponents</span><span class="p">,</span> <span class="n">nonPins</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
 
         <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceBlock</span><span class="p">:</span>
+
+            <span class="c1"># If the area of the component is negative than this component should be skipped</span>
+            <span class="c1"># altogether. If not skipped, the conversion process still works, but this would</span>
+            <span class="c1"># result in one or more rings having an outer diameter than is smaller than the</span>
+            <span class="c1"># inner diameter.</span>
+            <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="k">continue</span>
+
             <span class="k">if</span> <span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_sourceBlock</span><span class="o">.</span><span class="n">getNumComponents</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span><span class="p">)</span>
                 <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceBlock</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">()</span>
