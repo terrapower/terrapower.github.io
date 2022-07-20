@@ -2446,14 +2446,42 @@
                 <span class="s2">&quot;Please make sure that this is intended and not a input error.&quot;</span>
             <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">referenceBlockAxialMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findAllAxialMeshPoints</span><span class="p">(</span><span class="n">applySubMesh</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axialMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findAllAxialMeshPoints</span><span class="p">()</span>
-        <span class="n">refAssem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refAssem</span>
+        <span class="c1"># if we have these params loaded from the database do not overwrite,</span>
+        <span class="c1"># otherwise initialize them</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">referenceBlockAxialMesh</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">referenceBlockAxialMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findAllAxialMeshPoints</span><span class="p">(</span>
+                <span class="n">applySubMesh</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axialMesh</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axialMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findAllAxialMeshPoints</span><span class="p">()</span>
 
+        <span class="n">refAssem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refAssem</span>
+        <span class="c1"># blueprints.assemblies.values need to be populated</span>
+        <span class="c1"># In a load from DB case construction may not have been prepped yet.</span>
+        <span class="c1"># this normally happens during blueprints constructAssem, but for DB</span>
+        <span class="c1"># load this is not called.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">_prepConstruction</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;detailedAxialExpansion&quot;</span><span class="p">]:</span>
-            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">includeBolAssems</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-                <span class="c1"># prepare for mesh snapping during axial expansion</span>
-                <span class="n">a</span><span class="o">.</span><span class="n">makeAxialSnapList</span><span class="p">(</span><span class="n">refAssem</span><span class="p">)</span>
+            <span class="c1"># prepare core for mesh snapping during axial expansion</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">():</span>
+                <span class="c1"># No BOL assemblies since the core may have an expanded mesh</span>
+                <span class="c1"># That wont work for snap list. BOL (blueprints) assemblies</span>
+                <span class="c1"># will have the expansion applied upon core.createAssemblyOfType</span>
+                <span class="n">a</span><span class="o">.</span><span class="n">makeAxialSnapList</span><span class="p">(</span><span class="n">refAssem</span><span class="o">=</span><span class="n">refAssem</span><span class="p">)</span>
+
+            <span class="c1"># Now apply mesh snapping for blueprints</span>
+            <span class="c1"># All mesh points should line up with the ref mesh, so first</span>
+            <span class="c1"># find the assembly with the finest mesh (it is the ref).</span>
+            <span class="n">finestMeshA</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">assemblies</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span>
+                <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">),</span>
+                <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="c1"># Apply an unexpanded ref mesh to the blueprints.Since they are</span>
+            <span class="c1"># not yet expanded, the normal core mesh would not line up.</span>
+            <span class="c1"># They will get expanded by core.createAssemblyOfType.</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">assemblies</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="n">a</span><span class="o">.</span><span class="n">makeAxialSnapList</span><span class="p">(</span><span class="n">refAssem</span><span class="o">=</span><span class="n">finestMeshA</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">numRings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">()</span>  <span class="c1"># TODO: why needed?</span>
 
@@ -2492,7 +2520,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-07-19.
+        Last updated on 2022-07-20.
       </span>
 
     </p>
