@@ -213,7 +213,6 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span>
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">importlib</span>
-<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span><span class="p">,</span> <span class="n">plugins</span><span class="p">,</span> <span class="n">pluginManager</span><span class="p">,</span> <span class="n">meta</span><span class="p">,</span> <span class="n">settings</span>
@@ -445,7 +444,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">__initNewPlugins</span><span class="p">()</span>
 
         <span class="k">for</span> <span class="n">pluginPath</span> <span class="ow">in</span> <span class="n">pluginPaths</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">sep</span> <span class="ow">in</span> <span class="n">pluginPath</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;.py:&quot;</span> <span class="ow">in</span> <span class="n">pluginPath</span><span class="p">:</span>
                 <span class="c1"># The path is of the form: /path/to/why.py:MyPlugin</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">__registerUserPluginsAbsPath</span><span class="p">(</span><span class="n">pluginPath</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
@@ -456,19 +455,11 @@
         <span class="sd">&quot;&quot;&quot;Helper method to register a single UserPlugin where</span>
 <span class="sd">        the given path is of the form: /path/to/why.py:MyPlugin</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># determine if this is a Windows system</span>
-        <span class="n">isWindows</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;nt&quot;</span><span class="p">:</span>
-            <span class="n">isWindows</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">assert</span> <span class="n">pluginPath</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;.py:&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Invalid plugin path: </span><span class="si">{</span><span class="n">pluginPath</span><span class="si">}</span><span class="s2">&quot;</span>
 
-        <span class="c1"># handle the minor variations on Windows file pathing</span>
-        <span class="k">if</span> <span class="n">isWindows</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="n">pluginPath</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Invalid plugin path: </span><span class="si">{</span><span class="n">pluginPath</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="n">drive</span><span class="p">,</span> <span class="n">filePath</span><span class="p">,</span> <span class="n">className</span> <span class="o">=</span> <span class="n">pluginPath</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
-            <span class="n">filePath</span> <span class="o">=</span> <span class="n">drive</span> <span class="o">+</span> <span class="s2">&quot;:&quot;</span> <span class="o">+</span> <span class="n">filePath</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="n">pluginPath</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Invalid plugin path: </span><span class="si">{</span><span class="n">pluginPath</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="n">filePath</span><span class="p">,</span> <span class="n">className</span> <span class="o">=</span> <span class="n">pluginPath</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="c1"># split the settings string into file path and class name</span>
+        <span class="n">filePath</span><span class="p">,</span> <span class="n">className</span> <span class="o">=</span> <span class="n">pluginPath</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.py:&quot;</span><span class="p">)</span>
+        <span class="n">filePath</span> <span class="o">+=</span> <span class="s2">&quot;.py&quot;</span>
 
         <span class="n">spec</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">spec_from_file_location</span><span class="p">(</span><span class="n">className</span><span class="p">,</span> <span class="n">filePath</span><span class="p">)</span>
         <span class="n">mod</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">module_from_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
@@ -543,7 +534,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-07-22.
+        Last updated on 2022-07-27.
       </span>
 
     </p>
