@@ -215,7 +215,7 @@
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">textwrap</span>
 <span class="kn">import</span> <span class="nn">ast</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Set</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Union</span>
 <span class="kn">import</span> <span class="nn">glob</span>
 <span class="kn">import</span> <span class="nn">tabulate</span>
 <span class="kn">import</span> <span class="nn">six</span>
@@ -897,114 +897,151 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">writeToYamlFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">+</span> <span class="s2">&quot;.yaml&quot;</span><span class="p">)</span></div></div>
 
 
+<div class="viewcode-block" id="copyInputsHelper"><a class="viewcode-back" href="../../../.apidocs/armi.cases.case.html#armi.cases.case.copyInputsHelper">[docs]</a><span class="k">def</span> <span class="nf">copyInputsHelper</span><span class="p">(</span>
+    <span class="n">fileDescription</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fileFullPath</span><span class="p">:</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span> <span class="n">destPath</span><span class="p">:</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function for copyInterfaceInputs: Creates an absolute file path, and</span>
+<span class="sd">    copies the file to that location.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fileDescription : str</span>
+<span class="sd">        A file description for the copyOrWarn method</span>
+
+<span class="sd">    fileFullPath : pathlib.Path object</span>
+<span class="sd">        The absolute file path of the file to copy</span>
+
+<span class="sd">    destPath : pathlib.Path object</span>
+<span class="sd">        The target directory to copy input files to</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    destFilePath : str</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sourceName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">fileFullPath</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">destFilePath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">destPath</span> <span class="o">/</span> <span class="n">sourceName</span><span class="p">)</span>
+    <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span><span class="n">fileDescription</span><span class="p">,</span> <span class="n">fileFullPath</span><span class="p">,</span> <span class="n">destFilePath</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">destFilePath</span></div>
+
+
 <div class="viewcode-block" id="copyInterfaceInputs"><a class="viewcode-back" href="../../../.apidocs/armi.cases.case.html#armi.cases.case.copyInterfaceInputs">[docs]</a><span class="k">def</span> <span class="nf">copyInterfaceInputs</span><span class="p">(</span>
     <span class="n">cs</span><span class="p">,</span> <span class="n">destination</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">sourceDir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">]]:</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Copy sets of files that are considered &quot;input&quot; from each active interface.</span>
+<span class="sd">    Ping active interfaces to determine which files are considered &quot;input&quot;. This</span>
+<span class="sd">    enables developers to add new inputs in a plugin-dependent/ modular way.</span>
 
-<span class="sd">    This enables developers to add new inputs in a plugin-dependent/ modular way.</span>
+<span class="sd">    This function should now be able to handle the updating of:</span>
+<span class="sd">      - a single file (relative or absolute)</span>
+<span class="sd">      - a list of files (relative or absolute), and</span>
+<span class="sd">      - a file entry that has a wildcard processing into multiple files.</span>
+<span class="sd">        Glob is used to offer support for wildcards.</span>
 
-<span class="sd">    In parameter sweeps, these often have a sourceDir associated with them that is</span>
-<span class="sd">    different from the cs.inputDirectory.</span>
+<span class="sd">    If the file paths are absolute, do nothing. The case will be able to find the file.</span>
+
+<span class="sd">    In case suites or parameter sweeps, these files often have a sourceDir associated</span>
+<span class="sd">    with them that is different from the cs.inputDirectory. So, if relative or wildcard,</span>
+<span class="sd">    update the file paths to be absolute in the case settings and copy the file to the</span>
+<span class="sd">    destination directory.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    cs : CaseSettings</span>
 <span class="sd">        The source case settings to find input files</span>
 
-<span class="sd">    destination: str</span>
+<span class="sd">    destination : str</span>
 <span class="sd">        The target directory to copy input files to</span>
 
-<span class="sd">    sourceDir: str, optional</span>
+<span class="sd">    sourceDir : str, optional</span>
 <span class="sd">        The directory from which to copy files. Defaults to cs.inputDirectory</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    newSettings : dict</span>
+<span class="sd">        A new settings object that contains settings for the keys and either an</span>
+<span class="sd">        absolute file path or a list of absolute file paths for the values</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
 
-<span class="sd">    This may seem a bit overly complex, but a lot of the behavior is important. Relative</span>
-<span class="sd">    paths are copied into the target directory, which in some cases requires updating</span>
-<span class="sd">    the setting that pointed to the file in the first place. This is necessary to avoid</span>
-<span class="sd">    case dependencies in relavive locations above the input directory, which can lead to</span>
-<span class="sd">    issues when cloneing case suites. In the future this could be simplified by adding a</span>
-<span class="sd">    concept for a suite root directory, below which it is safe to copy files without</span>
-<span class="sd">    needing to update settings that point with a relative path to files that are below</span>
-<span class="sd">    it.</span>
-
+<span class="sd">    Regarding the handling of relative file paths: In the future this could be</span>
+<span class="sd">    simplified by adding a concept for a suite root directory, below which it is safe</span>
+<span class="sd">    to copy files without needing to update settings that point with a relative path</span>
+<span class="sd">    to files that are below it.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">getActiveInterfaceInfo</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
     <span class="n">sourceDir</span> <span class="o">=</span> <span class="n">sourceDir</span> <span class="ow">or</span> <span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span>
     <span class="n">sourceDirPath</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">sourceDir</span><span class="p">)</span>
     <span class="n">destPath</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">destination</span><span class="p">)</span>
 
-    <span class="n">newSettings</span> <span class="o">=</span> <span class="p">{}</span>
-
     <span class="k">assert</span> <span class="n">destPath</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span>
+
+    <span class="n">newSettings</span> <span class="o">=</span> <span class="p">{}</span>
 
     <span class="k">for</span> <span class="n">klass</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">activeInterfaces</span><span class="p">:</span>
         <span class="n">interfaceFileNames</span> <span class="o">=</span> <span class="n">klass</span><span class="o">.</span><span class="n">specifyInputs</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
-        <span class="c1"># returned files can be absolute paths, relative paths, or even glob patterns.</span>
-        <span class="c1"># Since we don&#39;t have an explicit way to signal about these, we sort of have to</span>
-        <span class="c1"># guess. In future, it might be nice to have interfaces specify which</span>
-        <span class="c1"># explicitly.</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">files</span> <span class="ow">in</span> <span class="n">interfaceFileNames</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">Setting</span><span class="p">):</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">key</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">getSetting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
                 <span class="k">except</span> <span class="n">NonexistentSetting</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> is not a valid setting. Ensure the relevant specifyInputs method uses a correct setting name.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                            <span class="n">key</span>
-                        <span class="p">)</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> is not a valid setting. Ensure the relevant specifyInputs &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;method uses a correct setting name.&quot;</span>
                     <span class="p">)</span>
             <span class="n">label</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">name</span>
 
+            <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+                <span class="n">globFilePaths</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">()</span> <span class="ow">and</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-                    <span class="c1"># looks like an extant, absolute path; no need to do anything</span>
+                    <span class="c1"># Path is absolute, no settings modification or filecopy needed</span>
                     <span class="k">pass</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="c1"># An OSError can occur if a wildcard is included in the file name so</span>
-                    <span class="c1"># this is wrapped in a try/except to circumvent instances where an</span>
-                    <span class="c1"># interface requests to copy multiple files based on some prefix/suffix.</span>
-                    <span class="k">try</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()):</span>
-                            <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
-                                <span class="sa">f</span><span class="s2">&quot;Input file `</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">` not found. Checking for file at path `</span><span class="si">{</span><span class="n">sourceDirPath</span><span class="si">}</span><span class="s2">`&quot;</span>
-                            <span class="p">)</span>
-                    <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-                        <span class="k">pass</span>
+                    <span class="c1"># Path is either relative or includes a wildcard</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()):</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Input file for `</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">` setting could not be resolved &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;with the following file path: `</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">`. Checking for &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;file at path `</span><span class="si">{</span><span class="n">sourceDirPath</span><span class="si">}</span><span class="s2">`.&quot;</span>
+                        <span class="p">)</span>
 
-                    <span class="c1"># relative path/glob. Should be safe to just use glob resolution.</span>
-                    <span class="c1"># Note that `glob.glob` is being used here rather than `pathlib.glob` because</span>
-                    <span class="c1"># `pathlib.glob` for Python 3.7.2 does not handle case sensitivity for file and</span>
-                    <span class="c1"># path names. This is required for copying and using Python scripts (e.g., fuel management,</span>
-                    <span class="c1"># control logic, etc.).</span>
-                    <span class="n">srcFiles</span> <span class="o">=</span> <span class="p">[</span>
-                        <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sourceDirPath</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
-                        <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sourceDirPath</span><span class="p">,</span> <span class="n">f</span><span class="p">))</span>
-                    <span class="p">]</span>
-                    <span class="k">for</span> <span class="n">sourceFullPath</span> <span class="ow">in</span> <span class="n">srcFiles</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="ow">not</span> <span class="n">sourceFullPath</span><span class="p">:</span>
-                            <span class="k">continue</span>
-                        <span class="n">sourceName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">sourceFullPath</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-                        <span class="n">destFilePath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">destPath</span> <span class="o">/</span> <span class="n">sourceName</span><span class="p">)</span>
-                        <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">sourceFullPath</span><span class="p">,</span> <span class="n">destFilePath</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">srcFiles</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;No input files for `</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">` could be resolved &quot;</span>
-                            <span class="sa">f</span><span class="s2">&quot;with the following file path: `</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">`.&quot;</span>
+                    <span class="c1"># Attempt to find relative path file</span>
+                    <span class="n">sourceFullString</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sourceDirPath</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                    <span class="n">sourceFullPath</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">sourceFullString</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">sourceFullPath</span><span class="p">):</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Input file for `</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">` setting could not be resolved &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;with the following file path: `</span><span class="si">{</span><span class="n">sourceFullPath</span><span class="si">}</span><span class="s2">`. Checking &quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot;for wildcards.&quot;</span>
                         <span class="p">)</span>
-                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">srcFiles</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;Input files for `</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">` resolved to more &quot;</span>
-                            <span class="sa">f</span><span class="s2">&quot;than one file; cannot update settings safely. &quot;</span>
-                            <span class="sa">f</span><span class="s2">&quot;Discovered input files: </span><span class="si">{</span><span class="n">srcFiles</span><span class="si">}</span><span class="s2">&quot;</span>
-                        <span class="p">)</span>
-                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">srcFiles</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                        <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">destFilePath</span><span class="p">)</span>
+                        <span class="c1"># Attempt to capture file paths from wildcards</span>
+                        <span class="n">globFilePaths</span> <span class="o">=</span> <span class="p">[</span>
+                            <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sourceDirPath</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
+                            <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">sourceFullString</span><span class="p">)</span>
+                        <span class="p">]</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">globFilePaths</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;No input files for `</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">` setting could be resolved &quot;</span>
+                                <span class="sa">f</span><span class="s2">&quot;with the following file path: `</span><span class="si">{</span><span class="n">sourceFullPath</span><span class="si">}</span><span class="s2">`.&quot;</span>
+                            <span class="p">)</span>
+
+                    <span class="c1"># Finally, copy + update settings according to file path type</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">globFilePaths</span><span class="p">:</span>
+                        <span class="n">destFilePath</span> <span class="o">=</span> <span class="n">copyInputsHelper</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">sourceFullPath</span><span class="p">,</span> <span class="n">destPath</span><span class="p">)</span>
+                        <span class="c1"># Some settings are a single filename. Others are lists of files.</span>
+                        <span class="c1"># Either overwrite the empty list at the top of the loop, or</span>
+                        <span class="c1"># append to it.</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                            <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">destFilePath</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">destFilePath</span><span class="p">))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">gFile</span> <span class="ow">in</span> <span class="n">globFilePaths</span><span class="p">:</span>
+                            <span class="n">destFilePath</span> <span class="o">=</span> <span class="n">copyInputsHelper</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">gFile</span><span class="p">,</span> <span class="n">destPath</span><span class="p">)</span>
+                            <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">destFilePath</span><span class="p">))</span>
 
     <span class="k">return</span> <span class="n">newSettings</span></div>
 </pre></div>

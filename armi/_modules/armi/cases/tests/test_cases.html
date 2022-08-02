@@ -197,16 +197,21 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Unit tests for Case and CaseSuite objects</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">unittest</span>
-<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
 <span class="kn">import</span> <span class="nn">platform</span>
+<span class="kn">import</span> <span class="nn">unittest</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">cases</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">getApp</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">plugins</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
-<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">ARMI_RUN_PATH</span>
-<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">TEST_ROOT</span>
+<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">ARMI_RUN_PATH</span><span class="p">,</span> <span class="n">TEST_ROOT</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">blueprints</span><span class="p">,</span> <span class="n">systemLayoutInput</span>
 
 
@@ -454,19 +459,159 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;shuffleLogic&quot;</span><span class="p">]))</span></div></div>
 
 
-<div class="viewcode-block" id="TestCopyInterfaceInputs"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestCopyInterfaceInputs">[docs]</a><span class="k">class</span> <span class="nc">TestCopyInterfaceInputs</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Ensure filepath is updated properly.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="MultiFilesInterfaces"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.MultiFilesInterfaces">[docs]</a><span class="k">class</span> <span class="nc">MultiFilesInterfaces</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A little test interface that adds a setting that we need to test copyInterfaceInputs</span>
+<span class="sd">    with multiple files.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="TestCopyInterfaceInputs.test_copyInterfaceInputs"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestCopyInterfaceInputs.test_copyInterfaceInputs">[docs]</a>    <span class="k">def</span> <span class="nf">test_copyInterfaceInputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;MultiFilesInterfaces&quot;</span>
+
+<div class="viewcode-block" id="MultiFilesInterfaces.specifyInputs"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.MultiFilesInterfaces.specifyInputs">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">specifyInputs</span><span class="p">(</span><span class="n">cs</span><span class="p">):</span>
+        <span class="n">settingName</span> <span class="o">=</span> <span class="s2">&quot;multipleFilesSetting&quot;</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">settingName</span><span class="p">:</span> <span class="n">cs</span><span class="p">[</span><span class="n">settingName</span><span class="p">]}</span></div></div>
+
+
+<div class="viewcode-block" id="TestPluginForCopyInterfacesMultipleFiles"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestPluginForCopyInterfacesMultipleFiles">[docs]</a><span class="k">class</span> <span class="nc">TestPluginForCopyInterfacesMultipleFiles</span><span class="p">(</span><span class="n">plugins</span><span class="o">.</span><span class="n">ArmiPlugin</span><span class="p">):</span>
+<div class="viewcode-block" id="TestPluginForCopyInterfacesMultipleFiles.defineSettings"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestPluginForCopyInterfacesMultipleFiles.defineSettings">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@plugins</span><span class="o">.</span><span class="n">HOOKIMPL</span>
+    <span class="k">def</span> <span class="nf">defineSettings</span><span class="p">():</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">settings</span><span class="o">.</span><span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
+                <span class="s2">&quot;multipleFilesSetting&quot;</span><span class="p">,</span>
+                <span class="n">default</span><span class="o">=</span><span class="p">[],</span>
+                <span class="n">label</span><span class="o">=</span><span class="s2">&quot;multiple files&quot;</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;testing stuff&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">]</span></div>
+
+<div class="viewcode-block" id="TestPluginForCopyInterfacesMultipleFiles.exposeInterfaces"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestPluginForCopyInterfacesMultipleFiles.exposeInterfaces">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@plugins</span><span class="o">.</span><span class="n">HOOKIMPL</span>
+    <span class="k">def</span> <span class="nf">exposeInterfaces</span><span class="p">(</span><span class="n">cs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">interfaces</span><span class="o">.</span><span class="n">InterfaceInfo</span><span class="p">(</span>
+                <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">PREPROCESSING</span><span class="p">,</span>
+                <span class="n">MultiFilesInterfaces</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+            <span class="p">)</span>
+        <span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="TestCopyInterfaceInputs"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestCopyInterfaceInputs">[docs]</a><span class="k">class</span> <span class="nc">TestCopyInterfaceInputs</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure file path is found and updated properly.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Manipulate the standard App. We can&#39;t just configure our own, since the</span>
+<span class="sd">        pytest environment bleeds between tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_backupApp</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">getApp</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">tearDown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Restore the App to its original state&quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">armi</span>
+
+        <span class="n">armi</span><span class="o">.</span><span class="n">_app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backupApp</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">APP_NAME</span> <span class="o">=</span> <span class="s2">&quot;armi&quot;</span>
+
+<div class="viewcode-block" id="TestCopyInterfaceInputs.test_copyInputsHelper"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestCopyInterfaceInputs.test_copyInputsHelper">[docs]</a>    <span class="k">def</span> <span class="nf">test_copyInputsHelper</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Test the helper function for copyInterfaceInputs.&quot;&quot;&quot;</span>
         <span class="n">testSetting</span> <span class="o">=</span> <span class="s2">&quot;shuffleLogic&quot;</span>
         <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(</span><span class="n">ARMI_RUN_PATH</span><span class="p">)</span>
         <span class="n">shuffleFile</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="n">testSetting</span><span class="p">]</span>
-        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">newDir</span><span class="p">:</span>  <span class="c1"># ensure we are not in IN_USE_TEST_ROOT</span>
+
+        <span class="c1"># ensure we are not in TEST_ROOT</span>
+        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">newDir</span><span class="p">:</span>
+            <span class="c1"># null case, give it just the base of shuffleFile</span>
+            <span class="n">destFilePath</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">case</span><span class="o">.</span><span class="n">copyInputsHelper</span><span class="p">(</span>
+                <span class="n">testSetting</span><span class="p">,</span>
+                <span class="n">fileFullPath</span><span class="o">=</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">shuffleFile</span><span class="p">),</span>
+                <span class="n">destPath</span><span class="o">=</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">newFilepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="n">shuffleFile</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">destFilePath</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">newFilepath</span><span class="p">))</span>
+
+        <span class="c1"># test with full filepath too</span>
+        <span class="n">fileFullPath</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">shuffleFile</span><span class="p">))</span>
+
+        <span class="c1"># ensure we are not in TEST_ROOT</span>
+        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">newDir</span><span class="p">:</span>
+            <span class="n">destFilePath</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">case</span><span class="o">.</span><span class="n">copyInputsHelper</span><span class="p">(</span>
+                <span class="n">testSetting</span><span class="p">,</span>
+                <span class="n">fileFullPath</span><span class="o">=</span><span class="n">fileFullPath</span><span class="p">,</span>
+                <span class="n">destPath</span><span class="o">=</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">newFilepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="n">shuffleFile</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">destFilePath</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">newFilepath</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="TestCopyInterfaceInputs.test_copyInterfaceInputs_singleFile"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestCopyInterfaceInputs.test_copyInterfaceInputs_singleFile">[docs]</a>    <span class="k">def</span> <span class="nf">test_copyInterfaceInputs_singleFile</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">testSetting</span> <span class="o">=</span> <span class="s2">&quot;shuffleLogic&quot;</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(</span><span class="n">ARMI_RUN_PATH</span><span class="p">)</span>
+        <span class="n">shuffleFile</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="n">testSetting</span><span class="p">]</span>
+
+        <span class="c1"># ensure we are not in TEST_ROOT</span>
+        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">newDir</span><span class="p">:</span>
             <span class="n">newSettings</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">case</span><span class="o">.</span><span class="n">copyInterfaceInputs</span><span class="p">(</span>
                 <span class="n">cs</span><span class="p">,</span> <span class="n">destination</span><span class="o">=</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span>
             <span class="p">)</span>
             <span class="n">newFilepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="n">shuffleFile</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">newSettings</span><span class="p">[</span><span class="n">testSetting</span><span class="p">],</span> <span class="nb">str</span><span class="p">(</span><span class="n">newFilepath</span><span class="p">))</span></div></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">newSettings</span><span class="p">[</span><span class="n">testSetting</span><span class="p">],</span> <span class="nb">str</span><span class="p">(</span><span class="n">newFilepath</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="TestCopyInterfaceInputs.test_copyInterfaceInputs_nonFilePath"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestCopyInterfaceInputs.test_copyInterfaceInputs_nonFilePath">[docs]</a>    <span class="k">def</span> <span class="nf">test_copyInterfaceInputs_nonFilePath</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">testSetting</span> <span class="o">=</span> <span class="s2">&quot;shuffleLogic&quot;</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(</span><span class="n">ARMI_RUN_PATH</span><span class="p">)</span>
+        <span class="n">fakeShuffle</span> <span class="o">=</span> <span class="s2">&quot;fakeFile.py&quot;</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">testSetting</span><span class="p">:</span> <span class="n">fakeShuffle</span><span class="p">})</span>
+
+        <span class="c1"># ensure we are not in TEST_ROOT</span>
+        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">newDir</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span>
+                <span class="ne">Exception</span><span class="p">,</span>
+                <span class="n">cases</span><span class="o">.</span><span class="n">case</span><span class="o">.</span><span class="n">copyInterfaceInputs</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">destination</span><span class="o">=</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span><span class="p">),</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCopyInterfaceInputs.test_copyInterfaceInputs_multipleFiles"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestCopyInterfaceInputs.test_copyInterfaceInputs_multipleFiles">[docs]</a>    <span class="k">def</span> <span class="nf">test_copyInterfaceInputs_multipleFiles</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># register the new Plugin</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">getApp</span><span class="p">()</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">pluginManager</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">TestPluginForCopyInterfacesMultipleFiles</span><span class="p">)</span>
+
+        <span class="n">pluginPath</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;armi.cases.tests.test_cases.TestPluginForCopyInterfacesMultipleFiles&quot;</span>
+        <span class="p">)</span>
+        <span class="n">settingFiles</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;COMPXS.ascii&quot;</span><span class="p">,</span> <span class="s2">&quot;ISOAA&quot;</span><span class="p">]</span>
+        <span class="n">testName</span> <span class="o">=</span> <span class="s2">&quot;test_copyInterfaceInputs_multipleFiles&quot;</span>
+        <span class="n">testSetting</span> <span class="o">=</span> <span class="s2">&quot;multipleFilesSetting&quot;</span>
+
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(</span><span class="n">ARMI_RUN_PATH</span><span class="p">)</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span>
+            <span class="n">caseTitle</span><span class="o">=</span><span class="n">testName</span><span class="p">,</span>
+            <span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">testName</span><span class="p">:</span> <span class="p">[</span><span class="n">pluginPath</span><span class="p">]},</span>
+        <span class="p">)</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">testSetting</span><span class="p">:</span> <span class="n">settingFiles</span><span class="p">})</span>
+
+        <span class="c1"># ensure we are not in TEST_ROOT</span>
+        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">newDir</span><span class="p">:</span>
+            <span class="n">newSettings</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">case</span><span class="o">.</span><span class="n">copyInterfaceInputs</span><span class="p">(</span>
+                <span class="n">cs</span><span class="p">,</span> <span class="n">destination</span><span class="o">=</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span>
+            <span class="p">)</span>
+            <span class="n">newFilepaths</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">settingFiles</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">newSettings</span><span class="p">[</span><span class="n">testSetting</span><span class="p">],</span> <span class="n">newFilepaths</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCopyInterfaceInputs.test_copyInterfaceInputs_wildcardFile"><a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestCopyInterfaceInputs.test_copyInterfaceInputs_wildcardFile">[docs]</a>    <span class="k">def</span> <span class="nf">test_copyInterfaceInputs_wildcardFile</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">testSetting</span> <span class="o">=</span> <span class="s2">&quot;shuffleLogic&quot;</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(</span><span class="n">ARMI_RUN_PATH</span><span class="p">)</span>
+        <span class="c1"># Use something that isn&#39;t the shuffle logic file in the case settings</span>
+        <span class="n">wcFile</span> <span class="o">=</span> <span class="s2">&quot;ISO*&quot;</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">testSetting</span><span class="p">:</span> <span class="n">wcFile</span><span class="p">})</span>
+
+        <span class="c1"># ensure we are not in TEST_ROOT</span>
+        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">newDir</span><span class="p">:</span>
+            <span class="n">newSettings</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">case</span><span class="o">.</span><span class="n">copyInterfaceInputs</span><span class="p">(</span>
+                <span class="n">cs</span><span class="p">,</span> <span class="n">destination</span><span class="o">=</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span>
+            <span class="p">)</span>
+            <span class="n">newFilepath</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="s2">&quot;ISOAA&quot;</span><span class="p">)]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">newSettings</span><span class="p">[</span><span class="n">testSetting</span><span class="p">],</span> <span class="n">newFilepath</span><span class="p">)</span></div></div>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
