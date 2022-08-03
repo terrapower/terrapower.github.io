@@ -2403,7 +2403,7 @@
             <span class="n">fuelBottoms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fuelHeightInCm</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">lowestFuelHeightInCm</span></div>
 
-<div class="viewcode-block" id="Core.processLoading"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.processLoading">[docs]</a>    <span class="k">def</span> <span class="nf">processLoading</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
+<div class="viewcode-block" id="Core.processLoading"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.processLoading">[docs]</a>    <span class="k">def</span> <span class="nf">processLoading</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">dbLoad</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        After nuclide densities are loaded, this goes through and prepares the reactor.</span>
 
@@ -2420,17 +2420,6 @@
 <span class="sd">        updateAxialMesh : Perturbs the axial mesh originally set up here.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;inputHeightsConsideredHot&quot;</span><span class="p">]:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">header</span><span class="p">(</span>
-                <span class="s2">&quot;=========== Axially expanding all (except control) assemblies from Tinput to Thot ===========&quot;</span>
-            <span class="p">)</span>
-            <span class="n">axialExpChngr</span> <span class="o">=</span> <span class="n">AxialExpansionChanger</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;detailedAxialExpansion&quot;</span><span class="p">])</span>
-            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">includeAll</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">):</span>
-                    <span class="n">axialExpChngr</span><span class="o">.</span><span class="n">setAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-                    <span class="n">axialExpChngr</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">computeThermalExpansionFactors</span><span class="p">()</span>
-                    <span class="n">axialExpChngr</span><span class="o">.</span><span class="n">axiallyExpandAssembly</span><span class="p">(</span><span class="n">thermal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
         <span class="n">runLog</span><span class="o">.</span><span class="n">header</span><span class="p">(</span>
             <span class="s2">&quot;=========== Initializing Mesh, Assembly Zones, and Nuclide Categories =========== &quot;</span>
         <span class="p">)</span>
@@ -2446,42 +2435,46 @@
                 <span class="s2">&quot;Please make sure that this is intended and not a input error.&quot;</span>
             <span class="p">)</span>
 
-        <span class="c1"># if we have these params loaded from the database do not overwrite,</span>
-        <span class="c1"># otherwise initialize them</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">referenceBlockAxialMesh</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">dbLoad</span><span class="p">:</span>
+            <span class="c1"># reactor.blueprints.assemblies need to be populated</span>
+            <span class="c1"># this normally happens during armi/reactor/blueprints/__init__.py::constructAssem</span>
+            <span class="c1"># but for DB load, this is not called so it must be here.</span>
+            <span class="c1"># pylint: disable=protected-access</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">_prepConstruction</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;detailedAxialExpansion&quot;</span><span class="p">]:</span>
+                <span class="c1"># Apply mesh snapping for self.parent.blueprints.assemblies</span>
+                <span class="c1"># This is stored as a param for assemblies in-core, so only blueprints assemblies are</span>
+                <span class="c1"># considereed here. To guarantee mesh snapping will function, makeAxialSnapList</span>
+                <span class="c1"># should be in reference to the assembly with the finest mesh as defined in the blueprints.</span>
+                <span class="n">finestAssemblyMesh</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">assemblies</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span>
+                    <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">),</span>
+                    <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">assemblies</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="n">a</span><span class="o">.</span><span class="n">makeAxialSnapList</span><span class="p">(</span><span class="n">refAssem</span><span class="o">=</span><span class="n">finestAssemblyMesh</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">referenceBlockAxialMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findAllAxialMeshPoints</span><span class="p">(</span>
                 <span class="n">applySubMesh</span><span class="o">=</span><span class="kc">False</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axialMesh</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axialMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">findAllAxialMeshPoints</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;detailedAxialExpansion&quot;</span><span class="p">]:</span>
+                <span class="c1"># prepare core for mesh snapping during axial expansion</span>
+                <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">includeAll</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+                    <span class="n">a</span><span class="o">.</span><span class="n">makeAxialSnapList</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">refAssem</span><span class="p">)</span>
 
-        <span class="n">refAssem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refAssem</span>
-        <span class="c1"># blueprints.assemblies.values need to be populated</span>
-        <span class="c1"># In a load from DB case construction may not have been prepped yet.</span>
-        <span class="c1"># this normally happens during blueprints constructAssem, but for DB</span>
-        <span class="c1"># load this is not called.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">_prepConstruction</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;detailedAxialExpansion&quot;</span><span class="p">]:</span>
-            <span class="c1"># prepare core for mesh snapping during axial expansion</span>
-            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">():</span>
-                <span class="c1"># No BOL assemblies since the core may have an expanded mesh</span>
-                <span class="c1"># That wont work for snap list. BOL (blueprints) assemblies</span>
-                <span class="c1"># will have the expansion applied upon core.createAssemblyOfType</span>
-                <span class="n">a</span><span class="o">.</span><span class="n">makeAxialSnapList</span><span class="p">(</span><span class="n">refAssem</span><span class="o">=</span><span class="n">refAssem</span><span class="p">)</span>
-
-            <span class="c1"># Now apply mesh snapping for blueprints</span>
-            <span class="c1"># All mesh points should line up with the ref mesh, so first</span>
-            <span class="c1"># find the assembly with the finest mesh (it is the ref).</span>
-            <span class="n">finestMeshA</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">assemblies</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span>
-                <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">),</span>
-                <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="c1"># Apply an unexpanded ref mesh to the blueprints.Since they are</span>
-            <span class="c1"># not yet expanded, the normal core mesh would not line up.</span>
-            <span class="c1"># They will get expanded by core.createAssemblyOfType.</span>
-            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">assemblies</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-                <span class="n">a</span><span class="o">.</span><span class="n">makeAxialSnapList</span><span class="p">(</span><span class="n">refAssem</span><span class="o">=</span><span class="n">finestMeshA</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;inputHeightsConsideredHot&quot;</span><span class="p">]:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">header</span><span class="p">(</span>
+                    <span class="s2">&quot;=========== Axially expanding all (except control) assemblies from Tinput to Thot ===========&quot;</span>
+                <span class="p">)</span>
+                <span class="n">axialExpChngr</span> <span class="o">=</span> <span class="n">AxialExpansionChanger</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;detailedAxialExpansion&quot;</span><span class="p">])</span>
+                <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">):</span>
+                        <span class="n">axialExpChngr</span><span class="o">.</span><span class="n">setAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+                        <span class="n">axialExpChngr</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">computeThermalExpansionFactors</span><span class="p">()</span>
+                        <span class="n">axialExpChngr</span><span class="o">.</span><span class="n">axiallyExpandAssembly</span><span class="p">(</span><span class="n">thermal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">axialExpChngr</span><span class="o">.</span><span class="n">manageCoreMesh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">numRings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">()</span>  <span class="c1"># TODO: why needed?</span>
 
@@ -2491,7 +2484,7 @@
         <span class="n">stationaryBlocks</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="c1"># look for blocks that should not be shuffled in an assembly.  It is assumed that the</span>
         <span class="c1"># reference assembly has all the fixed block information and it is the same for all assemblies</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">refAssem</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">refAssem</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">GRID_PLATE</span><span class="p">):</span>
                 <span class="n">stationaryBlocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
                 <span class="c1"># TODO: remove hard-coded assumption of grid plates (T3019)</span>
