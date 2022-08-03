@@ -285,7 +285,7 @@
 <span class="sd">            This is useful when target components within a fuel block need to be determined on-the-fly.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">setFuel</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">mapHotTempToComponents</span><span class="p">(</span><span class="n">tempGrid</span><span class="p">,</span> <span class="n">tempField</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">updateComponentTempsBy1DTempField</span><span class="p">(</span><span class="n">tempGrid</span><span class="p">,</span> <span class="n">tempField</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">computeThermalExpansionFactors</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">axiallyExpandAssembly</span><span class="p">(</span><span class="n">thermal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
@@ -367,6 +367,8 @@
                             <span class="n">c</span><span class="p">,</span> <span class="n">growFrac</span>
                         <span class="p">)</span>
                     <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">thermal</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">componentReferenceHeight</span><span class="p">:</span>
+                        <span class="n">blockHeight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">componentReferenceHeight</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
                     <span class="k">if</span> <span class="n">growFrac</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">:</span>
                         <span class="n">c</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">growFrac</span><span class="p">)</span> <span class="o">*</span> <span class="n">blockHeight</span>
                     <span class="k">else</span><span class="p">:</span>
@@ -404,57 +406,12 @@
             <span class="n">mesh</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span><span class="p">)</span>
             <span class="n">b</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ib</span><span class="p">]</span>
 
+        <span class="c1"># pylint: disable = protected-access</span>
         <span class="n">bounds</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">_bounds</span><span class="p">)</span>
         <span class="n">bounds</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">_bounds</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="AxialExpansionChanger.axiallyExpandCoreThermal"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.AxialExpansionChanger.axiallyExpandCoreThermal">[docs]</a>    <span class="k">def</span> <span class="nf">axiallyExpandCoreThermal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">tempGrid</span><span class="p">,</span> <span class="n">tempField</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Perform thermally driven axial expansion of the core.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        r : :py:class:`Reactor &lt;armi.reactor.reactors.Reactor&gt;` object.</span>
-<span class="sd">            ARMI reactor to be expanded</span>
-<span class="sd">        tempGrid : dictionary</span>
-<span class="sd">            keys --&gt; :py:class:`Assembly &lt;armi.reactor.assemblies.Assembly&gt;` object</span>
-<span class="sd">            values --&gt; grid (list of floats)</span>
-<span class="sd">        tempField : dictionary</span>
-<span class="sd">            keys --&gt; :py:class:`Assembly &lt;armi.reactor.assemblies.Assembly&gt;` object.</span>
-<span class="sd">            values --&gt; temperatures (list of floats)</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">includeBolAssems</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">mapHotTempToComponents</span><span class="p">(</span><span class="n">tempGrid</span><span class="p">[</span><span class="n">a</span><span class="p">],</span> <span class="n">tempField</span><span class="p">[</span><span class="n">a</span><span class="p">])</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">computeThermalExpansionFactors</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">axiallyExpandAssembly</span><span class="p">()</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_manageCoreMesh</span><span class="p">(</span><span class="n">r</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="AxialExpansionChanger.axiallyExpandCorePercent"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.AxialExpansionChanger.axiallyExpandCorePercent">[docs]</a>    <span class="k">def</span> <span class="nf">axiallyExpandCorePercent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">components</span><span class="p">,</span> <span class="n">percents</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Perform axial expansion of the core driven by user-defined expansion percentages.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        r : :py:class:`Reactor &lt;armi.reactor.reactors.Reactor&gt;` object.</span>
-<span class="sd">            ARMI reactor to be expanded</span>
-<span class="sd">        components : dict</span>
-<span class="sd">            keys --&gt; :py:class:`Assembly &lt;armi.reactor.assemblies.Assembly&gt;` object</span>
-<span class="sd">            values --&gt; list of :py:class:`Component &lt;armi.reactor.components.component.Component&gt;` to be expanded</span>
-<span class="sd">        percents : dict</span>
-<span class="sd">            keys --&gt; :py:class:`Assembly &lt;armi.reactor.assemblies.Assembly&gt;` object</span>
-<span class="sd">            values --&gt; list of percentages to expand :py:class:`Component &lt;armi.reactor.components.component.Component&gt;` by # pylint: disable=line-too-long</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">includeBolAssems</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">setExpansionFactors</span><span class="p">(</span><span class="n">components</span><span class="p">[</span><span class="n">a</span><span class="p">],</span> <span class="n">percents</span><span class="p">[</span><span class="n">a</span><span class="p">])</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">axiallyExpandAssembly</span><span class="p">()</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_manageCoreMesh</span><span class="p">(</span><span class="n">r</span><span class="p">)</span></div>
-
-    <span class="k">def</span> <span class="nf">_manageCoreMesh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+<div class="viewcode-block" id="AxialExpansionChanger.manageCoreMesh"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.AxialExpansionChanger.manageCoreMesh">[docs]</a>    <span class="k">def</span> <span class="nf">manageCoreMesh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        manage core mesh post assembly-level expansion</span>
 
@@ -470,20 +427,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detailedAxialExpansion</span><span class="p">:</span>
             <span class="c1"># loop through again now that the reference is adjusted and adjust the non-fuel assemblies.</span>
-            <span class="n">refAssem</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">refAssem</span>
-            <span class="n">axMesh</span> <span class="o">=</span> <span class="n">refAssem</span><span class="o">.</span><span class="n">getAxialMesh</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="n">includeBolAssems</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-                <span class="c1"># See ARMI Ticket #112 for explanation of the commented out code</span>
-                <span class="n">a</span><span class="o">.</span><span class="n">setBlockMesh</span><span class="p">(</span>
-                    <span class="n">axMesh</span>
-                <span class="p">)</span>  <span class="c1"># , conserveMassFlag=True, adjustList=adjustList)</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">():</span>
+                <span class="n">a</span><span class="o">.</span><span class="n">setBlockMesh</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">refAssem</span><span class="o">.</span><span class="n">getAxialMesh</span><span class="p">())</span>
 
         <span class="n">oldMesh</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axialMesh</span>
-        <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">updateAxialMesh</span><span class="p">()</span>  <span class="c1"># floating point correction</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-            <span class="s2">&quot;Adjusted full core fuel axial mesh uniformly &quot;</span>
-            <span class="s2">&quot;From </span><span class="si">{0}</span><span class="s2"> cm to </span><span class="si">{1}</span><span class="s2"> cm.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">oldMesh</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axialMesh</span><span class="p">)</span>
-        <span class="p">)</span></div>
+        <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">updateAxialMesh</span><span class="p">()</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Updated r.core.p.axialMesh (old, new)&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">old</span><span class="p">,</span> <span class="n">new</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">oldMesh</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axialMesh</span><span class="p">):</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">old</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="se">\t</span><span class="si">{</span><span class="n">new</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div></div>
 
 
 <span class="k">def</span> <span class="nf">_conserveComponentMass</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">oldHeight</span><span class="p">,</span> <span class="n">oldVolume</span><span class="p">):</span>
@@ -718,7 +669,8 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">setFuel</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_a</span> <span class="o">=</span> <span class="n">a</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_oldHotTemp</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceHeight</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_componentDeterminesBlockHeight</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_setTargetComponents</span><span class="p">(</span><span class="n">setFuel</span><span class="p">)</span>
@@ -754,28 +706,28 @@
         <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">componentLst</span><span class="p">,</span> <span class="n">percents</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span></div>
 
-<div class="viewcode-block" id="ExpansionData.mapHotTempToComponents"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.mapHotTempToComponents">[docs]</a>    <span class="k">def</span> <span class="nf">mapHotTempToComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tempGrid</span><span class="p">,</span> <span class="n">tempField</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;map axial temp distribution to blocks and components in self.a</span>
+<div class="viewcode-block" id="ExpansionData.updateComponentTempsBy1DTempField"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.updateComponentTempsBy1DTempField">[docs]</a>    <span class="k">def</span> <span class="nf">updateComponentTempsBy1DTempField</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tempGrid</span><span class="p">,</span> <span class="n">tempField</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;assign a block-average axial temperature to components</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        tempGrid : numpy array</span>
-<span class="sd">            axial temperature grid (i.e., physical locations where temp is stored)</span>
+<span class="sd">            1D axial temperature grid (i.e., physical locations where temp is stored)</span>
 <span class="sd">        tempField : numpy array</span>
 <span class="sd">            temperature values along grid</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        - maps the radially uniform axial temperature distribution to components</span>
+<span class="sd">        - maps a 1D axial temperature distribution to components</span>
 <span class="sd">        - searches for temperatures that fall within the bounds of a block,</span>
 <span class="sd">          averages them, and assigns them as appropriate</span>
-<span class="sd">        - The second portion, when component volume is set, is functionally very similar</span>
-<span class="sd">        to c.computeVolume(), however differs in the temperatures that get used to compute dimensions.</span>
-<span class="sd">           - In c.getArea() -&gt; c.getComponentArea(cold=cold) -&gt; self.getDimension(str, cold=cold),</span>
-<span class="sd">        cold=False results in self.getDimension to use the cold/input component temperature.</span>
-<span class="sd">        However, we want the &quot;old hot&quot; temp to be used. So, here we manually call</span>
-<span class="sd">        c.getArea and pass in the correct &quot;cold&quot; (old hot) temperature. This ensures that</span>
-<span class="sd">        component mass is conserved.</span>
+<span class="sd">        - Updating component volume is functionally very similar to c.computeVolume().</span>
+<span class="sd">          However, this implementation differs in the temperatures that get used to compute dimensions.</span>
+<span class="sd">            - In c.getArea() -&gt; c.getComponentArea(cold=cold) -&gt; self.getDimension(str, cold=cold),</span>
+<span class="sd">              cold=False results in self.getDimension to use the cold/input component temperature.</span>
+<span class="sd">            - However, we want the temperature from the previous state to be used (the reference temperature).</span>
+<span class="sd">              So, here we manually call c.getArea() and pass in the reference temperature. This ensures that</span>
+<span class="sd">              as the component is expanded its mass is conserved.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
@@ -788,7 +740,7 @@
             <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;tempGrid and tempField must have the same length.&quot;</span><span class="p">)</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_oldHotTemp</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># reset, just to be safe</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># reset, just to be safe</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">:</span>
             <span class="n">tmpMapping</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">idz</span><span class="p">,</span> <span class="n">z</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">tempGrid</span><span class="p">):</span>
@@ -807,12 +759,16 @@
 
             <span class="n">blockAveTemp</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span><span class="n">tmpMapping</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_oldHotTemp</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span>  <span class="c1"># stash the &quot;old&quot; hot temp</span>
-                <span class="c1"># set component volume to be evaluated at &quot;old&quot; hot temp</span>
-                <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">volume</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_oldHotTemp</span><span class="p">[</span><span class="n">c</span><span class="p">])</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceHeight</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+                <span class="c1"># store the temperature from previous state (i.e., reference temp)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span>
+                <span class="c1"># set component volume to be evaluated at reference temp</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">volume</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span><span class="p">[</span><span class="n">c</span><span class="p">])</span>
+                    <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+                <span class="p">)</span>
                 <span class="c1"># DO NOT use self.setTemperature(). This calls changeNDensByFactor(f)</span>
-                <span class="c1"># and ruins mass conservation via number densities. Instead,</span>
-                <span class="c1"># set manually.</span>
+                <span class="c1"># and ruins mass conservation via number densities. Instead, set manually.</span>
                 <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="n">blockAveTemp</span></div>
 
 <div class="viewcode-block" id="ExpansionData.computeThermalExpansionFactors"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.computeThermalExpansionFactors">[docs]</a>    <span class="k">def</span> <span class="nf">computeThermalExpansionFactors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -820,7 +776,15 @@
 
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getThermalExpansionFactor</span><span class="p">()</span> <span class="o">-</span> <span class="mf">1.0</span></div>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">c</span><span class="o">.</span><span class="n">getThermalExpansionFactor</span><span class="p">(</span>
+                            <span class="n">T0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
+                        <span class="p">)</span>
+                        <span class="o">-</span> <span class="mf">1.0</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getThermalExpansionFactor</span><span class="p">()</span> <span class="o">-</span> <span class="mf">1.0</span></div>
 
 <div class="viewcode-block" id="ExpansionData.getExpansionFactor"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.getExpansionFactor">[docs]</a>    <span class="k">def</span> <span class="nf">getExpansionFactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;retrieves expansion factor for c</span>
@@ -947,7 +911,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-08-02.
+        Last updated on 2022-08-03.
       </span>
 
     </p>
