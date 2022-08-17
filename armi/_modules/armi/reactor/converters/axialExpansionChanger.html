@@ -309,6 +309,23 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span> <span class="o">=</span> <span class="n">ExpansionData</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">setFuel</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_isTopDummyBlockPresent</span><span class="p">()</span></div>
 
+<div class="viewcode-block" id="AxialExpansionChanger.applyColdHeightMassIncrease"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.AxialExpansionChanger.applyColdHeightMassIncrease">[docs]</a>    <span class="k">def</span> <span class="nf">applyColdHeightMassIncrease</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Increase component mass because they are declared at cold dims</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        A cold 1 cm tall component will have more mass that a component with the</span>
+<span class="sd">        same mass/length as a component with a hot height of 1 cm. This should be</span>
+<span class="sd">        called when the setting `inputHeightsConsideredHot` is used. This basically</span>
+<span class="sd">        undoes component.applyHotHeightDensityReduction</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">getComponents</span><span class="p">():</span>
+            <span class="n">axialExpansionFactor</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">linearExpansionFactor</span><span class="p">(</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">inputTemperatureInC</span>
+            <span class="p">)</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">changeNDensByFactor</span><span class="p">(</span><span class="n">axialExpansionFactor</span><span class="p">)</span></div>
+
     <span class="k">def</span> <span class="nf">_isTopDummyBlockPresent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;determines if top most block of assembly is a dummy block</span>
 
@@ -359,9 +376,10 @@
             <span class="c1"># if ib == 0, leave block bottom = 0.0</span>
             <span class="k">if</span> <span class="n">ib</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span>
-            <span class="c1"># if not in the dummy block, get expansion factor, do alignment, and modify block</span>
-            <span class="k">if</span> <span class="n">ib</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">numOfBlocks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">isDummyBlock</span> <span class="o">=</span> <span class="n">ib</span> <span class="o">==</span> <span class="p">(</span><span class="n">numOfBlocks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">isDummyBlock</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span>
+
                     <span class="n">growFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">getExpansionFactor</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                         <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;      Component </span><span class="si">{0}</span><span class="s2">, growFrac = </span><span class="si">{1:.4e}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
@@ -406,8 +424,9 @@
             <span class="c1"># see also b.setHeight()</span>
             <span class="c1"># - the above not chosen due to call to calculateZCoords</span>
             <span class="n">oldComponentVolumes</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="p">]</span>
-            <span class="n">oldHeight</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+            <span class="n">oldHeight</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">height</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span> <span class="o">-</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span>
+
             <span class="n">_checkBlockHeight</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
             <span class="n">_conserveComponentMass</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">oldHeight</span><span class="p">,</span> <span class="n">oldComponentVolumes</span><span class="p">)</span>
             <span class="c1"># set block mid point and redo mesh</span>
@@ -940,7 +959,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-08-16.
+        Last updated on 2022-08-17.
       </span>
 
     </p>
