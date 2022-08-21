@@ -227,7 +227,8 @@
 <span class="sd">Examples</span>
 <span class="sd">--------</span>
 <span class="sd">converter = uniformMesh.NeutronicsUniformMeshConverter()</span>
-<span class="sd">uniformReactor = converter.convert(reactor)</span>
+<span class="sd">converter.convert(reactor)</span>
+<span class="sd">uniformReactor = converter.convReactor</span>
 <span class="sd"># do calcs, then:</span>
 <span class="sd">converter.applyStateToOriginal()</span>
 
@@ -244,7 +245,9 @@
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
+<span class="kn">import</span> <span class="nn">armi</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
 <span class="kn">from</span> <span class="nn">armi.utils.mathematics</span> <span class="kn">import</span> <span class="n">average1DWithinTolerance</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">iterables</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">plotting</span>
@@ -267,25 +270,44 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">blockDetailedAxialExpansionParamNames</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span> <span class="o">=</span> <span class="p">[]</span>
 
+        <span class="c1"># These dictionaries represent back-up data from the source reactor</span>
+        <span class="c1"># that can be recovered if the data is not being brought back from</span>
+        <span class="c1"># the uniform mesh reactor when ``applyStateToOriginal`` to called.</span>
+        <span class="c1"># This prevents clearing out data on the original reactor that should</span>
+        <span class="c1"># be preserved since no changes were applied.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedReactorCoreParamData</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+
 <div class="viewcode-block" id="UniformMeshGeometryConverter.convert"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.convert">[docs]</a>    <span class="k">def</span> <span class="nf">convert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Create a new reactor with a uniform mesh.&quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Building copy of </span><span class="si">{}</span><span class="s2"> with a uniform axial mesh&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
-
         <span class="n">completeStartTime</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span> <span class="o">=</span> <span class="n">r</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initNewReactor</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_setParamsToUpdate</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_computeAverageAxialMesh</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_buildAllUniformAssemblies</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">)</span>
+
+        <span class="c1"># Clear the state of the converted reactor to ensure there is</span>
+        <span class="c1"># no data from the creation of a new reactor core</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">updateAxialMesh</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_newAssembliesAdded</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">()</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkConversion</span><span class="p">()</span>
         <span class="n">completeEndTime</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Reactor core conversion time: </span><span class="si">{</span><span class="n">completeEndTime</span><span class="o">-</span><span class="n">completeStartTime</span><span class="si">}</span><span class="s2"> seconds&quot;</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span></div>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="UniformMeshGeometryConverter.reset"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.reset">[docs]</a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockDetailedAxialExpansionParamNames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedReactorCoreParamData</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span></div>
 
     <span class="k">def</span> <span class="nf">_checkConversion</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Perform checks to ensure conversion occurred properly.&quot;&quot;&quot;</span>
@@ -305,9 +327,20 @@
         <span class="c1"># attributes are set when assemblies are added in coreDesign.construct(), however</span>
         <span class="c1"># since we skip that here, they never get set; therefore the need for the deepcopy.</span>
         <span class="n">bp</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">sourceReactor</span><span class="o">.</span><span class="n">blueprints</span><span class="p">)</span>
-        <span class="n">newReactor</span> <span class="o">=</span> <span class="n">Reactor</span><span class="p">(</span><span class="n">sourceReactor</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
+        <span class="n">newReactor</span> <span class="o">=</span> <span class="n">Reactor</span><span class="p">(</span><span class="n">sourceReactor</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
         <span class="n">coreDesign</span> <span class="o">=</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span>
-        <span class="n">coreDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">sourceReactor</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">,</span> <span class="n">newReactor</span><span class="p">,</span> <span class="n">loadAssems</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># The source reactor may not have an operator available. This can occur</span>
+        <span class="c1"># when a different geometry converter is chained together with this. For</span>
+        <span class="c1"># instance, using the `HexToRZThetaConverter`, the converted reactor</span>
+        <span class="c1"># does not have an operator attached. In this case, we still need some</span>
+        <span class="c1"># settings to construct the new core.</span>
+        <span class="k">if</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">o</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">getMasterCs</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cs</span> <span class="o">=</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span>
+
+        <span class="n">coreDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">,</span> <span class="n">newReactor</span><span class="p">,</span> <span class="n">loadAssems</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">newReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span>
         <span class="n">newReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">setPitchUniform</span><span class="p">(</span><span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyPitch</span><span class="p">())</span>
 
@@ -483,7 +516,7 @@
     <span class="k">def</span> <span class="nf">_setParamsToUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Gather a list of parameters that will be mapped between reactors.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">,</span> <span class="n">cache</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Delete existing state that will be updated so they don&#39;t increment.</span>
 
@@ -491,10 +524,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Clearing params from source reactor that will be converted.&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">rp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">cache</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cachedReactorCoreParamData</span><span class="p">[</span><span class="n">rp</span><span class="p">]</span> <span class="o">=</span> <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">rp</span><span class="p">]</span>
             <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">rp</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
 
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">bp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockDetailedAxialExpansionParamNames</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">cache</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="n">bp</span><span class="p">]</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">bp</span><span class="p">]</span>
                 <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">bp</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter.applyStateToOriginal"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.applyStateToOriginal">[docs]</a>    <span class="k">def</span> <span class="nf">applyStateToOriginal</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -505,12 +542,22 @@
             <span class="sa">f</span><span class="s2">&quot;Applying uniform neutronics mesh results from </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="si">}</span><span class="s2"> to ARMI mesh on </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
         <span class="n">completeStartTime</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">)</span>
+
+        <span class="c1"># Clear the state of the original source reactor to ensure that</span>
+        <span class="c1"># a clean mapping between the converted reactor for data that has been</span>
+        <span class="c1"># changed. In this case, we cache the original reactor&#39;s data so that</span>
+        <span class="c1"># after the mapping has been applied, we can recover data from any</span>
+        <span class="c1"># parameters that did not change.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedReactorCoreParamData</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span>
         <span class="n">completeEndTime</span> <span class="o">=</span> <span class="n">timer</span><span class="p">()</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Parameter remapping time: </span><span class="si">{</span><span class="n">completeEndTime</span><span class="o">-</span><span class="n">completeStartTime</span><span class="si">}</span><span class="s2"> seconds&quot;</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span></div>
 
     <span class="k">def</span> <span class="nf">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sourceReactor</span><span class="p">,</span> <span class="n">destReactor</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -605,13 +652,15 @@
             <span class="sa">f</span><span class="s2">&quot;Block params that will be mapped are: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">blockMultigroupParamNames</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockDetailedAxialExpansionParamNames</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">,</span> <span class="n">cache</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Clear all multi-group block parameters.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">)</span>
+        <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_clearStateOnReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">,</span> <span class="n">cache</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">fluxParam</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockMultigroupParamNames</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">cache</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="n">fluxParam</span><span class="p">]</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">fluxParam</span><span class="p">]</span>
                 <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">fluxParam</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">def</span> <span class="nf">_mapStateFromReactorToOther</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sourceReactor</span><span class="p">,</span> <span class="n">destReactor</span><span class="p">):</span>
@@ -647,9 +696,21 @@
                     <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
             <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">paramVals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
 
+        <span class="c1"># Map reactor core parameters</span>
         <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span><span class="p">:</span>
-            <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
+            <span class="c1"># Check if the source reactor has a value assigned for this</span>
+            <span class="c1"># parameter and if so, then apply it. Otherwise, revert back to</span>
+            <span class="c1"># the original value.</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
+                <span class="ow">or</span> <span class="n">paramName</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cachedReactorCoreParamData</span>
+            <span class="p">):</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cachedReactorCoreParamData</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
+            <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
 
+        <span class="c1"># Map block parameters</span>
         <span class="k">for</span> <span class="n">aSource</span> <span class="ow">in</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="p">:</span>
             <span class="n">aDest</span> <span class="o">=</span> <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyByName</span><span class="p">(</span><span class="n">aSource</span><span class="o">.</span><span class="n">getName</span><span class="p">())</span>
 
@@ -660,6 +721,7 @@
                 <span class="n">multiGroupParamSetter</span><span class="p">,</span>
                 <span class="n">multiGroupParamGetter</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">blockMultigroupParamNames</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span><span class="p">,</span>
             <span class="p">)</span>
 
             <span class="c1"># Map the detailed axial expansion parameters</span>
@@ -669,6 +731,7 @@
                 <span class="n">paramSetter</span><span class="p">,</span>
                 <span class="n">paramGetter</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">blockDetailedAxialExpansionParamNames</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span><span class="p">,</span>
             <span class="p">)</span>
 
             <span class="c1"># If requested, the reaction rates will be calculated based on the</span>
@@ -677,7 +740,15 @@
                 <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">aDest</span><span class="p">:</span>
                     <span class="n">globalFluxInterface</span><span class="o">.</span><span class="n">calcReactionRates</span><span class="p">(</span>
                         <span class="n">b</span><span class="p">,</span> <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">keff</span><span class="p">,</span> <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span>
-                    <span class="p">)</span></div>
+                    <span class="p">)</span>
+
+        <span class="c1"># Clear the cached data after it has been mapped to prevent issues with</span>
+        <span class="c1"># holding on to block data long-term.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedReactorCoreParamData</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedReactorCoreParamData</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span></div>
 
 
 <span class="k">def</span> <span class="nf">_setNumberDensitiesFromOverlaps</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">overlappingBlockInfo</span><span class="p">):</span>
@@ -711,7 +782,7 @@
 
 
 <span class="k">def</span> <span class="nf">_setStateFromOverlaps</span><span class="p">(</span>
-    <span class="n">sourceAssembly</span><span class="p">,</span> <span class="n">destinationAssembly</span><span class="p">,</span> <span class="n">setter</span><span class="p">,</span> <span class="n">getter</span><span class="p">,</span> <span class="n">paramNames</span>
+    <span class="n">sourceAssembly</span><span class="p">,</span> <span class="n">destinationAssembly</span><span class="p">,</span> <span class="n">setter</span><span class="p">,</span> <span class="n">getter</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">,</span> <span class="n">cachedParams</span>
 <span class="p">):</span>
     <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Set state info on a assembly based on a source assembly with a different axial mesh</span>
@@ -735,6 +806,12 @@
 <span class="sd">        takes block as an argument, returns relevant state that has __add__ capabilities.</span>
 <span class="sd">    paramNames : list</span>
 <span class="sd">        List of param names to set/get.</span>
+<span class="sd">    cachedParams : collections.defaultdict(dict)</span>
+<span class="sd">        A dictionary containing keys for each original block from the destination assembly</span>
+<span class="sd">        that are mapped to a dictionary containing key, value pairs of parameter names and original</span>
+<span class="sd">        values of the parameter from the destination assembly before the conversion process</span>
+<span class="sd">        took place. In the instance where a block within the source assembly does not have a value,</span>
+<span class="sd">        it the original cached value will be taken.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
@@ -826,6 +903,25 @@
                 <span class="n">updatedDestVals</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sourceBlockVal</span> <span class="o">*</span> <span class="n">integrationFactor</span>
 
             <span class="n">setter</span><span class="p">(</span><span class="n">destBlock</span><span class="p">,</span> <span class="n">updatedDestVals</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">updatedDestVals</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+        <span class="c1"># For parameters that have not been set on the destination block, recover these</span>
+        <span class="c1"># back to their originals based on the cached values.</span>
+        <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">paramNames</span><span class="p">:</span>
+            <span class="c1"># Skip over any parameter names that were not previously cached.</span>
+            <span class="k">if</span> <span class="n">paramName</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cachedParams</span><span class="p">[</span><span class="n">destBlock</span><span class="p">]:</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">destBlock</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
+                <span class="n">destBlock</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">],</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>
+            <span class="p">):</span>
+                <span class="c1"># Using just all() on the list/array is not sufficient because if a zero value exists</span>
+                <span class="c1"># in the data then this would then lead to overwritting the data. This is an edge case see</span>
+                <span class="c1"># in the testing, so this excludes zero values on the check.</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">val</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">destBlock</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="k">if</span> <span class="n">val</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">]):</span>
+                    <span class="n">destBlock</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">cachedParams</span><span class="p">[</span><span class="n">destBlock</span><span class="p">][</span><span class="n">paramName</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">destBlock</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]:</span>
+                    <span class="n">destBlock</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">cachedParams</span><span class="p">[</span><span class="n">destBlock</span><span class="p">][</span><span class="n">paramName</span><span class="p">]</span>
 </pre></div>
 
            </div>
@@ -839,7 +935,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-08-17.
+        Last updated on 2022-08-21.
       </span>
 
     </p>

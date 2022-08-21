@@ -593,7 +593,8 @@
                     <span class="kc">None</span><span class="p">,</span>
                     <span class="n">calcReactionRates</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">calcReactionRatesOnMeshConversion</span><span class="p">,</span>
                 <span class="p">)</span>
-                <span class="n">neutronicsReactor</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
+                <span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
+                <span class="n">neutronicsReactor</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">convReactor</span>
                 <span class="k">if</span> <span class="n">makePlots</span><span class="p">:</span>
                     <span class="n">converter</span><span class="o">.</span><span class="n">plotConvertedReactor</span><span class="p">()</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">geomConverters</span><span class="p">[</span><span class="s2">&quot;axial&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">converter</span>
@@ -627,21 +628,26 @@
             <span class="n">geomConverter</span><span class="o">.</span><span class="n">scaleParamsRelatedToSymmetry</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="n">paramsToScaleSubset</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">paramsToScaleSubset</span>
             <span class="p">)</span>
+
+            <span class="c1"># Resets the reactor core model to the correct symmetry and removes</span>
+            <span class="c1"># stored attributes on the converter to ensure that there is</span>
+            <span class="c1"># state data that is long-lived on the object in case the garbage</span>
+            <span class="c1"># collector does not remove it. Additionally, this will reset the</span>
+            <span class="c1"># global assembly counter.</span>
             <span class="n">geomConverter</span><span class="o">.</span><span class="n">removeEdgeAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">)</span>
 
         <span class="n">meshConverter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">geomConverters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;axial&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">meshConverter</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">applyResultsToReactor</span><span class="p">:</span>
                 <span class="n">meshConverter</span><span class="o">.</span><span class="n">applyStateToOriginal</span><span class="p">()</span>
+
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">meshConverter</span><span class="o">.</span><span class="n">_sourceReactor</span>  <span class="c1"># pylint: disable=protected-access;</span>
 
-        <span class="n">nAssemsBeforeConversion</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">converter</span><span class="o">.</span><span class="n">getAssemblyModuleCounter</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">converter</span> <span class="ow">in</span> <span class="p">(</span><span class="n">geomConverter</span><span class="p">,</span> <span class="n">meshConverter</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">converter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="n">nAssemsBeforeConversion</span><span class="p">:</span>
-            <span class="n">assemblies</span><span class="o">.</span><span class="n">setAssemNumCounter</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">nAssemsBeforeConversion</span><span class="p">))</span>
+            <span class="c1"># Resets the stored attributes on the converter to</span>
+            <span class="c1"># ensure that there is state data that is long-lived on the</span>
+            <span class="c1"># object in case the garbage collector does not remove it.</span>
+            <span class="c1"># Additionally, this will reset the global assembly counter.</span>
+            <span class="n">meshConverter</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 
         <span class="c1"># clear the converters in case this function gets called twice</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">geomConverters</span> <span class="o">=</span> <span class="p">{}</span>
@@ -1249,10 +1255,10 @@
 
         <span class="n">nucMc</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">getNuclide</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">())</span>
         <span class="n">micros</span> <span class="o">=</span> <span class="n">nucMc</span><span class="o">.</span><span class="n">micros</span>
-        <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">groupGlux</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">getMgFlux</span><span class="p">()):</span>
+        <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">groupFlux</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">getMgFlux</span><span class="p">()):</span>
 
             <span class="c1"># dE = flux_e*dE</span>
-            <span class="n">dphi</span> <span class="o">=</span> <span class="n">numberDensity</span> <span class="o">*</span> <span class="n">groupGlux</span>
+            <span class="n">dphi</span> <span class="o">=</span> <span class="n">numberDensity</span> <span class="o">*</span> <span class="n">groupFlux</span>
 
             <span class="n">tot</span> <span class="o">+=</span> <span class="n">micros</span><span class="o">.</span><span class="n">total</span><span class="p">[</span><span class="n">g</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">dphi</span>
             <span class="c1"># absorption is fission + capture (no n2n here)</span>
@@ -1289,7 +1295,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-08-17.
+        Last updated on 2022-08-21.
       </span>
 
     </p>

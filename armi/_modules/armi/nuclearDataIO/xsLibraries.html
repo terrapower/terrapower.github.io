@@ -195,6 +195,7 @@
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
+<span class="kn">from</span> <span class="nn">armi.utils.properties</span> <span class="kn">import</span> <span class="n">ImmutablePropertyError</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Cross section library objects. </span>
@@ -548,12 +549,38 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">numGroups</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get the number of neutron energy groups&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">neutronEnergyUpperBounds</span><span class="p">)</span>
+        <span class="c1"># This unlocks the immutable property so that it can be</span>
+        <span class="c1"># read prior to not being set to check the number of groups</span>
+        <span class="c1"># that are defined. If the property is not unlocked before</span>
+        <span class="c1"># accessing when it has not yet been defined then an exception</span>
+        <span class="c1"># is thrown.</span>
+        <span class="n">properties</span><span class="o">.</span><span class="n">unlockImmutableProperties</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">neutronEnergyUpperBounds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">energyBounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">neutronEnergyUpperBounds</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">energyBounds</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Make sure to re-lock the properties after we are done.</span>
+        <span class="n">properties</span><span class="o">.</span><span class="n">lockImmutableProperties</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">energyBounds</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">numGroupsGamma</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;get the number of gamma energy groups&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gammaEnergyUpperBounds</span><span class="p">)</span>
+        <span class="c1"># This unlocks the immutable property so that it can be</span>
+        <span class="c1"># read prior to not being set to check the number of groups</span>
+        <span class="c1"># that are defined. If the property is not unlocked before</span>
+        <span class="c1"># accessing when it has not yet been defined then an exception</span>
+        <span class="c1"># is thrown.</span>
+        <span class="n">properties</span><span class="o">.</span><span class="n">unlockImmutableProperties</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gammaEnergyUpperBounds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">energyBounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gammaEnergyUpperBounds</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">energyBounds</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Make sure to re-lock the properties after we are done.</span>
+        <span class="n">properties</span><span class="o">.</span><span class="n">lockImmutableProperties</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">energyBounds</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">xsIDs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -565,15 +592,20 @@
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">getSuffixFromNuclideLabel</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideLabels</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">files</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">isotxsMetadata</span><span class="o">.</span><span class="n">fileNames</span>
-            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pmatrxMetadata</span><span class="o">.</span><span class="n">fileNames</span>
-            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">gamisoMetadata</span><span class="o">.</span><span class="n">fileNames</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">files</span><span class="p">):</span>
-            <span class="k">return</span> <span class="s2">&quot;&lt;IsotxsLibrary empty&gt;&quot;</span>
-        <span class="k">return</span> <span class="s2">&quot;&lt;IsotxsLibrary id:</span><span class="si">{}</span><span class="s2"> containing </span><span class="si">{}</span><span class="s2"> nuclides from </span><span class="si">{}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-            <span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">files</span><span class="p">)</span>
+        <span class="n">isotxs</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">isotxsMetadata</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">pmatrx</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pmatrxMetadata</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">gamiso</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gamisoMetadata</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">groups</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">numGroups</span><span class="p">:</span>
+            <span class="n">groups</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Neutron groups: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">numGroups</span><span class="si">}</span><span class="s2">, &quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">numGroupsGamma</span><span class="p">:</span>
+            <span class="n">groups</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Gamma groups: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">numGroupsGamma</span><span class="si">}</span><span class="s2">,&quot;</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;&lt;IsotxsLibrary (id:</span><span class="si">{</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">), &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;ISOTXS: </span><span class="si">{</span><span class="n">isotxs</span><span class="si">}</span><span class="s2">, PMATRX: </span><span class="si">{</span><span class="n">pmatrx</span><span class="si">}</span><span class="s2">, GAMISO: </span><span class="si">{</span><span class="n">gamiso</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">groups</span><span class="si">}</span><span class="s2"> containing </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2"> nuclides with &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;XS IDs: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xsIDs</span><span class="p">)</span><span class="si">}</span><span class="s2">&gt;&quot;</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
@@ -826,7 +858,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-08-17.
+        Last updated on 2022-08-21.
       </span>
 
     </p>

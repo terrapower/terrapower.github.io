@@ -202,6 +202,7 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">import</span> <span class="nn">collections</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
@@ -342,7 +343,9 @@
         <span class="p">)</span>  <span class="c1"># this changes the mass of everything in the core</span>
         <span class="n">perturbedCoreMass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getMass</span><span class="p">(</span><span class="s2">&quot;U235&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">(</span><span class="n">refMass</span><span class="p">,</span> <span class="n">perturbedCoreMass</span><span class="p">)</span>
-        <span class="n">uniformReactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
+
+        <span class="n">uniformReactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">convReactor</span>
         <span class="n">uniformMass</span> <span class="o">=</span> <span class="n">uniformReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getMass</span><span class="p">(</span><span class="s2">&quot;U235&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
@@ -378,6 +381,7 @@
 
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pdens</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">expectedPower</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">assemblyPowers</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">calcTotalParam</span><span class="p">(</span><span class="s2">&quot;power&quot;</span><span class="p">),</span> <span class="n">expectedPower</span><span class="p">)</span>
@@ -411,8 +415,21 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">sourceAssem</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">setHeight</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">height2</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sourceAssem</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="o">=</span> <span class="mf">10.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sourceAssem</span><span class="o">.</span><span class="n">calculateZCoords</span><span class="p">()</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">destinationAssem</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">setHeight</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">height1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">height2</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">destinationAssem</span><span class="o">.</span><span class="n">calculateZCoords</span><span class="p">()</span>
+
+        <span class="c1"># This sets up a caching for the `mgNeutronVelocity` block</span>
+        <span class="c1"># parameter on each of the blocks of the destination assembly</span>
+        <span class="c1"># without setting the data on the blocks of the source assembly</span>
+        <span class="c1"># to demonstrate that only new parameters set on the source assembly will be</span>
+        <span class="c1"># mapped to the destination assembly. This ensures that parameters</span>
+        <span class="c1"># that are not being set on the source assembly are not cleared</span>
+        <span class="c1"># out on the destination assembly with `_setStateFromOverlaps`</span>
+        <span class="c1"># is called.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">destinationAssem</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="s2">&quot;mgNeutronVelocity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">]</span> <span class="o">*</span> <span class="mi">33</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">converter</span> <span class="o">=</span> <span class="n">uniformMesh</span><span class="o">.</span><span class="n">NeutronicsUniformMeshConverter</span><span class="p">()</span>
 
@@ -436,7 +453,12 @@
 
         <span class="c1"># pylint: disable=protected-access</span>
         <span class="n">uniformMesh</span><span class="o">.</span><span class="n">_setStateFromOverlaps</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">sourceAssem</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">destinationAssem</span><span class="p">,</span> <span class="n">setter</span><span class="p">,</span> <span class="n">getter</span><span class="p">,</span> <span class="n">paramList</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sourceAssem</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">destinationAssem</span><span class="p">,</span>
+            <span class="n">setter</span><span class="p">,</span>
+            <span class="n">getter</span><span class="p">,</span>
+            <span class="n">paramList</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;mgNeutronVelocity&quot;</span><span class="p">],</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="n">sourceFlux1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sourceAssem</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span>
@@ -445,7 +467,15 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">destinationAssem</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span><span class="p">,</span>
             <span class="p">(</span><span class="n">sourceFlux1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">height1</span> <span class="o">+</span> <span class="n">sourceFlux2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">height2</span><span class="p">)</span>
             <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">height1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">height2</span><span class="p">),</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sourceAssem</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgNeutronVelocity</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">destinationAssem</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertListEqual</span><span class="p">(</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgNeutronVelocity</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cachedBlockParamData</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="s2">&quot;mgNeutronVelocity&quot;</span><span class="p">],</span>
+            <span class="p">)</span></div></div>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
@@ -463,7 +493,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-08-17.
+        Last updated on 2022-08-21.
       </span>
 
     </p>
