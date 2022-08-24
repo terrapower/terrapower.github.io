@@ -1856,22 +1856,30 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">linPowByPin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">powerKey</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="HexBlock.rotate"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.rotate">[docs]</a>    <span class="k">def</span> <span class="nf">rotate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deg</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Function for rotating a block&#39;s spatially varying variables by a specified angle.</span>
+<div class="viewcode-block" id="HexBlock.rotate"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.rotate">[docs]</a>    <span class="k">def</span> <span class="nf">rotate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rad</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Rotates a block&#39;s spatially varying parameters by a specified angle in the</span>
+<span class="sd">        counter-clockwise direction.</span>
 
-<span class="sd">        Rotates the pins and then also any parameters that defined on the corners or edges.</span>
+<span class="sd">        The parameters must have a ParamLocation of either CORNERS or EDGES and must be a</span>
+<span class="sd">        Python list of length 6 in order to be eligible for rotation; all parameters that</span>
+<span class="sd">        do not meet these two criteria are not rotated.</span>
+
+<span class="sd">        The pin indexing, as stored on the pinLocation parameter, is also updated via</span>
+<span class="sd">        :py:meth:`rotatePins &lt;armi.reactor.blocks.HexBlock.rotatePins&gt;`.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        deg - float</span>
-<span class="sd">            number specifying the angle of counter clockwise rotation</span>
+<span class="sd">        rad: float, required</span>
+<span class="sd">            Angle of counter-clockwise rotation in units of radians. Rotations must be</span>
+<span class="sd">            in 60-degree increments (i.e., PI/6, PI/3, PI, 2 * PI/3, 5 * PI/6,</span>
+<span class="sd">            and 2 * PI)</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
-<span class="sd">        armi.reactor.blocks.HexBlock.rotatePins</span>
-<span class="sd">            Rotates the pins only and not the duct.</span>
+<span class="sd">        :py:meth:`rotatePins &lt;armi.reactor.blocks.HexBlock.rotatePins&gt;`</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">rotNum</span> <span class="o">=</span> <span class="nb">round</span><span class="p">((</span><span class="n">deg</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mi">60</span><span class="p">))</span>
+        <span class="n">rotNum</span> <span class="o">=</span> <span class="nb">round</span><span class="p">((</span><span class="n">rad</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mi">60</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">rotatePins</span><span class="p">(</span><span class="n">rotNum</span><span class="p">)</span>
         <span class="n">params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">CORNERS</span><span class="p">)</span><span class="o">.</span><span class="n">names</span>
         <span class="n">params</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">EDGES</span><span class="p">)</span><span class="o">.</span><span class="n">names</span>
@@ -1883,25 +1891,48 @@
                     <span class="c1"># List hasn&#39;t been defined yet, no warning needed.</span>
                     <span class="k">pass</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="s2">&quot;No rotation method defined for spatial parameters that aren&#39;t defined once per hex edge/corner. No rotation performed on </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                            <span class="n">param</span>
-                        <span class="p">)</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="s2">&quot;No rotation method defined for spatial parameters that aren&#39;t &quot;</span>
+                        <span class="s2">&quot;defined once per hex edge/corner. No rotation performed &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;on </span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2">&quot;</span>
                     <span class="p">)</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># this is a scalar and there shouldn&#39;t be any rotation.</span>
                 <span class="k">pass</span>
-        <span class="c1"># This specifically uses the .get() functionality to avoid an error if this parameter does not exist.</span>
+        <span class="c1"># This specifically uses the .get() functionality to avoid an error if this</span>
+        <span class="c1"># parameter does not exist.</span>
         <span class="n">dispx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;displacementX&quot;</span><span class="p">)</span>
         <span class="n">dispy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;displacementY&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">dispx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">dispy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">displacementX</span> <span class="o">=</span> <span class="n">dispx</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">deg</span><span class="p">)</span> <span class="o">-</span> <span class="n">dispy</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">deg</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">displacementY</span> <span class="o">=</span> <span class="n">dispx</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">deg</span><span class="p">)</span> <span class="o">+</span> <span class="n">dispy</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">deg</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">displacementX</span> <span class="o">=</span> <span class="n">dispx</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span> <span class="o">-</span> <span class="n">dispy</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">displacementY</span> <span class="o">=</span> <span class="n">dispx</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">dispy</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="HexBlock.rotatePins"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.rotatePins">[docs]</a>    <span class="k">def</span> <span class="nf">rotatePins</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">,</span> <span class="n">justCompute</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Rotate the pins of a block, which means rotating the indexing of pins. Note that this does</span>
-<span class="sd">        not rotate all block quantities.</span>
+<span class="sd">        not rotate all block quantities, just the pins.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        rotNum : int, required</span>
+<span class="sd">            An integer from 0 to 5, indicating the number of counterclockwise 60-degree rotations</span>
+<span class="sd">            from the CURRENT orientation. Degrees of counter-clockwise rotation = 60*rot</span>
+
+<span class="sd">        justCompute : boolean, optional</span>
+<span class="sd">            If True, rotateIndexLookup will be returned but NOT assigned to the object parameter</span>
+<span class="sd">            self.p.pinLocation. If False, rotateIndexLookup will be returned AND assigned to the</span>
+<span class="sd">            object variable self.p.pinLocation.  Useful for figuring out which rotation is best</span>
+<span class="sd">            to minimize burnup, etc.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        rotateIndexLookup : dict of ints</span>
+<span class="sd">            This is an index lookup (or mapping) between pin ids and pin locations. The pin</span>
+<span class="sd">            indexing is 1-D (not ring,pos or GEODST). The &quot;ARMI pin ordering&quot; is used for location,</span>
+<span class="sd">            which is counter-clockwise from 1 o&#39;clock. Pin ids are always consecutively</span>
+<span class="sd">            ordered starting at 1, while pin locations are not once a rotation has been</span>
+<span class="sd">            applied.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -1920,28 +1951,7 @@
 <span class="sd">        fluxRecon, which interpolates the flux spatially, or subchannel codes, which needs to know where the</span>
 <span class="sd">        power is) need to map through the pinLocation parameters.</span>
 
-<span class="sd">        This method rotates the pins by changing the pinLocations.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        rotNum : int</span>
-<span class="sd">            An integer from 0 to 5, indicating the number of counterclockwise 60-degree rotations</span>
-<span class="sd">            from the CURRENT orientation. Degrees of counter-clockwise rotation = 60*rot</span>
-
-<span class="sd">        justCompute : Boolean, optional</span>
-<span class="sd">            If True, rotateIndexLookup will be returned but NOT assigned to the object variable</span>
-<span class="sd">            self.rotateIndexLookup.</span>
-<span class="sd">            If False, rotateIndexLookup will be returned AND assigned to the object variable</span>
-<span class="sd">            self.rotateIndexLookup.  Useful for figuring out which rotation is best to minimize</span>
-<span class="sd">            burnup, etc.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        rotateIndexLookup : dict of ints</span>
-<span class="sd">            This is an index lookup (or mapping) between pin ids and pin locations</span>
-<span class="sd">            The pin indexing is 1-D (not ring,pos or GEODST).</span>
-<span class="sd">            The &quot;ARMI pin ordering&quot; is used for location, which is counter-clockwise from 3 o&#39;clock.</span>
-<span class="sd">            Pin numbers start at 1, pin locations also start at 1.</span>
+<span class="sd">        This method rotates the pins by changing the pinLocation parameter.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -1956,38 +1966,45 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot rotate </span><span class="si">{0}</span><span class="s2"> to rotNum </span><span class="si">{1}</span><span class="s2">. Must be 0-5. &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">)</span>
             <span class="p">)</span>
-        <span class="c1"># pin numbers start at 1.</span>
-        <span class="n">numPins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>  <span class="c1"># number of pins in this assembly</span>
+
+        <span class="c1"># Pin numbers start at 1. Number of pins in the block is assumed to be based on</span>
+        <span class="c1"># cladding count.</span>
+        <span class="n">numPins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
         <span class="n">rotateIndexLookup</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">numPins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">numPins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)))</span>
 
-        <span class="c1"># look up the current orientation and add this to it. The math below just rotates from the</span>
-        <span class="c1"># reference point so we need a total rotation.</span>
+        <span class="c1"># Look up the current orientation and add this to it. The math below just rotates</span>
+        <span class="c1"># from the reference point so we need a total rotation.</span>
         <span class="n">rotNum</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">getRotationNum</span><span class="p">()</span> <span class="o">+</span> <span class="n">rotNum</span><span class="p">)</span> <span class="o">%</span> <span class="mi">6</span><span class="p">)</span>
 
         <span class="c1"># non-trivial rotation requested</span>
         <span class="c1"># start at 2 because pin 1 never changes (it&#39;s in the center!)</span>
         <span class="k">for</span> <span class="n">pinNum</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">numPins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">rotNum</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># rotation to reference orientation. Pin locations are pin IDs.</span>
+                <span class="c1"># Rotation to reference orientation. Pin locations are pin IDs.</span>
                 <span class="k">pass</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># Determine the pin ring (courtesy of Robert Petroski from subchan.py). Rotation does not change the pin ring!</span>
+                <span class="c1"># Determine the pin ring. Rotation does not change the pin ring!</span>
                 <span class="n">ring</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
                     <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="mf">3.0</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">9.0</span> <span class="o">-</span> <span class="mf">12.0</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">pinNum</span><span class="p">)))</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span>
                 <span class="p">)</span>
+
                 <span class="c1"># Rotate the pin position (within the ring, which does not change)</span>
                 <span class="n">tot_pins</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">ring</span> <span class="o">*</span> <span class="p">(</span><span class="n">ring</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
                 <span class="n">newPinLocation</span> <span class="o">=</span> <span class="n">pinNum</span> <span class="o">+</span> <span class="p">(</span><span class="n">ring</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">rotNum</span>
                 <span class="k">if</span> <span class="n">newPinLocation</span> <span class="o">&gt;</span> <span class="n">tot_pins</span><span class="p">:</span>
                     <span class="n">newPinLocation</span> <span class="o">-=</span> <span class="p">(</span><span class="n">ring</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">6</span>
+
                 <span class="c1"># Assign &quot;before&quot; and &quot;after&quot; pin indices to the index lookup</span>
                 <span class="n">rotateIndexLookup</span><span class="p">[</span><span class="n">pinNum</span><span class="p">]</span> <span class="o">=</span> <span class="n">newPinLocation</span>
 
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">justCompute</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;pinLocation&quot;</span><span class="p">,</span> <span class="n">rotateIndexLookup</span><span class="p">[</span><span class="n">pinNum</span><span class="p">]]</span> <span class="o">=</span> <span class="n">pinNum</span>
-
+        <span class="c1"># Because the above math creates indices based on the absolute rotation number,</span>
+        <span class="c1"># the old values of pinLocation (if they&#39;ve been set in the past) can be overwritten</span>
+        <span class="c1"># with new numbers</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">justCompute</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">setRotationNum</span><span class="p">(</span><span class="n">rotNum</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;pinLocation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">rotateIndexLookup</span><span class="p">[</span><span class="n">pinNum</span><span class="p">]</span> <span class="k">for</span> <span class="n">pinNum</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">numPins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">]</span>
 
         <span class="k">return</span> <span class="n">rotateIndexLookup</span></div>
 
