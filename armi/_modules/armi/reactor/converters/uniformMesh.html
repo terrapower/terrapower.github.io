@@ -278,8 +278,7 @@
         <span class="n">GeometryConverter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_uniformMesh</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockScalarParamNames</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockArrayParamNames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># These dictionaries represent back-up data from the source reactor</span>
         <span class="c1"># that can be recovered if the data is not being brought back from</span>
@@ -376,7 +375,10 @@
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter.makeAssemWithUniformMesh"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.makeAssemWithUniformMesh">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">makeAssemWithUniformMesh</span><span class="p">(</span>
-        <span class="n">sourceAssem</span><span class="p">,</span> <span class="n">newMesh</span><span class="p">,</span> <span class="n">blockScalarParamNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">blockArrayParamNames</span><span class="o">=</span><span class="kc">None</span>
+        <span class="n">sourceAssem</span><span class="p">,</span>
+        <span class="n">newMesh</span><span class="p">,</span>
+        <span class="n">blockParamNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">mapNumberDensities</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Build new assembly based on a source assembly but apply the uniform mesh.</span>
@@ -396,12 +398,18 @@
 <span class="sd">            A list of the new axial mesh coordinates of the blocks. Note that these mesh</span>
 <span class="sd">            coordinates are in cm and should represent the top axial mesh coordinates of</span>
 <span class="sd">            the new blocks.</span>
-<span class="sd">         blockScalarParamNames : List[str], optional</span>
-<span class="sd">            A list of block parameter names that can be assigned scalar values (i.e., int/float/string).</span>
-<span class="sd">            Examples: `flux`, `power`. If this is not provided then no scalar parameters will be mapped.</span>
-<span class="sd">        blockArrayParamNames : List[str], optional</span>
-<span class="sd">            A list of block parameter names that can be assigned array values (i.e., numpy.array/list).</span>
-<span class="sd">            Example: `mgFlux`. If this is not provided then no array parameters will be mapped.</span>
+<span class="sd">        blockParamNames : List[str], optional</span>
+<span class="sd">            A list of block parameter names to map between the source assembly and the newly</span>
+<span class="sd">            created assembly with the provided `newMesh`.</span>
+<span class="sd">        mapNumberDensities : bool, optional</span>
+<span class="sd">            If True, number densities will be mapped from the source assembly to the new assembly.</span>
+<span class="sd">            This is True by default, but this can be set to False to only map block-level parameters if</span>
+<span class="sd">            the names are provided in `blockParamNames`. It can be useful to set this to False in circumstances</span>
+<span class="sd">            where the ``setNumberDensitiesFromOverlaps`` does not conserve mass and for some edge cases.</span>
+<span class="sd">            This can show up in specific instances with moving meshes (i.e., control rods) in some applications.</span>
+<span class="sd">            In those cases, the mapping of number densities can be treated independent of this more general</span>
+<span class="sd">            implementation.</span>
+
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
 <span class="sd">        setAssemblyStateFromOverlaps</span>
@@ -480,7 +488,7 @@
         <span class="n">newAssem</span><span class="o">.</span><span class="n">calculateZCoords</span><span class="p">()</span>
 
         <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">setAssemblyStateFromOverlaps</span><span class="p">(</span>
-            <span class="n">sourceAssem</span><span class="p">,</span> <span class="n">newAssem</span><span class="p">,</span> <span class="n">blockScalarParamNames</span><span class="p">,</span> <span class="n">blockArrayParamNames</span>
+            <span class="n">sourceAssem</span><span class="p">,</span> <span class="n">newAssem</span><span class="p">,</span> <span class="n">blockParamNames</span><span class="p">,</span> <span class="n">mapNumberDensities</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">newAssem</span></div>
 
@@ -488,8 +496,8 @@
     <span class="k">def</span> <span class="nf">setAssemblyStateFromOverlaps</span><span class="p">(</span>
         <span class="n">sourceAssembly</span><span class="p">,</span>
         <span class="n">destinationAssembly</span><span class="p">,</span>
-        <span class="n">blockScalarParamNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">blockArrayParamNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">blockParamNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">mapNumberDensities</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set state data (i.e., number densities and block-level parameters) on a assembly based on a source</span>
@@ -508,65 +516,55 @@
 <span class="sd">            assem that has the state</span>
 <span class="sd">        destinationAssembly : Assembly</span>
 <span class="sd">            assem that has is getting the state from sourceAssembly</span>
-<span class="sd">        blockScalarParamNames : List[str], optional</span>
-<span class="sd">            A list of block parameter names that can be assigned scalar values (i.e., int/float/string).</span>
-<span class="sd">            Examples: `flux`, `power`. If this is not provided then no scalar parameters will be mapped.</span>
-<span class="sd">        blockArrayParamNames : List[str], optional</span>
-<span class="sd">            A list of block parameter names that can be assigned array values (i.e., numpy.array/list).</span>
-<span class="sd">            Example: `mgFlux`. If this is not provided then no array parameters will be mapped.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        setter and getter are meant to be generated with particular state info (e.g. mgFlux or params).</span>
+<span class="sd">        blockParamNames : List[str], optional</span>
+<span class="sd">            A list of block parameter names to map between the source assembly and</span>
+<span class="sd">            the destination assembly.</span>
+<span class="sd">        mapNumberDensities : bool, optional</span>
+<span class="sd">            If True, number densities will be mapped from the source assembly to the destination assembly.</span>
+<span class="sd">            This is True by default, but this can be set to False to only map block-level parameters if</span>
+<span class="sd">            the names are provided in `blockParamNames`. It can be useful to set this to False in circumstances</span>
+<span class="sd">            where the ``setNumberDensitiesFromOverlaps`` does not conserve mass and for some edge cases.</span>
+<span class="sd">            This can show up in specific instances with moving meshes (i.e., control rods) in some applications.</span>
+<span class="sd">            In those cases, the mapping of number densities can be treated independent of this more general</span>
+<span class="sd">            implementation.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
-<span class="sd">        _setNumberDensitiesFromOverlaps : does this but does smarter caching for number densities.</span>
+<span class="sd">        setNumberDensitiesFromOverlaps : does this but does smarter caching for number densities.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">blockScalarParamNames</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">blockScalarParamNames</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="n">blockArrayParamNames</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">blockArrayParamNames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">blockParamNames</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">blockParamNames</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">blockScalarParamNames</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">blockParamNames</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The ``blockScalarParamNames`` parameters names are not provided &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;as a list. Value(s) given: </span><span class="si">{</span><span class="n">blockScalarParamNames</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">blockArrayParamNames</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The ``blockArrayParamNames`` parameters names are not provided &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;as a list. Value(s) given: </span><span class="si">{</span><span class="n">blockArrayParamNames</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;The ``blockParamNames`` parameters names are not provided &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;as a list. Value(s) given: </span><span class="si">{</span><span class="n">blockParamNames</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
 
         <span class="n">cachedParams</span> <span class="o">=</span> <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">clearStateOnAssemblies</span><span class="p">(</span>
             <span class="p">[</span><span class="n">destinationAssembly</span><span class="p">],</span>
-            <span class="n">blockScalarParamNames</span><span class="p">,</span>
-            <span class="n">blockArrayParamNames</span><span class="p">,</span>
+            <span class="n">blockParamNames</span><span class="p">,</span>
             <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">for</span> <span class="n">destBlock</span> <span class="ow">in</span> <span class="n">destinationAssembly</span><span class="p">:</span>
 
             <span class="c1"># Check that the parameters on the destination block have been cleared first before attempting to</span>
             <span class="c1"># map the data. These parameters should be cleared using ``UniformMeshGeometryConverter.clearStateOnAssemblies``.</span>
-            <span class="k">for</span> <span class="n">getter</span><span class="p">,</span> <span class="n">paramNames</span> <span class="ow">in</span> <span class="p">[</span>
-                <span class="p">(</span><span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">scalarParamGetter</span><span class="p">,</span> <span class="n">blockScalarParamNames</span><span class="p">),</span>
-                <span class="p">(</span><span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">arrayParamGetter</span><span class="p">,</span> <span class="n">blockArrayParamNames</span><span class="p">),</span>
-            <span class="p">]:</span>
-
-                <span class="n">existingDestBlockParamVals</span> <span class="o">=</span> <span class="n">getter</span><span class="p">(</span><span class="n">destBlock</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">)</span>
-                <span class="n">clearedValues</span> <span class="o">=</span> <span class="p">[</span>
-                    <span class="kc">True</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">val</span> <span class="k">else</span> <span class="kc">False</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">existingDestBlockParamVals</span>
-                <span class="p">]</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">clearedValues</span><span class="p">):</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;The state of </span><span class="si">{</span><span class="n">destBlock</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">destinationAssembly</span><span class="si">}</span><span class="s2"> &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;was not cleared prior to calling ``setAssemblyStateFromOverlaps``. &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;This indicates an implementation bug in the mesh converter that should &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;be reported to the developers. The following parameters should be cleared:</span><span class="se">\n</span><span class="s2">&quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;Parameters: </span><span class="si">{</span><span class="n">paramNames</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;Values: </span><span class="si">{</span><span class="n">existingDestBlockParamVals</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="p">)</span>
+            <span class="n">existingDestBlockParamVals</span> <span class="o">=</span> <span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">paramGetter</span><span class="p">(</span>
+                <span class="n">destBlock</span><span class="p">,</span> <span class="n">blockParamNames</span>
+            <span class="p">)</span>
+            <span class="n">clearedValues</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="kc">True</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">val</span> <span class="k">else</span> <span class="kc">False</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">existingDestBlockParamVals</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">clearedValues</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The state of </span><span class="si">{</span><span class="n">destBlock</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">destinationAssembly</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;was not cleared prior to calling ``setAssemblyStateFromOverlaps``. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;This indicates an implementation bug in the mesh converter that should &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;be reported to the developers. The following parameters should be cleared:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Parameters: </span><span class="si">{</span><span class="n">blockParamNames</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Values: </span><span class="si">{</span><span class="n">existingDestBlockParamVals</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
 
         <span class="c1"># The destination assembly is the assembly that the results are being mapped to</span>
         <span class="c1"># whereas the source assembly is the assembly that is from the uniform model. This</span>
@@ -597,57 +595,48 @@
             <span class="c1"># source assembly within the lower and upper bounds of the destination</span>
             <span class="c1"># block and perform the parameter mapping.</span>
             <span class="n">updatedDestVals</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
-            <span class="n">_setNumberDensitiesFromOverlaps</span><span class="p">(</span><span class="n">destBlock</span><span class="p">,</span> <span class="n">sourceBlocksInfo</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">setter</span><span class="p">,</span> <span class="n">getter</span><span class="p">,</span> <span class="n">paramNames</span> <span class="ow">in</span> <span class="p">[</span>
-                <span class="p">(</span>
-                    <span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">scalarParamSetter</span><span class="p">,</span>
-                    <span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">scalarParamGetter</span><span class="p">,</span>
-                    <span class="n">blockScalarParamNames</span><span class="p">,</span>
-                <span class="p">),</span>
-                <span class="p">(</span>
-                    <span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">arrayParamSetter</span><span class="p">,</span>
-                    <span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">arrayParamGetter</span><span class="p">,</span>
-                    <span class="n">blockArrayParamNames</span><span class="p">,</span>
-                <span class="p">),</span>
-            <span class="p">]:</span>
 
-                <span class="k">for</span> <span class="n">sourceBlock</span><span class="p">,</span> <span class="n">sourceBlockOverlapHeight</span> <span class="ow">in</span> <span class="n">sourceBlocksInfo</span><span class="p">:</span>
-                    <span class="n">sourceBlockVals</span> <span class="o">=</span> <span class="n">getter</span><span class="p">(</span><span class="n">sourceBlock</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">)</span>
-                    <span class="n">sourceBlockHeight</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">mapNumberDensities</span><span class="p">:</span>
+                <span class="n">setNumberDensitiesFromOverlaps</span><span class="p">(</span><span class="n">destBlock</span><span class="p">,</span> <span class="n">sourceBlocksInfo</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">sourceBlock</span><span class="p">,</span> <span class="n">sourceBlockOverlapHeight</span> <span class="ow">in</span> <span class="n">sourceBlocksInfo</span><span class="p">:</span>
+                <span class="n">sourceBlockVals</span> <span class="o">=</span> <span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">paramGetter</span><span class="p">(</span>
+                    <span class="n">sourceBlock</span><span class="p">,</span> <span class="n">blockParamNames</span>
+                <span class="p">)</span>
+                <span class="n">sourceBlockHeight</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
 
-                    <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">sourceBlockVal</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">paramNames</span><span class="p">,</span> <span class="n">sourceBlockVals</span><span class="p">):</span>
-                        <span class="c1"># The value can be `None` if it has not been set yet. In this case,</span>
-                        <span class="c1"># the mapping should be skipped.</span>
-                        <span class="k">if</span> <span class="n">sourceBlockVal</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                            <span class="k">continue</span>
+                <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">sourceBlockVal</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">blockParamNames</span><span class="p">,</span> <span class="n">sourceBlockVals</span><span class="p">):</span>
+                    <span class="c1"># The value can be `None` if it has not been set yet. In this case,</span>
+                    <span class="c1"># the mapping should be skipped.</span>
+                    <span class="k">if</span> <span class="n">sourceBlockVal</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="k">continue</span>
 
-                        <span class="c1"># Determine if the parameter is volumed integrated or not.</span>
-                        <span class="n">isVolIntegrated</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span>
-                            <span class="n">parameters</span><span class="o">.</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">VOLUME_INTEGRATED</span>
+                    <span class="c1"># Determine if the parameter is volumed integrated or not.</span>
+                    <span class="n">isVolIntegrated</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span>
+                        <span class="n">parameters</span><span class="o">.</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">VOLUME_INTEGRATED</span>
+                    <span class="p">)</span>
+
+                    <span class="c1"># If the parameter is volume integrated (e.g., flux, linear power)</span>
+                    <span class="c1"># then calculate the fractional contribution from the source block.</span>
+                    <span class="k">if</span> <span class="n">isVolIntegrated</span><span class="p">:</span>
+                        <span class="n">integrationFactor</span> <span class="o">=</span> <span class="n">sourceBlockOverlapHeight</span> <span class="o">/</span> <span class="n">sourceBlockHeight</span>
+
+                    <span class="c1"># If the parameter is not volume integrated (e.g., volumetric reaction rate)</span>
+                    <span class="c1"># then calculate the fraction contribution on the destination block.</span>
+                    <span class="c1"># This smears the parameter over the destination block.</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">integrationFactor</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="n">sourceBlockOverlapHeight</span> <span class="o">/</span> <span class="n">destinationBlockHeight</span>
                         <span class="p">)</span>
 
-                        <span class="c1"># If the parameter is volume integrated (e.g., flux, linear power)</span>
-                        <span class="c1"># then calculate the fractional contribution from the source block.</span>
-                        <span class="k">if</span> <span class="n">isVolIntegrated</span><span class="p">:</span>
-                            <span class="n">integrationFactor</span> <span class="o">=</span> <span class="p">(</span>
-                                <span class="n">sourceBlockOverlapHeight</span> <span class="o">/</span> <span class="n">sourceBlockHeight</span>
-                            <span class="p">)</span>
+                    <span class="n">updatedDestVals</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sourceBlockVal</span> <span class="o">*</span> <span class="n">integrationFactor</span>
 
-                        <span class="c1"># If the parameter is not volume integrated (e.g., volumetric reaction rate)</span>
-                        <span class="c1"># then calculate the fraction contribution on the destination block.</span>
-                        <span class="c1"># This smears the parameter over the destination block.</span>
-                        <span class="k">else</span><span class="p">:</span>
-                            <span class="n">integrationFactor</span> <span class="o">=</span> <span class="p">(</span>
-                                <span class="n">sourceBlockOverlapHeight</span> <span class="o">/</span> <span class="n">destinationBlockHeight</span>
-                            <span class="p">)</span>
+                <span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">paramSetter</span><span class="p">(</span>
+                    <span class="n">destBlock</span><span class="p">,</span> <span class="n">updatedDestVals</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">updatedDestVals</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                <span class="p">)</span>
 
-                        <span class="n">updatedDestVals</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sourceBlockVal</span> <span class="o">*</span> <span class="n">integrationFactor</span>
-
-                    <span class="n">setter</span><span class="p">(</span><span class="n">destBlock</span><span class="p">,</span> <span class="n">updatedDestVals</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">updatedDestVals</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-
-                <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_applyCachedParamValues</span><span class="p">(</span>
-                    <span class="n">destBlock</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">,</span> <span class="n">cachedParams</span>
-                <span class="p">)</span></div>
+            <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_applyCachedParamValues</span><span class="p">(</span>
+                <span class="n">destBlock</span><span class="p">,</span> <span class="n">blockParamNames</span><span class="p">,</span> <span class="n">cachedParams</span>
+            <span class="p">)</span></div>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_applyCachedParamValues</span><span class="p">(</span><span class="n">destBlock</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">,</span> <span class="n">cachedParams</span><span class="p">):</span>
@@ -689,9 +678,7 @@
                     <span class="n">destBlock</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">cachedParams</span><span class="p">[</span><span class="n">destBlock</span><span class="p">][</span><span class="n">paramName</span><span class="p">]</span>
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter.clearStateOnAssemblies"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.clearStateOnAssemblies">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">clearStateOnAssemblies</span><span class="p">(</span>
-        <span class="n">assems</span><span class="p">,</span> <span class="n">blockScalarParamNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">blockArrayParamNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span>
-    <span class="p">):</span>
+    <span class="k">def</span> <span class="nf">clearStateOnAssemblies</span><span class="p">(</span><span class="n">assems</span><span class="p">,</span> <span class="n">blockParamNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Clears the parameter state of blocks for a list of assemblies.</span>
 
@@ -699,20 +686,14 @@
 <span class="sd">        ----------</span>
 <span class="sd">        assems : List[`Assembly &lt;armi.reactor.assemblies.Assembly&gt;`]</span>
 <span class="sd">            List of assembly objects.</span>
-<span class="sd">        blockScalarParamNames : List[str], optional</span>
-<span class="sd">            A list of block parameter names that can be assigned scalar values (i.e., int/float/string).</span>
-<span class="sd">            Examples: `flux`, `power`. If this is not provided then no scalar parameters will be mapped.</span>
-<span class="sd">        blockArrayParamNames : List[str], optional</span>
-<span class="sd">            A list of block parameter names that can be assigned array values (i.e., numpy.array/list).</span>
-<span class="sd">            Example: `mgFlux`. If this is not provided then no array parameters will be mapped.</span>
+<span class="sd">        blockParamNames : List[str], optional</span>
+<span class="sd">            A list of block parameter names to clear on the given assemblies.</span>
 <span class="sd">        cache : bool</span>
 <span class="sd">            If True, the block parameters that were cleared are stored</span>
 <span class="sd">            and returned as a dictionary of ``{b: {param1: val1, param2: val2}, b2: {...}, ...}``</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">blockScalarParamNames</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">blockScalarParamNames</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="n">blockArrayParamNames</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">blockArrayParamNames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">blockParamNames</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">blockParamNames</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="n">cachedBlockParamData</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
 
@@ -720,7 +701,7 @@
         <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">:</span>
             <span class="n">blocks</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">blockScalarParamNames</span> <span class="o">+</span> <span class="n">blockArrayParamNames</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">blockParamNames</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">cache</span><span class="p">:</span>
                     <span class="n">cachedBlockParamData</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
                 <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span><span class="o">.</span><span class="n">default</span>
@@ -766,16 +747,14 @@
 <div class="viewcode-block" id="UniformMeshGeometryConverter.reset"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.reset">[docs]</a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Clear out stored attributes and reset the global assembly number.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockScalarParamNames</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockArrayParamNames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cachedReactorCoreParamData</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span></div>
 
     <span class="k">def</span> <span class="nf">_setParamsToUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Activate conversion of various paramters.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reactorParamNames</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockScalarParamNames</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockArrayParamNames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">def</span> <span class="nf">_checkConversion</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Perform checks to ensure conversion occurred properly.&quot;&quot;&quot;</span>
@@ -894,10 +873,10 @@
         <span class="p">)</span>
 
         <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockScalarParamNames</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span><span class="n">parameters</span><span class="o">.</span><span class="n">Category</span><span class="o">.</span><span class="n">detailedAxialExpansion</span><span class="p">)</span><span class="o">.</span><span class="n">names</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockArrayParamNames</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span><span class="n">parameters</span><span class="o">.</span><span class="n">Category</span><span class="o">.</span><span class="n">multiGroupQuantities</span><span class="p">)</span><span class="o">.</span><span class="n">names</span>
         <span class="p">)</span>
 
@@ -952,7 +931,9 @@
         <span class="k">for</span> <span class="n">aSource</span> <span class="ow">in</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="p">:</span>
             <span class="n">aDest</span> <span class="o">=</span> <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyByName</span><span class="p">(</span><span class="n">aSource</span><span class="o">.</span><span class="n">getName</span><span class="p">())</span>
             <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">setAssemblyStateFromOverlaps</span><span class="p">(</span>
-                <span class="n">aSource</span><span class="p">,</span> <span class="n">aDest</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockScalarParamNames</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockArrayParamNames</span>
+                <span class="n">aSource</span><span class="p">,</span>
+                <span class="n">aDest</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">blockParamNames</span><span class="p">,</span>
             <span class="p">)</span>
 
             <span class="c1"># If requested, the reaction rates will be calculated based on the</span>
@@ -983,47 +964,63 @@
 <span class="sd">    conversion process.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="BlockParamMapper.scalarParamSetter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.BlockParamMapper.scalarParamSetter">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">scalarParamSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assigns a set of float/integer/string values to a given set of parameters on a block.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="BlockParamMapper.paramSetter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.BlockParamMapper.paramSetter">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">paramSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets block parameter data.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">paramNames</span><span class="p">,</span> <span class="n">vals</span><span class="p">):</span>
-            <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span></div>
+            <span class="c1"># Skip setting None values.</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
 
-<div class="viewcode-block" id="BlockParamMapper.scalarParamGetter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.BlockParamMapper.scalarParamGetter">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">scalarParamGetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns a set of float/integer/string values for a given set of parameters on a block.&quot;&quot;&quot;</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">_arrayParamSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="p">[</span><span class="n">val</span><span class="p">],</span> <span class="p">[</span><span class="n">paramName</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">BlockParamMapper</span><span class="o">.</span><span class="n">_scalarParamSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="p">[</span><span class="n">val</span><span class="p">],</span> <span class="p">[</span><span class="n">paramName</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="BlockParamMapper.paramGetter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.BlockParamMapper.paramGetter">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">paramGetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns block parameter values as an array in the order of the parameter names given.&quot;&quot;&quot;</span>
         <span class="n">paramVals</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">paramNames</span><span class="p">:</span>
             <span class="n">val</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">val</span> <span class="o">==</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span><span class="o">.</span><span class="n">default</span><span class="p">:</span>
-                <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span><span class="o">.</span><span class="n">default</span><span class="p">)</span>
+            <span class="n">valType</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span><span class="o">.</span><span class="n">default</span><span class="p">)</span>
+            <span class="c1"># Array / list parameters can be have values that are `None`, lists, or numpy arrays. This first</span>
+            <span class="c1"># checks if the value type is any of these and if so, the block-level parameter is treated as an</span>
+            <span class="c1"># array.</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">valType</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">valType</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">valType</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+            <span class="c1"># Otherwise, the parameter is treated as a scalar, like a float/string/integer.</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">val</span> <span class="o">==</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span><span class="o">.</span><span class="n">default</span><span class="p">:</span>
+                    <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pDefs</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span><span class="o">.</span><span class="n">default</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">paramVals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="BlockParamMapper.arrayParamSetter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.BlockParamMapper.arrayParamSetter">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">arrayParamSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">multiGroupVals</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_scalarParamSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Assigns a set of float/integer/string values to a given set of parameters on a block.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">paramNames</span><span class="p">,</span> <span class="n">vals</span><span class="p">):</span>
+            <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_arrayParamSetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">arrayVals</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Assigns a set of list/array values to a given set of parameters on a block.&quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">vals</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">paramNames</span><span class="p">,</span> <span class="n">multiGroupVals</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">vals</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">paramNames</span><span class="p">,</span> <span class="n">arrayVals</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">vals</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">continue</span>
             <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="BlockParamMapper.arrayParamGetter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.BlockParamMapper.arrayParamGetter">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">arrayParamGetter</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">paramNames</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns a set of list/array values for a given set of parameters on a block.&quot;&quot;&quot;</span>
-        <span class="n">paramVals</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">paramNames</span><span class="p">:</span>
-            <span class="n">vals</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">vals</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">paramVals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vals</span><span class="p">))</span>
 
-        <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">paramVals</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span></div></div>
-
-
-<span class="k">def</span> <span class="nf">_setNumberDensitiesFromOverlaps</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">overlappingBlockInfo</span><span class="p">):</span>
+<div class="viewcode-block" id="setNumberDensitiesFromOverlaps"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.setNumberDensitiesFromOverlaps">[docs]</a><span class="k">def</span> <span class="nf">setNumberDensitiesFromOverlaps</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">overlappingBlockInfo</span><span class="p">):</span>
     <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Set number densities on a block based on overlapping blocks</span>
 
@@ -1045,7 +1042,7 @@
                 <span class="n">totalDensities</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
                 <span class="o">+</span> <span class="n">numberDensity</span> <span class="o">*</span> <span class="n">overlappingHeightInCm</span> <span class="o">/</span> <span class="n">blockHeightInCm</span>
             <span class="p">)</span>
-    <span class="n">block</span><span class="o">.</span><span class="n">setNumberDensities</span><span class="p">(</span><span class="n">totalDensities</span><span class="p">)</span>
+    <span class="n">block</span><span class="o">.</span><span class="n">setNumberDensities</span><span class="p">(</span><span class="n">totalDensities</span><span class="p">)</span></div>
 </pre></div>
 
            </div>
@@ -1059,7 +1056,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-09-08.
+        Last updated on 2022-09-09.
       </span>
 
     </p>
