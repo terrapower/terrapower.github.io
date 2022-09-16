@@ -480,6 +480,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">isRestart</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">energyDepoCalcMethodStep</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># for gamma transport/normalization</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">detailedAxialExpansion</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">boundaries</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">xsKernel</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -511,6 +512,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">adjoint</span> <span class="o">=</span> <span class="n">neutronics</span><span class="o">.</span><span class="n">adjointCalculationRequested</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">real</span> <span class="o">=</span> <span class="n">neutronics</span><span class="o">.</span><span class="n">realCalculationRequested</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">detailedAxialExpansion</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;detailedAxialExpansion&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hasNonUniformAssems</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">Flags</span><span class="o">.</span><span class="n">fromStringIgnoreErrors</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nonUniformAssemFlags&quot;</span><span class="p">]]</span>
+        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">eigenvalueProblem</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;eigenProb&quot;</span><span class="p">]</span>
 
         <span class="c1"># dose/dpa specific (should be separate subclass?)</span>
@@ -519,7 +523,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">loadPadElevation</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadPadElevation&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loadPadLength</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadPadLength&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">boundaries</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;boundaries&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">xsKernel</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;xsKernel&quot;</span><span class="p">]</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xsKernel</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;xsKernel&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span></div>
 
 <div class="viewcode-block" id="GlobalFluxOptions.fromReactor"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxOptions.fromReactor">[docs]</a>    <span class="k">def</span> <span class="nf">fromReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reactor</span><span class="p">:</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Reactor</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">geomType</span> <span class="o">=</span> <span class="n">reactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">geomType</span>
@@ -586,17 +591,19 @@
                 <span class="o">+</span> <span class="s2">&quot;This is a programming error and requires further investigation.&quot;</span>
             <span class="p">)</span>
         <span class="n">neutronicsReactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">detailedAxialExpansion</span><span class="p">:</span>
-            <span class="n">converter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">geomConverters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;axial&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">converter</span><span class="p">:</span>
+        <span class="n">converter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">geomConverters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;axial&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">converter</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">detailedAxialExpansion</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">hasNonUniformAssems</span><span class="p">:</span>
                 <span class="n">converter</span> <span class="o">=</span> <span class="n">uniformMesh</span><span class="o">.</span><span class="n">NeutronicsUniformMeshConverter</span><span class="p">(</span>
-                    <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">cs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span>
                     <span class="n">calcReactionRates</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">calcReactionRatesOnMeshConversion</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
                 <span class="n">neutronicsReactor</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">convReactor</span>
+
                 <span class="k">if</span> <span class="n">makePlots</span><span class="p">:</span>
                     <span class="n">converter</span><span class="o">.</span><span class="n">plotConvertedReactor</span><span class="p">()</span>
+
                 <span class="bp">self</span><span class="o">.</span><span class="n">geomConverters</span><span class="p">[</span><span class="s2">&quot;axial&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">converter</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">edgeAssembliesAreNeeded</span><span class="p">():</span>
@@ -637,10 +644,10 @@
             <span class="n">geomConverter</span><span class="o">.</span><span class="n">removeEdgeAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">)</span>
 
         <span class="n">meshConverter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">geomConverters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;axial&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">meshConverter</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">applyResultsToReactor</span><span class="p">:</span>
-                <span class="n">meshConverter</span><span class="o">.</span><span class="n">applyStateToOriginal</span><span class="p">()</span>
 
+        <span class="k">if</span> <span class="n">meshConverter</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">applyResultsToReactor</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">hasNonUniformAssems</span><span class="p">:</span>
+                <span class="n">meshConverter</span><span class="o">.</span><span class="n">applyStateToOriginal</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">meshConverter</span><span class="o">.</span><span class="n">_sourceReactor</span>  <span class="c1"># pylint: disable=protected-access;</span>
 
             <span class="c1"># Resets the stored attributes on the converter to</span>
