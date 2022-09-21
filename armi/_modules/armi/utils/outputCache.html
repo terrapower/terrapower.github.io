@@ -249,7 +249,9 @@
     <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">locToRetrieveTo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">locToRetrieveTo</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">inputPaths</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
         <span class="n">successful</span> <span class="o">=</span> <span class="n">_copyOutputs</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">,</span> <span class="n">locToRetrieveTo</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">successful</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Retrieved cached outputs for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exePath</span><span class="p">))</span>
             <span class="k">return</span> <span class="kc">True</span>
@@ -259,7 +261,11 @@
                 <span class="s2">&quot;Outputs in </span><span class="si">{}</span><span class="s2"> were inconsistent with manifest. &quot;</span>
                 <span class="s2">&quot;Deleting and reproducing&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">)</span>
             <span class="p">)</span>
-            <span class="n">deleteCache</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">deleteCache</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="kc">False</span></div>
 
 
@@ -271,10 +277,14 @@
 
     <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">manifest</span><span class="p">)</span> <span class="k">as</span> <span class="n">manifestJSON</span><span class="p">:</span>
         <span class="n">storedOutputNamesToHashes</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">manifestJSON</span><span class="p">)</span>
+
     <span class="n">copies</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">storedOutputName</span><span class="p">,</span> <span class="n">expectedHash</span> <span class="ow">in</span> <span class="n">storedOutputNamesToHashes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="n">storedOutputPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">,</span> <span class="n">storedOutputName</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">_hashFiles</span><span class="p">([</span><span class="n">storedOutputPath</span><span class="p">])</span> <span class="o">!=</span> <span class="n">expectedHash</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">_hashFiles</span><span class="p">([</span><span class="n">storedOutputPath</span><span class="p">])</span> <span class="o">!=</span> <span class="n">expectedHash</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="n">copyPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">locToRetrieveTo</span><span class="p">,</span> <span class="n">storedOutputName</span><span class="p">)</span>
         <span class="n">copies</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">storedOutputPath</span><span class="p">,</span> <span class="n">copyPath</span><span class="p">])</span>
@@ -282,6 +292,7 @@
     <span class="k">for</span> <span class="n">copy</span> <span class="ow">in</span> <span class="n">copies</span><span class="p">:</span>
         <span class="n">storedOutputPath</span><span class="p">,</span> <span class="n">copyPath</span> <span class="o">=</span> <span class="n">copy</span>
         <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">storedOutputPath</span><span class="p">,</span> <span class="n">copyPath</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="kc">True</span>
 
 
@@ -304,6 +315,7 @@
     <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">binaryF</span><span class="p">:</span>
             <span class="n">md5Hash</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">binaryF</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+
     <span class="k">return</span> <span class="n">md5Hash</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
 
 
@@ -340,6 +352,7 @@
         <span class="n">baseName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">outputFile</span><span class="p">)</span>
         <span class="n">cachedLoc</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">,</span> <span class="n">baseName</span><span class="p">)</span>
         <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">outputFile</span><span class="p">,</span> <span class="n">cachedLoc</span><span class="p">)</span>
+
     <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Added outputs for </span><span class="si">{}</span><span class="s2"> to the cache.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exePath</span><span class="p">))</span></div>
 
 
@@ -351,6 +364,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="s2">&quot;Output_Cache&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cachedFolder</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cache location must contain safeword: `Output_Cache`.&quot;</span><span class="p">)</span>
+
     <span class="n">cleanPath</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">)</span>
     <span class="n">context</span><span class="o">.</span><span class="n">waitAll</span><span class="p">()</span></div>
 
