@@ -216,14 +216,12 @@
 
 <span class="kn">import</span> <span class="nn">os</span>
 
-<span class="kn">import</span> <span class="nn">yamlize</span>
 <span class="kn">import</span> <span class="nn">numpy</span>
 <span class="kn">import</span> <span class="nn">tabulate</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">plugins</span>
-<span class="kn">from</span> <span class="nn">armi.physics.neutronics.const</span> <span class="kn">import</span> <span class="n">CONF_CROSS_SECTION</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.const</span> <span class="kn">import</span> <span class="n">CONF_CROSS_SECTION</span>
 
 
 <div class="viewcode-block" id="NeutronicsPlugin"><a class="viewcode-back" href="../../../.apidocs/armi.physics.neutronics.html#armi.physics.neutronics.NeutronicsPlugin">[docs]</a><span class="k">class</span> <span class="nc">NeutronicsPlugin</span><span class="p">(</span><span class="n">plugins</span><span class="o">.</span><span class="n">ArmiPlugin</span><span class="p">):</span>
@@ -265,7 +263,7 @@
 <div class="viewcode-block" id="NeutronicsPlugin.defineSettings"><a class="viewcode-back" href="../../../.apidocs/armi.physics.neutronics.html#armi.physics.neutronics.NeutronicsPlugin.defineSettings">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="nd">@plugins</span><span class="o">.</span><span class="n">HOOKIMPL</span>
     <span class="k">def</span> <span class="nf">defineSettings</span><span class="p">():</span>
-        <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">settings</span> <span class="k">as</span> <span class="n">neutronicsSettings</span>
+        <span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">settings</span> <span class="k">as</span> <span class="n">neutronicsSettings</span>
         <span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">crossSectionSettings</span>
         <span class="kn">from</span> <span class="nn">armi.physics.neutronics.fissionProductModel</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">fissionProductModelSettings</span><span class="p">,</span>
@@ -284,38 +282,10 @@
 <div class="viewcode-block" id="NeutronicsPlugin.defineSettingsValidators"><a class="viewcode-back" href="../../../.apidocs/armi.physics.neutronics.html#armi.physics.neutronics.NeutronicsPlugin.defineSettingsValidators">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="nd">@plugins</span><span class="o">.</span><span class="n">HOOKIMPL</span>
     <span class="k">def</span> <span class="nf">defineSettingsValidators</span><span class="p">(</span><span class="n">inspector</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Check neutronics settings.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">armi.operators</span> <span class="kn">import</span> <span class="n">settingsValidation</span>  <span class="c1"># avoid cyclic import</span>
-        <span class="kn">from</span> <span class="nn">armi.scripts.migration.crossSectionBlueprintsToSettings</span> <span class="kn">import</span> <span class="p">(</span>
-            <span class="n">migrateCrossSectionsFromBlueprints</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="sd">&quot;&quot;&quot;Implementation of settings inspections for neutronics settings.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">getNeutronicsSettingValidators</span>
 
-        <span class="n">queries</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="k">def</span> <span class="nf">blueprintsHasOldXSInput</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-            <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">DirectoryChanger</span><span class="p">(</span><span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">):</span>
-                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expandvars</span><span class="p">(</span><span class="n">path</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;cross sections:&quot;</span><span class="p">):</span>
-                            <span class="k">return</span> <span class="kc">True</span>
-            <span class="k">return</span> <span class="kc">False</span>
-
-        <span class="n">queries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="n">settingsValidation</span><span class="o">.</span><span class="n">Query</span><span class="p">(</span>
-                <span class="k">lambda</span><span class="p">:</span> <span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadingFile&quot;</span><span class="p">]</span>
-                <span class="ow">and</span> <span class="n">blueprintsHasOldXSInput</span><span class="p">(</span><span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadingFile&quot;</span><span class="p">]),</span>
-                <span class="s2">&quot;The specified blueprints input file &#39;</span><span class="si">{0}</span><span class="s2">&#39; contains compound cross section settings. &quot;</span>
-                <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadingFile&quot;</span><span class="p">]),</span>
-                <span class="s2">&quot;Automatically move them to the settings file, </span><span class="si">{}</span><span class="s2">? WARNING: if multiple settings files point &quot;</span>
-                <span class="s2">&quot;to this blueprints input you must manually update the others.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span>
-                <span class="p">),</span>
-                <span class="k">lambda</span><span class="p">:</span> <span class="n">migrateCrossSectionsFromBlueprints</span><span class="p">(</span><span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="p">),</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">queries</span></div>
+        <span class="k">return</span> <span class="n">getNeutronicsSettingValidators</span><span class="p">(</span><span class="n">inspector</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="NeutronicsPlugin.onProcessCoreLoading"><a class="viewcode-back" href="../../../.apidocs/armi.physics.neutronics.html#armi.physics.neutronics.NeutronicsPlugin.onProcessCoreLoading">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="nd">@plugins</span><span class="o">.</span><span class="n">HOOKIMPL</span>
@@ -325,25 +295,20 @@
 <div class="viewcode-block" id="NeutronicsPlugin.getReportContents"><a class="viewcode-back" href="../../../.apidocs/armi.physics.neutronics.html#armi.physics.neutronics.NeutronicsPlugin.getReportContents">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="nd">@plugins</span><span class="o">.</span><span class="n">HOOKIMPL</span>
     <span class="k">def</span> <span class="nf">getReportContents</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">report</span><span class="p">,</span> <span class="n">stage</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Generates the Report Content for the Neutronics Report</span>
-
-
-<span class="sd">        &quot;&quot;&quot;</span>
-
+        <span class="sd">&quot;&quot;&quot;Generates the Report Content for the Neutronics Report&quot;&quot;&quot;</span>
         <span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">reports</span>
 
         <span class="k">return</span> <span class="n">reports</span><span class="o">.</span><span class="n">insertNeutronicsReport</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">report</span><span class="p">,</span> <span class="n">stage</span><span class="p">)</span></div></div>
 
 
-<span class="kn">from</span> <span class="nn">.const</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.const</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ALL</span><span class="p">,</span>
+    <span class="n">FLUXFILES</span><span class="p">,</span>
     <span class="n">GAMMA</span><span class="p">,</span>
+    <span class="n">INPUTOUTPUT</span><span class="p">,</span>
     <span class="n">NEUTRON</span><span class="p">,</span>
     <span class="n">NEUTRONGAMMA</span><span class="p">,</span>
-    <span class="n">ALL</span><span class="p">,</span>
     <span class="n">RESTARTFILES</span><span class="p">,</span>
-    <span class="n">INPUTOUTPUT</span><span class="p">,</span>
-    <span class="n">FLUXFILES</span><span class="p">,</span>
 <span class="p">)</span>
 
 

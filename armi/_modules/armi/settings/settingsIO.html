@@ -214,7 +214,6 @@
 <span class="kn">from</span> <span class="nn">armi.meta</span> <span class="kn">import</span> <span class="n">__version__</span> <span class="k">as</span> <span class="n">version</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
 <span class="kn">from</span> <span class="nn">armi.settings.setting</span> <span class="kn">import</span> <span class="n">Setting</span>
-<span class="kn">from</span> <span class="nn">armi.settings</span> <span class="kn">import</span> <span class="n">settingsRules</span>
 <span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">InvalidSettingsFileError</span><span class="p">,</span>
     <span class="n">SettingException</span><span class="p">,</span>
@@ -423,37 +422,18 @@
             <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Ignoring invalid settings: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">invalidNames</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="nf">_applySettings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add a setting, if it is valid. Capture invalid settings.&quot;&quot;&quot;</span>
         <span class="n">nameToSet</span><span class="p">,</span> <span class="n">_wasRenamed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_renamer</span><span class="o">.</span><span class="n">renameSetting</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-        <span class="n">settingsToApply</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">applyConversions</span><span class="p">(</span><span class="n">nameToSet</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">settingName</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">settingsToApply</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">settingName</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">invalidSettings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">settingName</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># apply validations</span>
-                <span class="n">_settingObj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">getSetting</span><span class="p">(</span><span class="n">settingName</span><span class="p">)</span>
 
-                <span class="c1"># The value is automatically coerced into the expected type</span>
-                <span class="c1"># when set using either the default or user-defined schema</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">settingName</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">invalidSettings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># apply validations</span>
+            <span class="n">_settingObj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">getSetting</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
 
-<div class="viewcode-block" id="SettingsReader.applyConversions"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsReader.applyConversions">[docs]</a>    <span class="k">def</span> <span class="nf">applyConversions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Applies conversion rules to give special behavior to certain named settings.</span>
-
-<span class="sd">        Intended to be applied on setting names and attributes as soon as they&#39;re read</span>
-<span class="sd">        in keep in mind everything in the attributes dictionary is still a string even</span>
-<span class="sd">        if it&#39;s intended to be something else later, that happens at a later stage.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># general needs to come first for things like renaming.</span>
-        <span class="n">settingsToApply</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">func</span> <span class="ow">in</span> <span class="n">settingsRules</span><span class="o">.</span><span class="n">GENERAL_CONVERSIONS</span><span class="p">:</span>
-            <span class="n">settingsToApply</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
-
-        <span class="n">func</span> <span class="o">=</span> <span class="n">settingsRules</span><span class="o">.</span><span class="n">TARGETED_CONVERSIONS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">settingsToApply</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
-
-        <span class="k">return</span> <span class="n">settingsToApply</span></div></div>
+            <span class="c1"># The val is automatically coerced into the expected type</span>
+            <span class="c1"># when set using either the default or user-defined schema</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span></div>
 
 
 <div class="viewcode-block" id="SettingsWriter"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsWriter">[docs]</a><span class="k">class</span> <span class="nc">SettingsWriter</span><span class="p">:</span>
