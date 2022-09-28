@@ -345,7 +345,7 @@
 
         <span class="k">else</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Building copy of </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2"> with a uniform axial mesh.&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initNewReactor</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initNewReactor</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cs</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_setParamsToUpdate</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_computeAverageAxialMesh</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_buildAllUniformAssemblies</span><span class="p">()</span>
@@ -362,13 +362,15 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="UniformMeshGeometryConverter.initNewReactor"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.initNewReactor">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">initNewReactor</span><span class="p">(</span><span class="n">sourceReactor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">initNewReactor</span><span class="p">(</span><span class="n">sourceReactor</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Build a new, yet empty, reactor with the same settings as sourceReactor</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        sourceReactor : :py:class:`Reactor &lt;armi.reactor.reactors.Reactor&gt;` object.</span>
 <span class="sd">            original reactor to be copied</span>
+<span class="sd">        cs: CaseSetting object</span>
+<span class="sd">            Complete settings object</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># developer note: deepcopy on the blueprint object ensures that all relevant blueprints</span>
         <span class="c1"># attributes are set. Simply calling blueprints.loadFromCs() just initializes</span>
@@ -379,23 +381,13 @@
         <span class="n">newReactor</span> <span class="o">=</span> <span class="n">Reactor</span><span class="p">(</span><span class="n">sourceReactor</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">bp</span><span class="p">)</span>
         <span class="n">coreDesign</span> <span class="o">=</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span>
 
-        <span class="c1"># The source reactor may not have an operator available. This can occur</span>
-        <span class="c1"># when a different geometry converter is chained together with this. For</span>
-        <span class="c1"># instance, using the `HexToRZThetaConverter`, the converted reactor</span>
-        <span class="c1"># does not have an operator attached. In this case, we still need some</span>
-        <span class="c1"># settings to construct the new core.</span>
-        <span class="k">if</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">o</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">getMasterCs</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">cs</span> <span class="o">=</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span>
-
         <span class="n">coreDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">,</span> <span class="n">newReactor</span><span class="p">,</span> <span class="n">loadAssems</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">newReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span>
         <span class="n">newReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">setPitchUniform</span><span class="p">(</span><span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyPitch</span><span class="p">())</span>
 
         <span class="c1"># check if the sourceReactor has been modified from the blueprints</span>
         <span class="k">if</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">isFullCore</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">newReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">isFullCore</span><span class="p">:</span>
-            <span class="n">_geometryConverter</span> <span class="o">=</span> <span class="n">newReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">growToFullCore</span><span class="p">(</span><span class="n">sourceReactor</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+            <span class="n">_geometryConverter</span> <span class="o">=</span> <span class="n">newReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">growToFullCore</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">newReactor</span></div>
 
