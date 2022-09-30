@@ -352,16 +352,23 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">r</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        A block should only have a reactor through a parent assembly.</span>
+<span class="sd">        Look through the ancestors of the Block to find a Reactor, and return it.</span>
 
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Typical hierarchy: Reactor &lt;- Core &lt;- Assembly &lt;- Block</span>
+<span class="sd">        A block should only have a reactor through a parent assembly.</span>
 <span class="sd">        It may make sense to try to factor out usage of ``b.r``.</span>
 
-<span class="sd">        For now, this is presumptive of the structure of the composite hierarchy; i.e.</span>
-<span class="sd">        the parent of a CORE must be the reactor. Fortunately, we probably don&#39;t</span>
-<span class="sd">        ultimately want to return the reactor in the first place. Rather, we probably want the core</span>
-<span class="sd">        anyways, since practically all `b.r` calls are historically `b.r.core`. It may be</span>
-<span class="sd">        prefereable to remove this property, replace with `self.core`, which can return the core.</span>
-<span class="sd">        Then refactor all of the b.r.cores, to b.core.</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        core.parent : armi.reactor.reactors.Reactor</span>
+<span class="sd">            ARMI reactor object that is an ancestor of the block.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the parent of the block&#39;s ``core`` is not an ``armi.reactor.reactors.Reactor``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="kn">from</span> <span class="nn">armi.reactor.reactors</span> <span class="kn">import</span> <span class="n">Reactor</span>
@@ -1447,7 +1454,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        mfp, mfpAbs, diffusionLength : tuple(float, float float)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">lib</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span>
+        <span class="n">lib</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span>
         <span class="n">flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getMgFlux</span><span class="p">(</span><span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">)</span>
         <span class="n">flux</span> <span class="o">=</span> <span class="p">[</span><span class="n">fi</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">flux</span><span class="p">)</span> <span class="k">for</span> <span class="n">fi</span> <span class="ow">in</span> <span class="n">flux</span><span class="p">]</span>
         <span class="n">mfpNumerator</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">flux</span><span class="p">))</span>
@@ -1696,7 +1703,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">components</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getReactionRateDict</span><span class="p">(</span>
                 <span class="n">nucName</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">getIntegratedMgFlux</span><span class="p">(),</span>
                 <span class="n">nDensity</span><span class="p">,</span>
@@ -2153,21 +2160,19 @@
                 <span class="c1"># central location</span>
                 <span class="k">return</span> <span class="mf">3.0</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">symmetryLine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">overlapsWhichSymmetryLine</span><span class="p">(</span>
-                    <span class="n">indices</span>
-                <span class="p">)</span>
+                <span class="n">symmetryLine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">overlapsWhichSymmetryLine</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
                 <span class="c1"># detect if upper edge assemblies are included. Doing this is the only way to know</span>
                 <span class="c1"># definitively whether or not the edge assemblies are half-assems or full.</span>
                 <span class="c1"># seeing the first one is the easiest way to detect them.</span>
                 <span class="c1"># Check it last in the and statement so we don&#39;t waste time doing it.</span>
-                <span class="n">upperEdgeLoc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+                <span class="n">upperEdgeLoc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
                 <span class="k">if</span> <span class="p">(</span>
                     <span class="n">symmetryLine</span>
                     <span class="ow">in</span> <span class="p">[</span>
                         <span class="n">grids</span><span class="o">.</span><span class="n">BOUNDARY_0_DEGREES</span><span class="p">,</span>
                         <span class="n">grids</span><span class="o">.</span><span class="n">BOUNDARY_120_DEGREES</span><span class="p">,</span>
                     <span class="p">]</span>
-                    <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">childrenByLocator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">upperEdgeLoc</span><span class="p">))</span>
+                    <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">childrenByLocator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">upperEdgeLoc</span><span class="p">))</span>
                 <span class="p">):</span>
                     <span class="k">return</span> <span class="mf">2.0</span>
         <span class="k">return</span> <span class="mf">1.0</span></div>
@@ -2341,9 +2346,9 @@
 <span class="sd">        Return a factor between 1 and N where 1/N is how much cut-off by symmetry lines this mesh</span>
 <span class="sd">        cell is.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getCompleteIndices</span><span class="p">()</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">isThroughCenterAssembly</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">isThroughCenterAssembly</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">indices</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="c1"># central location</span>
                     <span class="k">return</span> <span class="mf">4.0</span>
@@ -2419,7 +2424,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-09-28.
+        Last updated on 2022-09-30.
       </span>
 
     </p>
