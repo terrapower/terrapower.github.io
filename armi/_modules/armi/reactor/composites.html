@@ -231,6 +231,7 @@
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.fissionProductModel</span> <span class="kn">import</span> <span class="n">fissionProductModel</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
+
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span><span class="p">,</span> <span class="n">TypeSpec</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.parameters</span> <span class="kn">import</span> <span class="n">resolveCollections</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">densityTools</span>
@@ -1085,7 +1086,10 @@
         <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getMassFracs</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="n">nuclideNames</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="ArmiObject.getMicroSuffix"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.ArmiObject.getMicroSuffix">[docs]</a>    <span class="k">def</span> <span class="nf">getMicroSuffix</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">pass</span></div>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Cannot get the suffix on </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2"> objects. Only certain subclasses&quot;</span>
+            <span class="s2">&quot; of composite such as Blocks or Components have the concept of micro suffixes.&quot;</span>
+        <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_getNuclidesFromSpecifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucSpec</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -1675,10 +1679,6 @@
 <span class="sd">        -------</span>
 <span class="sd">        armi.composites.ArmiObject</span>
 <span class="sd">            the first ancestor up the chain of parents that matches the passed flags</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        This will throw an error if no ancestor can be found that matches the typeSpec</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -3281,15 +3281,58 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">integratedMgFlux</span></div>
 
+    <span class="k">def</span> <span class="nf">_getReactionRates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">nDensity</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        nucName : str</span>
+<span class="sd">            nuclide name -- e.g. &#39;U235&#39;</span>
+<span class="sd">        nDensity : float</span>
+<span class="sd">            number density</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        rxnRates : dict</span>
+<span class="sd">            dictionary of reaction rates (rxn/s) for nG, nF, n2n, nA and nP</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        ----</span>
+<span class="sd">        If you set nDensity to 1/CM2_PER_BARN this makes 1 group cross section generation easier</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">armi.reactor.blocks</span> <span class="kn">import</span> <span class="n">Block</span>
+
+        <span class="k">if</span> <span class="n">nDensity</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">nDensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nucName</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">getReactionRateDict</span><span class="p">(</span>
+                <span class="n">nucName</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">getAncestorWithFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CORE</span><span class="p">)</span><span class="o">.</span><span class="n">lib</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">getAncestor</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">Block</span><span class="p">))</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">(),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">getIntegratedMgFlux</span><span class="p">(),</span>
+                <span class="n">nDensity</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Object </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> does not belong to a core and so has no reaction rates.&quot;</span><span class="p">,</span>
+                <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;nG&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;nF&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;n2n&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;nA&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;nP&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Attempting to get a reaction rate on an isotope not in the lib </span><span class="si">{</span><span class="n">nucName</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">,</span>
+                <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;nG&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;nF&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;n2n&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;nA&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;nP&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+
 <div class="viewcode-block" id="Composite.getReactionRates"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.Composite.getReactionRates">[docs]</a>    <span class="k">def</span> <span class="nf">getReactionRates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">nDensity</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get the reaction rates of a certain nuclide on this object.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        nucName - str</span>
+<span class="sd">        nucName : str</span>
 <span class="sd">            nuclide name -- e.g. &#39;U235&#39;</span>
-<span class="sd">        nDensity - float</span>
+<span class="sd">        nDensity : float</span>
 <span class="sd">            number Density</span>
 
 <span class="sd">        Returns</span>
@@ -3305,8 +3348,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">rxnRates</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;nG&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;nF&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;n2n&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;nA&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;nP&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;n3n&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
 
-        <span class="k">for</span> <span class="n">armiObject</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">rxName</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">armiObject</span><span class="o">.</span><span class="n">getReactionRates</span><span class="p">(</span>
+        <span class="c1"># not all composite objects are iterable (i.e. components), so in that</span>
+        <span class="c1"># case just examine only the object itself</span>
+        <span class="k">for</span> <span class="n">armiObject</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getChildren</span><span class="p">()</span> <span class="ow">or</span> <span class="p">[</span><span class="bp">self</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">rxName</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">armiObject</span><span class="o">.</span><span class="n">_getReactionRates</span><span class="p">(</span>
                 <span class="n">nucName</span><span class="p">,</span> <span class="n">nDensity</span><span class="o">=</span><span class="n">nDensity</span>
             <span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="n">rxnRates</span><span class="p">[</span><span class="n">rxName</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
@@ -3476,6 +3521,48 @@
         <span class="k">return</span> <span class="n">samples</span><span class="p">[</span><span class="n">maxMatName</span><span class="p">]</span>
 
     <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="getReactionRateDict"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.getReactionRateDict">[docs]</a><span class="k">def</span> <span class="nf">getReactionRateDict</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">xsSuffix</span><span class="p">,</span> <span class="n">mgFlux</span><span class="p">,</span> <span class="n">nDens</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    nucName : str</span>
+<span class="sd">        nuclide name -- e.g. &#39;U235&#39;, &#39;PU239&#39;, etc. Not to be confused with the nuclide</span>
+<span class="sd">        _label_, see the nucDirectory module for a description of the difference.</span>
+<span class="sd">    lib : isotxs</span>
+<span class="sd">        cross section library</span>
+<span class="sd">    xsSuffix : str</span>
+<span class="sd">        cross section suffix, consisting of the type followed by the burnup group,</span>
+<span class="sd">        e.g. &#39;AB&#39; for the second burnup group of type A</span>
+<span class="sd">    mgFlux : numpy.nArray</span>
+<span class="sd">        integrated mgFlux (n-cm/s)</span>
+<span class="sd">    nDens : float</span>
+<span class="sd">        number density (atom/bn-cm)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    rxnRates - dict</span>
+<span class="sd">        dictionary of reaction rates (rxn/s) for nG, nF, n2n, nA and nP</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Assume there is no n3n cross section in ISOTXS</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nucLabel</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span><span class="o">.</span><span class="n">label</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nucLabel</span><span class="p">,</span> <span class="n">xsSuffix</span><span class="p">)</span>
+    <span class="n">libNuc</span> <span class="o">=</span> <span class="n">lib</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    <span class="n">rxnRates</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;n3n&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">rxName</span><span class="p">,</span> <span class="n">mgXSs</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;nG&quot;</span><span class="p">,</span> <span class="n">libNuc</span><span class="o">.</span><span class="n">micros</span><span class="o">.</span><span class="n">nGamma</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;nF&quot;</span><span class="p">,</span> <span class="n">libNuc</span><span class="o">.</span><span class="n">micros</span><span class="o">.</span><span class="n">fission</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;n2n&quot;</span><span class="p">,</span> <span class="n">libNuc</span><span class="o">.</span><span class="n">micros</span><span class="o">.</span><span class="n">n2n</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;nA&quot;</span><span class="p">,</span> <span class="n">libNuc</span><span class="o">.</span><span class="n">micros</span><span class="o">.</span><span class="n">nalph</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;nP&quot;</span><span class="p">,</span> <span class="n">libNuc</span><span class="o">.</span><span class="n">micros</span><span class="o">.</span><span class="n">np</span><span class="p">),</span>
+    <span class="p">]:</span>
+        <span class="n">rxnRates</span><span class="p">[</span><span class="n">rxName</span><span class="p">]</span> <span class="o">=</span> <span class="n">nDens</span> <span class="o">*</span> <span class="nb">sum</span><span class="p">(</span><span class="n">mgXSs</span> <span class="o">*</span> <span class="n">mgFlux</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">rxnRates</span></div>
 </pre></div>
 
            </div>
@@ -3489,7 +3576,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-09-30.
+        Last updated on 2022-10-01.
       </span>
 
     </p>
