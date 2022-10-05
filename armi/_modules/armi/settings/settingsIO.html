@@ -216,8 +216,14 @@
 <span class="kn">from</span> <span class="nn">armi.settings.setting</span> <span class="kn">import</span> <span class="n">Setting</span>
 <span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">InvalidSettingsFileError</span><span class="p">,</span>
+    <span class="n">InvalidSettingsStopProcess</span><span class="p">,</span>
     <span class="n">SettingException</span><span class="p">,</span>
 <span class="p">)</span>
+
+<span class="c1"># Constants defining valid output styles</span>
+<span class="n">WRITE_SHORT</span> <span class="o">=</span> <span class="s2">&quot;short&quot;</span>
+<span class="n">WRITE_MEDIUM</span> <span class="o">=</span> <span class="s2">&quot;medium&quot;</span>
+<span class="n">WRITE_FULL</span> <span class="o">=</span> <span class="s2">&quot;full&quot;</span>
 
 
 <div class="viewcode-block" id="Roots"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.Roots">[docs]</a><span class="k">class</span> <span class="nc">Roots</span><span class="p">:</span>
@@ -423,7 +429,7 @@
 
     <span class="k">def</span> <span class="nf">_applySettings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Add a setting, if it is valid. Capture invalid settings.&quot;&quot;&quot;</span>
-        <span class="n">nameToSet</span><span class="p">,</span> <span class="n">_wasRenamed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_renamer</span><span class="o">.</span><span class="n">renameSetting</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">_nameToSet</span><span class="p">,</span> <span class="n">_wasRenamed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_renamer</span><span class="o">.</span><span class="n">renameSetting</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">invalidSettings</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
@@ -439,26 +445,25 @@
 <div class="viewcode-block" id="SettingsWriter"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsWriter">[docs]</a><span class="k">class</span> <span class="nc">SettingsWriter</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Writes settings out to files.</span>
 
-<span class="sd">    This can write in two styles:</span>
+<span class="sd">    This can write in three styles:</span>
 
 <span class="sd">    short</span>
 <span class="sd">        setting values that are not their defaults only</span>
+<span class="sd">    medium</span>
+<span class="sd">        preserves all settings originally in file even if they match the default value</span>
 <span class="sd">    full</span>
 <span class="sd">        all setting values regardless of default status</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="SettingsWriter.Styles"><a class="viewcode-back" href="../../../.apidocs/armi.settings.settingsIO.html#armi.settings.settingsIO.SettingsWriter.Styles">[docs]</a>    <span class="k">class</span> <span class="nc">Styles</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Enumeration of valid output styles&quot;&quot;&quot;</span>
-
-        <span class="n">short</span> <span class="o">=</span> <span class="s2">&quot;short&quot;</span>
-        <span class="n">full</span> <span class="o">=</span> <span class="s2">&quot;full&quot;</span></div>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings_instance</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;short&quot;</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settings_instance</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;short&quot;</span><span class="p">,</span> <span class="n">settingsSetByUser</span><span class="o">=</span><span class="p">[]):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="n">settings_instance</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">style</span> <span class="o">=</span> <span class="n">style</span>
-        <span class="k">if</span> <span class="n">style</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">Styles</span><span class="o">.</span><span class="n">short</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">Styles</span><span class="o">.</span><span class="n">full</span><span class="p">}:</span>
+        <span class="k">if</span> <span class="n">style</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="n">WRITE_SHORT</span><span class="p">,</span> <span class="n">WRITE_MEDIUM</span><span class="p">,</span> <span class="n">WRITE_FULL</span><span class="p">}:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid supplied setting writing style </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">style</span><span class="p">))</span>
+        <span class="c1"># The writer should know about the old settings it is overwriting,</span>
+        <span class="c1"># but only sometimes (when the style is medium)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">settingsSetByUser</span> <span class="o">=</span> <span class="n">settingsSetByUser</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_getVersion</span><span class="p">():</span>
@@ -501,10 +506,17 @@
 <span class="sd">        This is general so it can be dumped to whatever file format.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">settingData</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">_settingName</span><span class="p">,</span> <span class="n">settingObject</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span>
+        <span class="k">for</span> <span class="n">settingName</span><span class="p">,</span> <span class="n">settingObject</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span>
             <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">name</span><span class="p">:</span> <span class="n">name</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
         <span class="p">):</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">style</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">Styles</span><span class="o">.</span><span class="n">short</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">settingObject</span><span class="o">.</span><span class="n">offDefault</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">style</span> <span class="o">==</span> <span class="n">WRITE_SHORT</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">settingObject</span><span class="o">.</span><span class="n">offDefault</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">style</span> <span class="o">==</span> <span class="n">WRITE_MEDIUM</span>
+                <span class="ow">and</span> <span class="ow">not</span> <span class="n">settingObject</span><span class="o">.</span><span class="n">offDefault</span>
+                <span class="ow">and</span> <span class="n">settingName</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">settingsSetByUser</span>
+            <span class="p">):</span>
                 <span class="k">continue</span>
 
             <span class="n">attribs</span> <span class="o">=</span> <span class="n">settingObject</span><span class="o">.</span><span class="n">getCustomAttributes</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>

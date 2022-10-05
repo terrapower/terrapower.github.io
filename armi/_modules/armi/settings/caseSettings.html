@@ -213,6 +213,7 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">copy</span><span class="p">,</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">ruamel.yaml</span> <span class="kn">import</span> <span class="n">YAML</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
@@ -541,24 +542,70 @@
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        This resets the current CS&#39;s path to the newly written path.</span>
+<span class="sd">        This resets the current CS&#39;s path to the newly written absolute path.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        fName : str</span>
 <span class="sd">            the file to write to</span>
-<span class="sd">        style : str</span>
-<span class="sd">            the method of output to be used when creating the file for</span>
-<span class="sd">            the current state of settings</span>
+<span class="sd">        style : str (optional)</span>
+<span class="sd">            the method of output to be used when creating the file for the current</span>
+<span class="sd">            state of settings</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="n">pathTools</span><span class="o">.</span><span class="n">armiAbsPath</span><span class="p">(</span><span class="n">fName</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;medium&quot;</span><span class="p">:</span>
+            <span class="n">settingsSetByUser</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSettingsSetByUser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">settingsSetByUser</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">stream</span><span class="p">:</span>
-            <span class="n">writer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">writeToYamlStream</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">style</span><span class="p">)</span>
+            <span class="n">writer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">writeToYamlStream</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">style</span><span class="p">,</span> <span class="n">settingsSetByUser</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">writer</span></div>
 
-<div class="viewcode-block" id="Settings.writeToYamlStream"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.writeToYamlStream">[docs]</a>    <span class="k">def</span> <span class="nf">writeToYamlStream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;short&quot;</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Write settings in yaml format to an arbitrary stream.&quot;&quot;&quot;</span>
-        <span class="n">writer</span> <span class="o">=</span> <span class="n">settingsIO</span><span class="o">.</span><span class="n">SettingsWriter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="n">style</span><span class="p">)</span>
+<div class="viewcode-block" id="Settings.getSettingsSetByUser"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.getSettingsSetByUser">[docs]</a>    <span class="k">def</span> <span class="nf">getSettingsSetByUser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fPath</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Grabs the list of settings in the user-defined input file so that the settings</span>
+<span class="sd">        can be tracked outside of a Settings Object</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        fPath : str</span>
+<span class="sd">            The absolute file path of the settings file</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        userSettingsNames : list</span>
+<span class="sd">            The settings names read in from a yaml settings file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># We do not want to load these as settings, but just grab the dictionary straight</span>
+        <span class="c1"># from the settings file to know which settings are user-defined</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fPath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">stream</span><span class="p">:</span>
+            <span class="n">yaml</span> <span class="o">=</span> <span class="n">YAML</span><span class="p">()</span>
+            <span class="n">tree</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
+            <span class="n">userSettings</span> <span class="o">=</span> <span class="n">tree</span><span class="p">[</span><span class="n">settingsIO</span><span class="o">.</span><span class="n">Roots</span><span class="o">.</span><span class="n">CUSTOM</span><span class="p">]</span>
+        <span class="n">userSettingsNames</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">userSettings</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">userSettingsNames</span></div>
+
+<div class="viewcode-block" id="Settings.writeToYamlStream"><a class="viewcode-back" href="../../../.apidocs/armi.settings.caseSettings.html#armi.settings.caseSettings.Settings.writeToYamlStream">[docs]</a>    <span class="k">def</span> <span class="nf">writeToYamlStream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;short&quot;</span><span class="p">,</span> <span class="n">settingsSetByUser</span><span class="o">=</span><span class="p">[]):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write settings in yaml format to an arbitrary stream.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        stream : file object</span>
+<span class="sd">            Writable file stream</span>
+<span class="sd">        style : str (optional)</span>
+<span class="sd">            Writing style for settings file. Can be short, medium, or full.</span>
+<span class="sd">        settingsSetByUser : list</span>
+<span class="sd">            List of settings names in user-defined settings file</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        writer : SettingsWriter object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">writer</span> <span class="o">=</span> <span class="n">settingsIO</span><span class="o">.</span><span class="n">SettingsWriter</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="n">style</span><span class="p">,</span> <span class="n">settingsSetByUser</span><span class="o">=</span><span class="n">settingsSetByUser</span>
+        <span class="p">)</span>
         <span class="n">writer</span><span class="o">.</span><span class="n">writeYaml</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">writer</span></div>
 
