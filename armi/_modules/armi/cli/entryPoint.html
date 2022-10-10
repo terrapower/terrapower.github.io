@@ -274,18 +274,53 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
-                <span class="s2">&quot;Subclasses of EntryPoint must define a `name` class attribute&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Subclasses of EntryPoint must define a `name` class attribute&quot;</span>
             <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initSettings</span><span class="p">()</span>
+        <span class="n">settings</span><span class="o">.</span><span class="n">setMasterCs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
             <span class="n">prog</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">APP_NAME</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
             <span class="n">description</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">settingsArgument</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">settingsArgument</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;required&quot;</span><span class="p">,</span> <span class="s2">&quot;optional&quot;</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Subclasses of EntryPoint must specify if the a case settings file is `required` or `optional`&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">settingsArgument</span> <span class="o">==</span> <span class="s2">&quot;optional&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+                    <span class="s2">&quot;settings_file&quot;</span><span class="p">,</span>
+                    <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;?&quot;</span><span class="p">,</span>
+                    <span class="n">action</span><span class="o">=</span><span class="n">loadSettings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">),</span>
+                    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;path to the settings file to load.&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">settingsArgument</span> <span class="o">==</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+                    <span class="s2">&quot;settings_file&quot;</span><span class="p">,</span>
+                    <span class="n">action</span><span class="o">=</span><span class="n">loadSettings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">),</span>
+                    <span class="n">help</span><span class="o">=</span><span class="s2">&quot;path to the settings file to load.&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># optional arguments</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--caseTitle&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+            <span class="n">nargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">action</span><span class="o">=</span><span class="n">setCaseTitle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">),</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;update the case title of the run.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--batch&quot;</span><span class="p">,</span>
+            <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Run in batch mode even on TTY, silencing all queries.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">createOptionFromSetting</span><span class="p">(</span><span class="s2">&quot;verbosity&quot;</span><span class="p">,</span> <span class="s2">&quot;-v&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">createOptionFromSetting</span><span class="p">(</span><span class="s2">&quot;branchVerbosity&quot;</span><span class="p">,</span> <span class="s2">&quot;-V&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">()</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initSettings</span><span class="p">()</span>
-        <span class="n">settings</span><span class="o">.</span><span class="n">setMasterCs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">settingsProvidedOnCommandLine</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="nd">@staticmethod</span>
@@ -313,7 +348,6 @@
 
 <span class="sd">        argparse.ArgumentParser.add_argument : Often called from here using</span>
 <span class="sd">            ``self.parser.add_argument`` to add custom argparse arguments.</span>
-
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="EntryPoint.parse_args"><a class="viewcode-back" href="../../../.apidocs/armi.cli.entryPoint.html#armi.cli.entryPoint.EntryPoint.parse_args">[docs]</a>    <span class="k">def</span> <span class="nf">parse_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
@@ -324,37 +358,6 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parse the command line arguments, with the command specific arguments.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">settingsArgument</span> <span class="o">==</span> <span class="s2">&quot;optional&quot;</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-                <span class="s2">&quot;settings_file&quot;</span><span class="p">,</span>
-                <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;?&quot;</span><span class="p">,</span>
-                <span class="n">action</span><span class="o">=</span><span class="n">loadSettings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">),</span>
-                <span class="n">help</span><span class="o">=</span><span class="s2">&quot;path to the settings file to load.&quot;</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">settingsArgument</span> <span class="o">==</span> <span class="s2">&quot;required&quot;</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-                <span class="s2">&quot;settings_file&quot;</span><span class="p">,</span>
-                <span class="n">action</span><span class="o">=</span><span class="n">loadSettings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">),</span>
-                <span class="n">help</span><span class="o">=</span><span class="s2">&quot;path to the settings file to load.&quot;</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="c1"># optional arguments</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-            <span class="s2">&quot;--caseTitle&quot;</span><span class="p">,</span>
-            <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-            <span class="n">nargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="n">action</span><span class="o">=</span><span class="n">setCaseTitle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">),</span>
-            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;update the case title of the run.&quot;</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-            <span class="s2">&quot;--batch&quot;</span><span class="p">,</span>
-            <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
-            <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Run in batch mode even on TTY, silencing all queries.&quot;</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">createOptionFromSetting</span><span class="p">(</span><span class="s2">&quot;verbosity&quot;</span><span class="p">,</span> <span class="s2">&quot;-v&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">createOptionFromSetting</span><span class="p">(</span><span class="s2">&quot;branchVerbosity&quot;</span><span class="p">,</span> <span class="s2">&quot;-V&quot;</span><span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
 
@@ -417,15 +420,21 @@
 
             <span class="n">isListType</span> <span class="o">=</span> <span class="n">settingsInstance</span><span class="o">.</span><span class="n">underlyingType</span> <span class="o">==</span> <span class="nb">list</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-                <span class="o">*</span><span class="n">aliases</span><span class="p">,</span>
-                <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>  <span class="c1"># types are properly converted by _SetSettingAction</span>
-                <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;*&quot;</span> <span class="k">if</span> <span class="n">isListType</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-                <span class="n">action</span><span class="o">=</span><span class="n">setSetting</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
-                <span class="n">default</span><span class="o">=</span><span class="n">settingsInstance</span><span class="o">.</span><span class="n">default</span><span class="p">,</span>
-                <span class="n">choices</span><span class="o">=</span><span class="n">choices</span><span class="p">,</span>
-                <span class="n">help</span><span class="o">=</span><span class="n">helpMessage</span>
-            <span class="p">)</span></div>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+                    <span class="o">*</span><span class="n">aliases</span><span class="p">,</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>  <span class="c1"># types are properly converted by _SetSettingAction</span>
+                    <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;*&quot;</span> <span class="k">if</span> <span class="n">isListType</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">action</span><span class="o">=</span><span class="n">setSetting</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+                    <span class="n">default</span><span class="o">=</span><span class="n">settingsInstance</span><span class="o">.</span><span class="n">default</span><span class="p">,</span>
+                    <span class="n">choices</span><span class="o">=</span><span class="n">choices</span><span class="p">,</span>
+                    <span class="n">help</span><span class="o">=</span><span class="n">helpMessage</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="c1"># Capture an argument error here to prevent errors when duplicate options are attempting</span>
+            <span class="c1"># to be added. This may also be captured by exploring the parser&#39;s `_actions` list as well</span>
+            <span class="c1"># but this avoid accessing a private attribute.</span>
+            <span class="k">except</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentError</span><span class="p">:</span>
+                <span class="k">pass</span></div>
 
     <span class="k">def</span> <span class="nf">_createToggleFromSetting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">settingName</span><span class="p">,</span> <span class="n">helpMessage</span><span class="p">,</span> <span class="n">additionalAlias</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">aliases</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;--&quot;</span> <span class="o">+</span> <span class="n">settingName</span><span class="p">]</span>
@@ -529,7 +538,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-10-07.
+        Last updated on 2022-10-10.
       </span>
 
     </p>
