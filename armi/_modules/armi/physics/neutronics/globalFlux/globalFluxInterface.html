@@ -205,22 +205,24 @@
 <span class="kn">import</span> <span class="nn">numpy</span>
 <span class="kn">import</span> <span class="nn">scipy.integrate</span>
 
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span><span class="p">,</span> <span class="n">codeTiming</span><span class="p">,</span> <span class="n">getMaxBurnSteps</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.physics</span> <span class="kn">import</span> <span class="n">constants</span>
+<span class="kn">from</span> <span class="nn">armi.physics</span> <span class="kn">import</span> <span class="n">executers</span>
+<span class="kn">from</span> <span class="nn">armi.physics</span> <span class="kn">import</span> <span class="n">neutronics</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">geometry</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">reactors</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="kn">import</span> <span class="n">uniformMesh</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.blocks</span> <span class="kn">import</span> <span class="n">Block</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="kn">import</span> <span class="n">geometryConverters</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblies</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="kn">import</span> <span class="n">uniformMesh</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
-<span class="kn">from</span> <span class="nn">armi.physics</span> <span class="kn">import</span> <span class="n">neutronics</span>
-<span class="kn">from</span> <span class="nn">armi.physics</span> <span class="kn">import</span> <span class="n">executers</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span><span class="p">,</span> <span class="n">codeTiming</span><span class="p">,</span> <span class="n">getMaxBurnSteps</span>
 
 <span class="n">ORDER</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">FLUX</span>
 
 <span class="n">RX_ABS_MICRO_LABELS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;nGamma&quot;</span><span class="p">,</span> <span class="s2">&quot;fission&quot;</span><span class="p">,</span> <span class="s2">&quot;nalph&quot;</span><span class="p">,</span> <span class="s2">&quot;np&quot;</span><span class="p">,</span> <span class="s2">&quot;nd&quot;</span><span class="p">,</span> <span class="s2">&quot;nt&quot;</span><span class="p">]</span>
 <span class="n">RX_PARAM_NAMES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;rateCap&quot;</span><span class="p">,</span> <span class="s2">&quot;rateFis&quot;</span><span class="p">,</span> <span class="s2">&quot;rateProdN2n&quot;</span><span class="p">,</span> <span class="s2">&quot;rateProdFis&quot;</span><span class="p">,</span> <span class="s2">&quot;rateAbs&quot;</span><span class="p">]</span>
+
 
 <span class="c1"># pylint: disable=too-many-public-methods</span>
 <div class="viewcode-block" id="GlobalFluxInterface"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxInterface">[docs]</a><span class="k">class</span> <span class="nc">GlobalFluxInterface</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
@@ -247,7 +249,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">nodeFmt</span> <span class="o">=</span> <span class="s2">&quot;1d&quot;</span>  <span class="c1"># produce ig001_1.inp.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_bocKeff</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># for tracking rxSwing</span>
 
-<div class="viewcode-block" id="GlobalFluxInterface.getHistoryParams"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxInterface.getHistoryParams">[docs]</a>    <span class="k">def</span> <span class="nf">getHistoryParams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="GlobalFluxInterface.getHistoryParams"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxInterface.getHistoryParams">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">getHistoryParams</span><span class="p">():</span>
         <span class="sd">&quot;&quot;&quot;Return parameters that will be added to assembly versus time history printouts.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;detailedDpa&quot;</span><span class="p">,</span> <span class="s2">&quot;detailedDpaPeak&quot;</span><span class="p">,</span> <span class="s2">&quot;detailedDpaPeakRate&quot;</span><span class="p">]</span></div>
 
@@ -488,6 +491,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">aclpDoseLimit</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loadPadElevation</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">loadPadLength</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_geomType</span><span class="p">:</span> <span class="n">geometry</span><span class="o">.</span><span class="n">GeomType</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span><span class="p">:</span> <span class="nb">str</span>
@@ -757,6 +761,60 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxPD</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getMaxParam</span><span class="p">(</span><span class="s2">&quot;arealPd&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_updateAssemblyLevelParams</span><span class="p">()</span>
 
+<div class="viewcode-block" id="GlobalFluxResultMapper.getDpaXs"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxResultMapper.getDpaXs">[docs]</a>    <span class="k">def</span> <span class="nf">getDpaXs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Determine which cross sections should be used to compute dpa for a block.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        b: Block</span>
+<span class="sd">            The block we want the cross sections for</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            list : cross section values</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;gridPlateDpaXsSet&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">GRID_PLATE</span><span class="p">):</span>
+            <span class="n">dpaXsSetName</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;gridPlateDpaXsSet&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dpaXsSetName</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;dpaXsSet&quot;</span><span class="p">]</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">constants</span><span class="o">.</span><span class="n">DPA_CROSS_SECTIONS</span><span class="p">[</span><span class="n">dpaXsSetName</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                <span class="s2">&quot;DPA cross section set </span><span class="si">{}</span><span class="s2"> does not exist&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dpaXsSetName</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="GlobalFluxResultMapper.getBurnupPeakingFactor"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxResultMapper.getBurnupPeakingFactor">[docs]</a>    <span class="k">def</span> <span class="nf">getBurnupPeakingFactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">Block</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get the radial peaking factor to be applied to burnup and DPA for a Block</span>
+
+<span class="sd">        This may be informed by previous runs which used</span>
+<span class="sd">        detailed pin reconstruction and rotation. In that case,</span>
+<span class="sd">        it should be set on the cs setting ``burnupPeakingFactor``.</span>
+
+<span class="sd">        Otherwise, it just takes the current flux peaking, which</span>
+<span class="sd">        is typically conservatively high.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        b: Block</span>
+<span class="sd">            The block we want the peaking factor for</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        burnupPeakingFactor : float</span>
+<span class="sd">            The peak/avg factor for burnup and DPA.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">burnupPeakingFactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;burnupPeakingFactor&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">burnupPeakingFactor</span> <span class="ow">and</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">fluxPeak</span><span class="p">:</span>
+            <span class="n">burnupPeakingFactor</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">fluxPeak</span> <span class="o">/</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">burnupPeakingFactor</span><span class="p">:</span>
+            <span class="c1"># no peak available. Finite difference model?</span>
+            <span class="n">burnupPeakingFactor</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+        <span class="k">return</span> <span class="n">burnupPeakingFactor</span></div>
+
 <div class="viewcode-block" id="GlobalFluxResultMapper.updateDpaRate"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxResultMapper.updateDpaRate">[docs]</a>    <span class="k">def</span> <span class="nf">updateDpaRate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockList</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Update state parameters that can be known right after the flux is computed</span>
@@ -764,30 +822,27 @@
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
 <span class="sd">        updateFluenceAndDpa : uses values computed here to update cumulative dpa</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">blockList</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">blockList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()</span>
+
         <span class="n">hasDPA</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blockList</span><span class="p">:</span>
-            <span class="n">xs</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getDpaXs</span><span class="p">()</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">xs</span><span class="p">:</span>
-                <span class="k">continue</span>
+            <span class="n">xs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getDpaXs</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
             <span class="n">hasDPA</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="n">flux</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getMgFlux</span><span class="p">()</span>  <span class="c1"># n/cm^2/s</span>
             <span class="n">dpaPerSecond</span> <span class="o">=</span> <span class="n">computeDpaRate</span><span class="p">(</span><span class="n">flux</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span>
-            <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">detailedDpaPeakRate</span> <span class="o">=</span> <span class="n">dpaPerSecond</span> <span class="o">*</span> <span class="n">b</span><span class="o">.</span><span class="n">getBurnupPeakingFactor</span><span class="p">()</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">detailedDpaPeakRate</span> <span class="o">=</span> <span class="n">dpaPerSecond</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBurnupPeakingFactor</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">detailedDpaRate</span> <span class="o">=</span> <span class="n">dpaPerSecond</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">hasDPA</span><span class="p">:</span>
             <span class="k">return</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">peakGridDpaAt60Years</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getMaxBlockParam</span><span class="p">(</span>
-                <span class="s2">&quot;detailedDpaPeakRate&quot;</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="n">Flags</span><span class="o">.</span><span class="n">GRID_PLATE</span><span class="p">,</span> <span class="n">absolute</span><span class="o">=</span><span class="kc">False</span>
-            <span class="p">)</span>
-            <span class="o">*</span> <span class="mf">60.0</span>
-            <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">SECONDS_PER_YEAR</span>
+
+        <span class="n">peakRate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getMaxBlockParam</span><span class="p">(</span>
+            <span class="s2">&quot;detailedDpaPeakRate&quot;</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="n">Flags</span><span class="o">.</span><span class="n">GRID_PLATE</span><span class="p">,</span> <span class="n">absolute</span><span class="o">=</span><span class="kc">False</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">peakGridDpaAt60Years</span> <span class="o">=</span> <span class="n">peakRate</span> <span class="o">*</span> <span class="mf">60.0</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">SECONDS_PER_YEAR</span>
+
         <span class="c1"># also update maxes at this point (since this runs at every timenode, not just those w/ depletion steps)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">updateMaxDpaParams</span><span class="p">()</span></div>
 
@@ -849,6 +904,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">depletionSeconds</span><span class="p">,</span> <span class="n">options</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">cs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">depletionSeconds</span> <span class="o">=</span> <span class="n">depletionSeconds</span>
 
@@ -909,7 +965,7 @@
             <span class="p">)</span>
 
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blockList</span><span class="p">:</span>
-            <span class="n">burnupPeakingFactor</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getBurnupPeakingFactor</span><span class="p">()</span>
+            <span class="n">burnupPeakingFactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBurnupPeakingFactor</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">residence</span> <span class="o">+=</span> <span class="n">stepTimeInSeconds</span> <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">SECONDS_PER_DAY</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">fluence</span> <span class="o">+=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="o">*</span> <span class="n">stepTimeInSeconds</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">fastFluence</span> <span class="o">+=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="o">*</span> <span class="n">stepTimeInSeconds</span> <span class="o">*</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">fastFluxFr</span>
