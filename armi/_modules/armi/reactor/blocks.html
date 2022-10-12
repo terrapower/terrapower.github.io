@@ -699,7 +699,7 @@
 
 <div class="viewcode-block" id="Block.getFlowAreaPerPin"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getFlowAreaPerPin">[docs]</a>    <span class="k">def</span> <span class="nf">getFlowAreaPerPin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return the flowing coolant area in cm^2.</span>
+<span class="sd">        Return the flowing coolant area of the block in cm^2, normalized to the number of pins in the block.</span>
 
 <span class="sd">        NumPins looks for max number of fuel, clad, control, etc.</span>
 
@@ -2260,20 +2260,76 @@
             <span class="p">)</span></div>
 
 <div class="viewcode-block" id="HexBlock.getWettedPerimeter"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.getWettedPerimeter">[docs]</a>    <span class="k">def</span> <span class="nf">getWettedPerimeter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return wetted perimeter per pin with duct averaged in.&quot;&quot;&quot;</span>
-        <span class="n">duct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">)</span>
-        <span class="n">clad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
-        <span class="n">wire</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">WIRE</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">duct</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">clad</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Wetted perimeter cannot be computed in </span><span class="si">{}</span><span class="s2">. No duct or clad components exist.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="bp">self</span>
-                <span class="p">)</span>
+        <span class="sd">&quot;&quot;&quot;Return the total wetted perimeter of the block in cm.&quot;&quot;&quot;</span>
+
+        <span class="c1"># flags pertaining to hexagon components where the interior of the hexagon is wetted</span>
+        <span class="n">wettedHollowHexagonComponentFlags</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">,</span>
+            <span class="n">Flags</span><span class="o">.</span><span class="n">GRID_PLATE</span><span class="p">,</span>
+            <span class="n">Flags</span><span class="o">.</span><span class="n">INLET_NOZZLE</span><span class="p">,</span>
+            <span class="n">Flags</span><span class="o">.</span><span class="n">HANDLING_SOCKET</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># flags pertaining to circular pin components where the exterior of the circle is wetted</span>
+        <span class="n">wettedPinComponentFlags</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">,</span>
+            <span class="n">Flags</span><span class="o">.</span><span class="n">WIRE</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># flags pertaining to circular components where both the interior and exterior of the circle are wetted</span>
+        <span class="n">wettedHollowCircleComponentFlags</span> <span class="o">=</span> <span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span> <span class="o">|</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INNER</span><span class="p">,)</span>
+
+        <span class="c1"># obtain all wetted components based on type</span>
+        <span class="n">wettedHollowHexagonComponents</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">flag</span> <span class="ow">in</span> <span class="n">wettedHollowHexagonComponentFlags</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">flag</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">wettedHollowHexagonComponents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="n">wettedPinComponents</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">flag</span> <span class="ow">in</span> <span class="n">wettedPinComponentFlags</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">flag</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">wettedPinComponents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="n">wettedHollowCircleComponents</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">flag</span> <span class="ow">in</span> <span class="n">wettedHollowCircleComponentFlags</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">flag</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">wettedHollowCircleComponents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="c1"># calculate wetted perimeters according to their geometries</span>
+
+        <span class="c1"># hollow hexagon = 6 * ip / sqrt(3)</span>
+        <span class="n">wettedHollowHexagonPerimeter</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">wettedHollowHexagonComponents</span><span class="p">:</span>
+            <span class="n">wettedHollowHexagonPerimeter</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="mi">6</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;ip&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="k">else</span> <span class="mf">0.0</span>
             <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span>
-            <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">wire</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span>
-        <span class="p">)</span> <span class="o">+</span> <span class="mi">6</span> <span class="o">*</span> <span class="n">duct</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;ip&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">)</span></div>
+        <span class="c1"># solid circle = od * pi</span>
+        <span class="c1"># NOTE: since these are pin components, multiply by the number of pins</span>
+        <span class="n">wettedPinPerimeter</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">wettedPinComponents</span><span class="p">:</span>
+            <span class="n">wettedPinPerimeter</span> <span class="o">+=</span> <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">wettedPinPerimeter</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">()</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span>
+
+        <span class="c1"># hollow circle = (id + od) * pi</span>
+        <span class="n">wettedHollowCirclePerimeter</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">wettedHollowCircleComponents</span><span class="p">:</span>
+            <span class="n">wettedHollowCirclePerimeter</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="p">)</span>
+        <span class="n">wettedHollowCirclePerimeter</span> <span class="o">*=</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">wettedHollowHexagonPerimeter</span>
+            <span class="o">+</span> <span class="n">wettedPinPerimeter</span>
+            <span class="o">+</span> <span class="n">wettedHollowCirclePerimeter</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="HexBlock.getFlowArea"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.getFlowArea">[docs]</a>    <span class="k">def</span> <span class="nf">getFlowArea</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the total flowing coolant area of the block in cm^2.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">COOLANT</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="HexBlock.getHydraulicDiameter"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.getHydraulicDiameter">[docs]</a>    <span class="k">def</span> <span class="nf">getHydraulicDiameter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -2290,7 +2346,7 @@
 <span class="sd">        p = sqrt(3)*s</span>
 <span class="sd">        l = 6*p/sqrt(3)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getFlowAreaPerPin</span><span class="p">()</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">getWettedPerimeter</span><span class="p">()</span></div></div>
+        <span class="k">return</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getFlowArea</span><span class="p">()</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">getWettedPerimeter</span><span class="p">()</span></div></div>
 
 
 <div class="viewcode-block" id="CartesianBlock"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.CartesianBlock">[docs]</a><span class="k">class</span> <span class="nc">CartesianBlock</span><span class="p">(</span><span class="n">Block</span><span class="p">):</span>
@@ -2391,7 +2447,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-10-11.
+        Last updated on 2022-10-12.
       </span>
 
     </p>
