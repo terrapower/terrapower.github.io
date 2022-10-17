@@ -549,7 +549,7 @@
                 <span class="n">o</span><span class="o">.</span><span class="n">operate</span><span class="p">()</span>
 
         <span class="c1"># if in the settings, report the coverage and profiling</span>
-        <span class="n">Case</span><span class="o">.</span><span class="n">_endCoverage</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span>
+        <span class="n">Case</span><span class="o">.</span><span class="n">_endCoverage</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;coverageConfigFile&quot;</span><span class="p">],</span> <span class="n">cov</span><span class="p">)</span>
         <span class="n">Case</span><span class="o">.</span><span class="n">_endProfiling</span><span class="p">(</span><span class="n">profiler</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_startCoverage</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -564,7 +564,10 @@
         <span class="n">cov</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;coverage&quot;</span><span class="p">]:</span>
             <span class="n">cov</span> <span class="o">=</span> <span class="n">coverage</span><span class="o">.</span><span class="n">Coverage</span><span class="p">(</span>
-                <span class="n">config_file</span><span class="o">=</span><span class="n">Case</span><span class="o">.</span><span class="n">_getCoverageRcFile</span><span class="p">(</span><span class="n">makeCopy</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">debug</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;dataio&quot;</span><span class="p">]</span>
+                <span class="n">config_file</span><span class="o">=</span><span class="n">Case</span><span class="o">.</span><span class="n">_getCoverageRcFile</span><span class="p">(</span>
+                    <span class="n">userCovFile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;coverageConfigFile&quot;</span><span class="p">],</span> <span class="n">makeCopy</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">),</span>
+                <span class="n">debug</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;dataio&quot;</span><span class="p">],</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="c1"># interestingly, you cannot set the parallel flag in the constructor</span>
@@ -577,12 +580,15 @@
         <span class="k">return</span> <span class="n">cov</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_endCoverage</span><span class="p">(</span><span class="n">cov</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_endCoverage</span><span class="p">(</span><span class="n">userCovFile</span><span class="p">,</span> <span class="n">cov</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Helper to the Case.run(): stop and report code coverage,</span>
 <span class="sd">        if the CaseSettings file says to.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
+<span class="sd">        userCovFile : str</span>
+<span class="sd">            File path to user-supplied coverage configuration file (default setting is</span>
+<span class="sd">            empty string)</span>
 <span class="sd">        cov: coverage.Coverage (optional)</span>
 <span class="sd">            Hopefully, a valid and non-empty set of coverage data.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -599,7 +605,7 @@
             <span class="c1"># combine all the parallel coverage data files into one and make</span>
             <span class="c1"># the XML and HTML reports for the whole run.</span>
             <span class="n">combinedCoverage</span> <span class="o">=</span> <span class="n">coverage</span><span class="o">.</span><span class="n">Coverage</span><span class="p">(</span>
-                <span class="n">config_file</span><span class="o">=</span><span class="n">Case</span><span class="o">.</span><span class="n">_getCoverageRcFile</span><span class="p">(),</span> <span class="n">debug</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;dataio&quot;</span><span class="p">]</span>
+                <span class="n">config_file</span><span class="o">=</span><span class="n">Case</span><span class="o">.</span><span class="n">_getCoverageRcFile</span><span class="p">(</span><span class="n">userCovFile</span><span class="p">),</span> <span class="n">debug</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;dataio&quot;</span><span class="p">]</span>
             <span class="p">)</span>
             <span class="n">combinedCoverage</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">parallel</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="c1"># combine does delete the files it merges</span>
@@ -609,11 +615,15 @@
             <span class="n">combinedCoverage</span><span class="o">.</span><span class="n">xml_report</span><span class="p">()</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_getCoverageRcFile</span><span class="p">(</span><span class="n">makeCopy</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Helper to provide the coverage configuration file according to the OS.</span>
+    <span class="k">def</span> <span class="nf">_getCoverageRcFile</span><span class="p">(</span><span class="n">userCovFile</span><span class="p">,</span> <span class="n">makeCopy</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Helper to provide the coverage configuration file according to the OS. A</span>
+<span class="sd">        user-supplied file will take precedence, and is not checked for a dot-filename.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
+<span class="sd">        userCovFile : str</span>
+<span class="sd">            File path to user-supplied coverage configuration file (default setting is</span>
+<span class="sd">            empty string)</span>
 <span class="sd">        makeCopy : bool (optional)</span>
 <span class="sd">            Whether or not to copy the coverage config file to an alternate file path</span>
 
@@ -622,6 +632,10 @@
 <span class="sd">        covFile : str</span>
 <span class="sd">            path of coveragerc file</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># User-defined file takes precedence.</span>
+        <span class="k">if</span> <span class="n">userCovFile</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">userCovFile</span><span class="p">)</span>
+
         <span class="n">covRcDir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">PROJECT_ROOT</span><span class="p">)</span>
         <span class="n">covFile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">covRcDir</span><span class="p">,</span> <span class="s2">&quot;.coveragerc&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Windows&quot;</span><span class="p">:</span>
@@ -1163,7 +1177,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-10-12.
+        Last updated on 2022-10-17.
       </span>
 
     </p>
