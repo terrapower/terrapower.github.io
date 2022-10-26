@@ -204,32 +204,32 @@
 
 <span class="sd">Blocks are made of components.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">math</span>
-<span class="kn">import</span> <span class="nn">copy</span>
-<span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">ClassVar</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">math</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">composites</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">report</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nucDir</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">geometry</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">GAMMA</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">NEUTRON</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">blockParameters</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">components</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">composites</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">geometry</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.parameters</span> <span class="kn">import</span> <span class="n">ParamLocation</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">densityTools</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">hexagon</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span>
 <span class="kn">from</span> <span class="nn">armi.utils.plotting</span> <span class="kn">import</span> <span class="n">plotBlockFlux</span>
-<span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">report</span>
 <span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="kn">import</span> <span class="n">TRACE_NUMBER_DENSITY</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">hexagon</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">densityTools</span>
-<span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">NEUTRON</span>
-<span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">GAMMA</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.parameters</span> <span class="kn">import</span> <span class="n">ParamLocation</span>
 
 <span class="n">PIN_COMPONENTS</span> <span class="o">=</span> <span class="p">[</span>
     <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">,</span>
@@ -621,18 +621,22 @@
 <span class="sd">        setting has length 1 (i.e. no burnup groups are defined). This is useful for</span>
 <span class="sd">        high-fidelity XS modeling of V&amp;V models such as the ZPPRs.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="n">bu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">buGroup</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">bu</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                 <span class="s2">&quot;Cannot get MicroXS suffix because </span><span class="si">{0}</span><span class="s2"> in </span><span class="si">{1}</span><span class="s2"> does not have a burnup group&quot;</span>
                 <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
             <span class="p">)</span>
+
         <span class="n">xsType</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xsType</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">getMasterCs</span><span class="p">()[</span><span class="s2">&quot;buGroups&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">xsType</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xsType</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">xsType</span> <span class="o">+</span> <span class="n">bu</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">xsType</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">ord</span><span class="p">(</span><span class="n">bu</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;A&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Use of multiple burnup groups is not allowed with multi-character xs groups!&quot;</span>
+            <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">xsType</span> <span class="o">+</span> <span class="n">bu</span></div>
+            <span class="k">return</span> <span class="n">xsType</span></div>
 
 <div class="viewcode-block" id="Block.getHeight"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getHeight">[docs]</a>    <span class="k">def</span> <span class="nf">getHeight</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return the block height.&quot;&quot;&quot;</span>
@@ -2399,7 +2403,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-10-24.
+        Last updated on 2022-10-26.
       </span>
 
     </p>
