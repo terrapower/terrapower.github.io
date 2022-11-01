@@ -202,39 +202,47 @@
 <span class="sd">As an ARMI run progresses, this is periodically updated as the primary output file.</span>
 <span class="sd">It can also be an input file for follow-on analysis or restart runs.</span>
 
-<span class="sd">The database can be visualized through various tools such as XTVIEW.</span>
-
 <span class="sd">This module contains factories for selecting and building DB-related objects.</span>
 
-<span class="sd">Some notes on versions</span>
-<span class="sd">----------------------</span>
-<span class="sd">Persistent storage of ARMI models has seen many changes throughout the years.</span>
-<span class="sd">Calculation results were originally stored on a SQL database (version 1), which has been</span>
-<span class="sd">fully deprecated at this point.</span>
+<span class="sd">When updating a db version</span>
+<span class="sd">--------------------------</span>
+<span class="sd">The code associated with reading and writing database files may not benefit from Don&#39;t</span>
+<span class="sd">Repeat Yourself (DRY) practices in the same way as other code. Therefore, do not share</span>
+<span class="sd">code between different major versions of the databases. Create a new module if you are</span>
+<span class="sd">creating a new major database version.</span>
 
-<span class="sd">Version 2 was the first to use HDF5 as the primary storage format. This was beneficial,</span>
-<span class="sd">as it did not rely on any external infrastructure to operate, and benefited from the</span>
-<span class="sd">suite of tools that help interact with HDF5 files. It was eventually replaced because</span>
-<span class="sd">it did not store a complete model of the reactor, but rather a ghost of assembly, block,</span>
-<span class="sd">and reactor parameters that could be applied to an existing reactor model (so long as</span>
-<span class="sd">the dimensions were consistent!). This led to loading reactors being inconvenient and</span>
-<span class="sd">error-prone, and also posed a limitation for representing more complex systems that have</span>
-<span class="sd">non-core components.</span>
 
-<span class="sd">Version 3 was created to make the schema more flexible and to permit storing the entire</span>
-<span class="sd">reactor model within the HDF5 file. All objects in the ARMI Composite Model are written</span>
-<span class="sd">to the database, and the model can be recovered in its entirety just from the HDF5 file.</span>
-<span class="sd">Since it&#39;s inception, it has seen a number of tweaks to improve its functionality and</span>
-<span class="sd">fix bugs.</span>
+<span class="sd">Database revision changelog</span>
+<span class="sd">---------------------------</span>
+<span class="sd"> - 1: Originally, calculation results were stored in a SQL database.</span>
 
-<span class="sd">Being a serialization format, the code associated with reading and writing database</span>
-<span class="sd">files may not benefit from Don&#39;t Repeat Yourself (DRY) practices in the same way as</span>
-<span class="sd">other code. Therefore, we do not share much, if any, code between different major</span>
-<span class="sd">versions of the databases. As such, new major-versioned database implementations should</span>
-<span class="sd">exist in their own modules. Minor revisions (e.g. M.(N+1)) to the database structure</span>
-<span class="sd">should be simple enough that specialized logic can be used to support all minor versions</span>
-<span class="sd">without posing a maintenance burden. A detailed change log should be maintained of each</span>
-<span class="sd">minor revision.</span>
+<span class="sd"> - 2: The storage format was changed to HDF5. This required less external</span>
+<span class="sd">   infrastructure than SQL. However, the implementation did not store a complete</span>
+<span class="sd">   model of a reactor, but a ghost of assembly, block, and reactor parameters that</span>
+<span class="sd">   could be applied to an existing reactor model (so long as the dimensions were</span>
+<span class="sd">   consistent). This was inconvenient and error prone.</span>
+
+<span class="sd"> - 3: The HDF5 format was kept, but the schema was made more flexible to permit</span>
+<span class="sd">   storing the entire reactor model. All objects in the ARMI Composite Model are</span>
+<span class="sd">   written to the database, and the model can be completely recovered from just the</span>
+<span class="sd">   HDF5 file.</span>
+
+<span class="sd">     - 3.1: Improved the handling of reading/writing grids.</span>
+
+<span class="sd">     - 3.2: Changed the strategy for storing large attributes to using a special</span>
+<span class="sd">       string starting with an &quot;@&quot; symbol (e.g., &quot;@/c00n00/attrs/5_linkedDims&quot;). This</span>
+<span class="sd">       was done to support copying time node datasets from one file to another without</span>
+<span class="sd">       invalidating the references. Support was maintained for reading previous</span>
+<span class="sd">       versions, by performing a ``mergeHistory()`` and converting to the new naming</span>
+<span class="sd">       strategy, but the old version cannot be written.</span>
+
+<span class="sd">     - 3.3: Compressed the way locations are stored in the database and allow</span>
+<span class="sd">       MultiIndex locations to be read and written.</span>
+
+<span class="sd">     - 3.4: Modified the way locations are stored in the database to include complete</span>
+<span class="sd">       indices for indices that can be composed from multiple grids. Having complete</span>
+<span class="sd">       indices allows for more efficient means of extracting information based on</span>
+<span class="sd">       location, without having to compose the full model.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
@@ -246,7 +254,8 @@
 
 <span class="c1"># re-export package components for easier import</span>
 <span class="kn">from</span> <span class="nn">.permissions</span> <span class="kn">import</span> <span class="n">Permissions</span>
-<span class="kn">from</span> <span class="nn">.database3</span> <span class="kn">import</span> <span class="n">Database3</span><span class="p">,</span> <span class="n">DatabaseInterface</span><span class="p">,</span> <span class="n">updateGlobalAssemblyNum</span>
+<span class="kn">from</span> <span class="nn">.database3</span> <span class="kn">import</span> <span class="n">Database3</span><span class="p">,</span> <span class="n">updateGlobalAssemblyNum</span>
+<span class="kn">from</span> <span class="nn">.databaseInterface</span> <span class="kn">import</span> <span class="n">DatabaseInterface</span>
 <span class="kn">from</span> <span class="nn">.compareDB3</span> <span class="kn">import</span> <span class="n">compareDatabases</span>
 <span class="kn">from</span> <span class="nn">.factory</span> <span class="kn">import</span> <span class="n">databaseFactory</span>
 
@@ -452,7 +461,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-10-31.
+        Last updated on 2022-11-01.
       </span>
 
     </p>
