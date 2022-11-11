@@ -239,16 +239,29 @@
 <span class="sd">    dumpOnException : bool, optional</span>
 <span class="sd">        Flag to tell system to retrieve the entire directory if an exception</span>
 <span class="sd">        is raised within a the context manager.</span>
+<span class="sd">    outputPath : str, optional</span>
+<span class="sd">        Output path for filesToRetrieve. If None, default is the initial working directory</span>
+<span class="sd">        from which the DirectoryChanger is called.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">filesToMove</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filesToRetrieve</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dumpOnException</span><span class="o">=</span><span class="kc">True</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">destination</span><span class="p">,</span>
+        <span class="n">filesToMove</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">filesToRetrieve</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">dumpOnException</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">outputPath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Establish the new and return directories&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">initial</span> <span class="o">=</span> <span class="n">pathTools</span><span class="o">.</span><span class="n">armiAbsPath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">destination</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">destination</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">destination</span> <span class="o">=</span> <span class="n">pathTools</span><span class="o">.</span><span class="n">armiAbsPath</span><span class="p">(</span><span class="n">destination</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">outputPath</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span> <span class="o">=</span> <span class="n">pathTools</span><span class="o">.</span><span class="n">armiAbsPath</span><span class="p">(</span><span class="n">outputPath</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_filesToMove</span> <span class="o">=</span> <span class="n">filesToMove</span> <span class="ow">or</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_filesToRetrieve</span> <span class="o">=</span> <span class="n">filesToRetrieve</span> <span class="ow">or</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_dumpOnException</span> <span class="o">=</span> <span class="n">dumpOnException</span>
@@ -263,6 +276,7 @@
     <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;At the termination of a with command, navigate back to the original directory.&quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Returning to directory </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_createOutputDirectory</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">exc_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dumpOnException</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="s2">&quot;An exception was raised within a DirectoryChanger. &quot;</span>
@@ -300,7 +314,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">initialPath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial</span>
         <span class="n">destinationPath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">destination</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_transferFiles</span><span class="p">(</span><span class="n">initialPath</span><span class="p">,</span> <span class="n">destinationPath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filesToMove</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_transferFiles</span><span class="p">(</span><span class="n">initialPath</span><span class="p">,</span> <span class="n">destinationPath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filesToMove</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial</span><span class="p">:</span>
+            <span class="n">destinationPath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_transferFiles</span><span class="p">(</span><span class="n">initialPath</span><span class="p">,</span> <span class="n">destinationPath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filesToMove</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="DirectoryChanger.retrieveFiles"><a class="viewcode-back" href="../../../.apidocs/armi.utils.directoryChangers.html#armi.utils.directoryChangers.DirectoryChanger.retrieveFiles">[docs]</a>    <span class="k">def</span> <span class="nf">retrieveFiles</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -308,8 +325,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">initialPath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">destination</span>
         <span class="n">destinationPath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial</span>
-        <span class="n">fileList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filesToRetrieve</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_transferFiles</span><span class="p">(</span><span class="n">initialPath</span><span class="p">,</span> <span class="n">destinationPath</span><span class="p">,</span> <span class="n">fileList</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_transferFiles</span><span class="p">(</span><span class="n">initialPath</span><span class="p">,</span> <span class="n">destinationPath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filesToRetrieve</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial</span><span class="p">:</span>
+            <span class="n">destinationPath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_transferFiles</span><span class="p">(</span><span class="n">initialPath</span><span class="p">,</span> <span class="n">destinationPath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filesToRetrieve</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_retrieveEntireFolder</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -322,6 +341,24 @@
         <span class="n">folderName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">destination</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">recoveryPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;dump-</span><span class="si">{</span><span class="n">folderName</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="n">recoveryPath</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_createOutputDirectory</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span><span class="p">):</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating output folder: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">ee</span><span class="p">:</span>
+                <span class="c1"># even though we checked exists, this still fails</span>
+                <span class="c1"># sometimes when multiple MPI nodes try</span>
+                <span class="c1"># to make the dirs due to I/O delays</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Failed to make output folder: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span><span class="si">}</span><span class="s2">. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Exception: </span><span class="si">{</span><span class="n">ee</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output folder already exists: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">outputPath</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_transferFiles</span><span class="p">(</span><span class="n">initialPath</span><span class="p">,</span> <span class="n">destinationPath</span><span class="p">,</span> <span class="n">fileList</span><span class="p">):</span>
@@ -353,7 +390,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">fileList</span><span class="p">:</span>
             <span class="k">return</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">destinationPath</span><span class="p">):</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">destinationPath</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">destinationPath</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="n">fileList</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
                 <span class="c1"># allow renames in transit</span>
@@ -390,10 +427,20 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filesToMove</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filesToRetrieve</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dumpOnException</span><span class="o">=</span><span class="kc">True</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">root</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">filesToMove</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">filesToRetrieve</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">dumpOnException</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">outputPath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="n">DirectoryChanger</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="n">filesToMove</span><span class="p">,</span> <span class="n">filesToRetrieve</span><span class="p">,</span> <span class="n">dumpOnException</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">root</span><span class="p">,</span>
+            <span class="n">filesToMove</span><span class="p">,</span>
+            <span class="n">filesToRetrieve</span><span class="p">,</span>
+            <span class="n">dumpOnException</span><span class="p">,</span>
+            <span class="n">outputPath</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="c1"># If no root dir is given, the default path comes from context.getFastPath, which</span>
@@ -436,7 +483,7 @@
         <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">DirectoryChanger</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
@@ -462,11 +509,17 @@
         <span class="n">filesToMove</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">filesToRetrieve</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">dumpOnException</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">outputPath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">destination</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A destination directory must be provided.&quot;</span><span class="p">)</span>
         <span class="n">DirectoryChanger</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">filesToMove</span><span class="p">,</span> <span class="n">filesToRetrieve</span><span class="p">,</span> <span class="n">dumpOnException</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">destination</span><span class="p">,</span>
+            <span class="n">filesToMove</span><span class="p">,</span>
+            <span class="n">filesToRetrieve</span><span class="p">,</span>
+            <span class="n">dumpOnException</span><span class="p">,</span>
+            <span class="n">outputPath</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

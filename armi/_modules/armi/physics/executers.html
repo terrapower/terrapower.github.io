@@ -203,7 +203,7 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">hashlib</span>
 
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span><span class="p">,</span> <span class="n">pathTools</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.context</span> <span class="kn">import</span> <span class="n">getFastPath</span><span class="p">,</span> <span class="n">MPI_RANK</span>
 
@@ -235,6 +235,12 @@
 <span class="sd">        a shared network location. Auto-applied during execution by default.</span>
 <span class="sd">    label : str</span>
 <span class="sd">        A name for the run that may be used as a prefix for input/output files generated.</span>
+<span class="sd">    interface : str</span>
+<span class="sd">        A name for the interface calling the Executer that may be used to organize the</span>
+<span class="sd">        input/output files generated within sub-folders under the working directory.</span>
+<span class="sd">    savePhysicsFiles : bool</span>
+<span class="sd">        Dump the physics kernel I/O files from the execution to a dedicated directory that</span>
+<span class="sd">        will not be overwritten so they will be available after the run.</span>
 <span class="sd">    applyResultsToReactor : bool</span>
 <span class="sd">        Update the in-memory reactor model with results upon completion. Set to False</span>
 <span class="sd">        when information from a run is needed for auxiliary purposes rather than progressing</span>
@@ -250,8 +256,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">runDir</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">workingDir</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">label</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interfaceName</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">applyResultsToReactor</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">paramsToScaleSubset</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">savePhysicsFiles</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&gt;&quot;</span>
@@ -360,11 +368,20 @@
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_performGeometryTransformations</span><span class="p">()</span>
         <span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collectInputsAndOutputs</span><span class="p">()</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;c</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span><span class="si">}</span><span class="s2">n</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">dirName</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">interfaceName</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">label</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">savePhysicsFiles</span><span class="p">:</span>
+            <span class="n">outputDir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pathTools</span><span class="o">.</span><span class="n">armiAbsPath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()),</span> <span class="n">state</span><span class="p">,</span> <span class="n">dirName</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">outputDir</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="c1"># must either write input to CWD for analysis and then copy to runDir</span>
         <span class="c1"># or not list it in inputs (for optimization)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">writeInput</span><span class="p">()</span>
         <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">ForcedCreationDirectoryChanger</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">runDir</span><span class="p">,</span> <span class="n">filesToMove</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">filesToRetrieve</span><span class="o">=</span><span class="n">outputs</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">runDir</span><span class="p">,</span>
+            <span class="n">filesToMove</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
+            <span class="n">filesToRetrieve</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
+            <span class="n">outputPath</span><span class="o">=</span><span class="n">outputDir</span><span class="p">,</span>
         <span class="p">)</span> <span class="k">as</span> <span class="n">dc</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">workingDir</span> <span class="o">=</span> <span class="n">dc</span><span class="o">.</span><span class="n">initial</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_execute</span><span class="p">()</span>
