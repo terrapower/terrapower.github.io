@@ -195,7 +195,6 @@
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
-
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">This module handles fuel management operations such as shuffling, rotation, and</span>
 <span class="sd">fuel processing (in fluid systems).</span>
@@ -209,20 +208,18 @@
 
 <span class="sd">This module also handles repeat shuffles when doing a restart.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
-
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">InputError</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
-<span class="kn">from</span> <span class="nn">armi.utils.mathematics</span> <span class="kn">import</span> <span class="n">findClosest</span><span class="p">,</span> <span class="n">resampleStepwise</span>
+<span class="kn">from</span> <span class="nn">armi.physics.fuelCycle</span> <span class="kn">import</span> <span class="n">assemblyRotationAlgorithms</span> <span class="k">as</span> <span class="n">rotAlgos</span>
 <span class="kn">from</span> <span class="nn">armi.physics.fuelCycle.fuelHandlerFactory</span> <span class="kn">import</span> <span class="n">fuelHandlerFactory</span>
 <span class="kn">from</span> <span class="nn">armi.physics.fuelCycle.fuelHandlerInterface</span> <span class="kn">import</span> <span class="n">FuelHandlerInterface</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">InputError</span>
 
 
 <div class="viewcode-block" id="FuelHandler"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler">[docs]</a><span class="k">class</span> <span class="nc">FuelHandler</span><span class="p">:</span>
@@ -305,16 +302,16 @@
 
         <span class="c1"># do rotations if pin-level details are available (requires fluxRecon plugin)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;fluxRecon&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;assemblyRotationAlgorithm&quot;</span><span class="p">]:</span>
-            <span class="c1"># Rotate assemblies ONLY IF at least some assemblies have pin detail (enabled by fluxRecon)</span>
+            <span class="c1"># Rotate assemblies ONLY IF at least some assemblies have pin detail</span>
             <span class="c1"># The user can choose the algorithm method name directly in the settings</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;assemblyRotationAlgorithm&quot;</span><span class="p">]):</span>
-                <span class="n">rotationMethod</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;assemblyRotationAlgorithm&quot;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">rotAlgos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;assemblyRotationAlgorithm&quot;</span><span class="p">]):</span>
+                <span class="n">rotationMethod</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">rotAlgos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;assemblyRotationAlgorithm&quot;</span><span class="p">])</span>
                 <span class="n">rotationMethod</span><span class="p">()</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                     <span class="s2">&quot;FuelHandler </span><span class="si">{0}</span><span class="s2"> does not have a rotation algorithm called </span><span class="si">{1}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
                     <span class="s1">&#39;Change your &quot;assemblyRotationAlgorithm&quot; setting&#39;</span>
-                    <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;assemblyRotationAlgorithm&quot;</span><span class="p">])</span>
+                    <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rotAlgos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;assemblyRotationAlgorithm&quot;</span><span class="p">])</span>
                 <span class="p">)</span>
 
         <span class="c1"># inform the reactor of how many moves occurred so it can put the number in the database.</span>
@@ -354,9 +351,7 @@
         <span class="k">return</span> <span class="n">moved</span></div>
 
 <div class="viewcode-block" id="FuelHandler.chooseSwaps"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.chooseSwaps">[docs]</a>    <span class="k">def</span> <span class="nf">chooseSwaps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shuffleFactors</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Moves the fuel around or otherwise processes it between cycles.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;Moves the fuel around or otherwise processes it between cycles.&quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
 <div class="viewcode-block" id="FuelHandler.getFactorList"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.getFactorList">[docs]</a>    <span class="nd">@staticmethod</span>
@@ -381,192 +376,6 @@
         <span class="n">defaultFactorList</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;eqShuffles&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
         <span class="n">factorSearchFlags</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">return</span> <span class="n">defaultFactorList</span><span class="p">,</span> <span class="n">factorSearchFlags</span></div>
-
-<div class="viewcode-block" id="FuelHandler.simpleAssemblyRotation"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.simpleAssemblyRotation">[docs]</a>    <span class="k">def</span> <span class="nf">simpleAssemblyRotation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Rotate all pin-detail assemblies that were just shuffled by 60 degrees</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        Also, optionally rotate stationary (non-shuffled) assemblies if the setting is set.</span>
-<span class="sd">        Obviously, only pin-detail assemblies can be rotated, because homogenized assemblies are isotropic.</span>
-
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; fh.simpleAssemblyRotation()</span>
-
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        buReducingAssemblyRotation : an alternative rotation algorithm</span>
-<span class="sd">        outage : calls this method based on a user setting</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Rotating assemblies by 60 degrees&quot;</span><span class="p">)</span>
-        <span class="n">numRotated</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;history&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">hist</span><span class="o">.</span><span class="n">getDetailAssemblies</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">moved</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;assemblyRotationStationary&quot;</span><span class="p">]:</span>
-                <span class="n">a</span><span class="o">.</span><span class="n">rotatePins</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-                <span class="n">numRotated</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()</span>  <span class="c1"># hex indices (i,j) = (ring,pos)</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
-                    <span class="s2">&quot;Rotating Assembly (</span><span class="si">{0}</span><span class="s2">,</span><span class="si">{1}</span><span class="s2">) to Orientation </span><span class="si">{2}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-                <span class="p">)</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Rotated </span><span class="si">{0}</span><span class="s2"> assemblies&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">numRotated</span><span class="p">))</span></div>
-
-<div class="viewcode-block" id="FuelHandler.buReducingAssemblyRotation"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.buReducingAssemblyRotation">[docs]</a>    <span class="k">def</span> <span class="nf">buReducingAssemblyRotation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Rotates all detail assemblies to put the highest bu pin in the lowest power orientation</span>
-
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        simpleAssemblyRotation : an alternative rotation algorithm</span>
-<span class="sd">        outage : calls this method based on a user setting</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Algorithmically rotating assemblies to minimize burnup&quot;</span><span class="p">)</span>
-        <span class="n">numRotated</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">hist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;history&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">aPrev</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">moved</span><span class="p">:</span>  <span class="c1"># much more convenient to loop through aPrev first</span>
-            <span class="n">aNow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyWithStringLocation</span><span class="p">(</span><span class="n">aPrev</span><span class="o">.</span><span class="n">lastLocationLabel</span><span class="p">)</span>
-            <span class="c1"># no point in rotation if there&#39;s no pin detail</span>
-            <span class="k">if</span> <span class="n">aNow</span> <span class="ow">in</span> <span class="n">hist</span><span class="o">.</span><span class="n">getDetailAssemblies</span><span class="p">():</span>
-
-                <span class="n">rot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getOptimalAssemblyOrientation</span><span class="p">(</span><span class="n">aNow</span><span class="p">,</span> <span class="n">aPrev</span><span class="p">)</span>
-                <span class="n">aNow</span><span class="o">.</span><span class="n">rotatePins</span><span class="p">(</span><span class="n">rot</span><span class="p">)</span>  <span class="c1"># rot = integer between 0 and 5</span>
-                <span class="n">numRotated</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="c1"># Print out rotation operation (mainly for testing)</span>
-                <span class="c1"># hex indices (i,j) = (ring,pos)</span>
-                <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">=</span> <span class="n">aNow</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-                    <span class="s2">&quot;Rotating Assembly (</span><span class="si">{0}</span><span class="s2">,</span><span class="si">{1}</span><span class="s2">) to Orientation </span><span class="si">{2}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">rot</span><span class="p">)</span>
-                <span class="p">)</span>
-
-        <span class="c1"># rotate NON-MOVING assemblies (stationary)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;assemblyRotationStationary&quot;</span><span class="p">]:</span>
-            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">hist</span><span class="o">.</span><span class="n">getDetailAssemblies</span><span class="p">():</span>
-                <span class="k">if</span> <span class="n">a</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">moved</span><span class="p">:</span>
-                    <span class="n">rot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getOptimalAssemblyOrientation</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
-                    <span class="n">a</span><span class="o">.</span><span class="n">rotatePins</span><span class="p">(</span><span class="n">rot</span><span class="p">)</span>  <span class="c1"># rot = integer between 0 and 6</span>
-                    <span class="n">numRotated</span> <span class="o">+=</span> <span class="mi">1</span>
-                    <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-                        <span class="s2">&quot;Rotating Assembly (</span><span class="si">{0}</span><span class="s2">,</span><span class="si">{1}</span><span class="s2">) to Orientation </span><span class="si">{2}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                            <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">rot</span>
-                        <span class="p">)</span>
-                    <span class="p">)</span>
-
-        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Rotated </span><span class="si">{0}</span><span class="s2"> assemblies&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">numRotated</span><span class="p">))</span></div>
-
-<div class="viewcode-block" id="FuelHandler.getOptimalAssemblyOrientation"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.getOptimalAssemblyOrientation">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">getOptimalAssemblyOrientation</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">aPrev</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get optimal assembly orientation/rotation to minimize peak burnup.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        Works by placing the highest-BU pin in the location (of 6 possible locations) with lowest</span>
-<span class="sd">        expected pin power. We evaluated &quot;expected pin power&quot; based on the power distribution in</span>
-<span class="sd">        aPrev, which is the previous assembly located here. If aPrev has no pin detail, then we must use its</span>
-<span class="sd">        corner fast fluxes to make an estimate.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        a : Assembly object</span>
-<span class="sd">            The assembly that is being rotated.</span>
-
-<span class="sd">        aPrev : Assembly object</span>
-<span class="sd">            The assembly that previously occupied this location (before the last shuffle).</span>
-
-<span class="sd">            If the assembly &quot;a&quot; was not shuffled, then &quot;aPrev&quot; = &quot;a&quot;.</span>
-
-<span class="sd">            If &quot;aPrev&quot; has pin detail, then we will determine the orientation of &quot;a&quot; based on</span>
-<span class="sd">            the pin powers of &quot;aPrev&quot; when it was located here.</span>
-
-<span class="sd">            If &quot;aPrev&quot; does NOT have pin detail, then we will determine the orientation of &quot;a&quot; based on</span>
-<span class="sd">            the corner fast fluxes in &quot;aPrev&quot; when it was located here.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        rot : int</span>
-<span class="sd">            An integer from 0 to 5 representing the &quot;orientation&quot; of the assembly.</span>
-<span class="sd">            This orientation is relative to the current assembly orientation.</span>
-<span class="sd">            rot = 0 corresponds to no rotation.</span>
-<span class="sd">            rot represents the number of pi/3 counterclockwise rotations for the default orientation.</span>
-
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; fh.getOptimalAssemblyOrientation(a,aPrev)</span>
-<span class="sd">        4</span>
-
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        rotateAssemblies : calls this to figure out how to rotate</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="c1"># determine whether or not aPrev had pin details</span>
-        <span class="n">fuelPrev</span> <span class="o">=</span> <span class="n">aPrev</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">fuelPrev</span><span class="p">:</span>
-            <span class="n">aPrevDetailFlag</span> <span class="o">=</span> <span class="n">fuelPrev</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinLocation</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">aPrevDetailFlag</span> <span class="o">=</span> <span class="kc">False</span>
-
-        <span class="n">rot</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># default: no rotation</span>
-        <span class="c1"># First get pin index of maximum BU in this assembly.</span>
-        <span class="n">_maxBuAssem</span><span class="p">,</span> <span class="n">maxBuBlock</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">getMaxParam</span><span class="p">(</span><span class="s2">&quot;percentBuMax&quot;</span><span class="p">,</span> <span class="n">returnObj</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">maxBuBlock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># no max block. They&#39;re all probably zero</span>
-            <span class="k">return</span> <span class="n">rot</span>
-        <span class="c1"># start at 0 instead of 1</span>
-        <span class="n">maxBuPinIndexAssem</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">maxBuBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBuMaxPinLocation</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">bIndexMaxBu</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">maxBuBlock</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">maxBuPinIndexAssem</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="c1"># Don&#39;t bother rotating if the highest-BU pin is the central pin. End this method.</span>
-            <span class="k">return</span> <span class="n">rot</span>
-
-        <span class="k">else</span><span class="p">:</span>
-
-            <span class="c1"># transfer percentBuMax rotated pin index to non-rotated pin index</span>
-            <span class="c1"># maxBuPinIndexAssem = self.pinIndexLookup[maxBuPinIndexAssem]</span>
-            <span class="c1"># dummyList = numpy.where(self.pinIndexLookup == maxBuPinIndexAssem)</span>
-            <span class="c1"># maxBuPinIndexAssem = dummyList[0][0]</span>
-
-            <span class="k">if</span> <span class="n">aPrevDetailFlag</span><span class="p">:</span>
-
-                <span class="c1"># aPrev has pin detail. Excellent!</span>
-                <span class="c1"># Determine which of 6 possible rotated pin indices had the lowest power when aPrev was here.</span>
-
-                <span class="n">prevAssemPowHereMIN</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
-
-                <span class="k">for</span> <span class="n">possibleRotation</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>  <span class="c1"># k = 1,2,3,4,5</span>
-                    <span class="c1"># get rotated pin index</span>
-                    <span class="n">indexLookup</span> <span class="o">=</span> <span class="n">maxBuBlock</span><span class="o">.</span><span class="n">rotatePins</span><span class="p">(</span>
-                        <span class="n">possibleRotation</span><span class="p">,</span> <span class="n">justCompute</span><span class="o">=</span><span class="kc">True</span>
-                    <span class="p">)</span>
-                    <span class="c1"># rotated index of highest-BU pin</span>
-                    <span class="n">index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">indexLookup</span><span class="p">[</span><span class="n">maxBuPinIndexAssem</span><span class="p">])</span>
-                    <span class="c1"># get pin power at this index in the previously assembly located here</span>
-                    <span class="c1"># power previously at rotated index</span>
-                    <span class="n">prevAssemPowHere</span> <span class="o">=</span> <span class="n">aPrev</span><span class="p">[</span><span class="n">bIndexMaxBu</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">linPowByPin</span><span class="p">[</span><span class="n">index</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
-
-                    <span class="k">if</span> <span class="n">prevAssemPowHere</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                            <span class="s2">&quot;Previous power in rotation </span><span class="si">{0}</span><span class="s2"> where pinLoc=</span><span class="si">{1}</span><span class="s2"> is </span><span class="si">{2:.4E}</span><span class="s2"> W/cm&quot;</span>
-                            <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">possibleRotation</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">prevAssemPowHere</span><span class="p">)</span>
-                        <span class="p">)</span>
-                        <span class="k">if</span> <span class="n">prevAssemPowHere</span> <span class="o">&lt;</span> <span class="n">prevAssemPowHereMIN</span><span class="p">:</span>
-                            <span class="n">prevAssemPowHereMIN</span> <span class="o">=</span> <span class="n">prevAssemPowHere</span>
-                            <span class="n">rot</span> <span class="o">=</span> <span class="n">possibleRotation</span>
-
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Cannot perform detailed rotation analysis without pin-level &quot;</span>
-                    <span class="s2">&quot;flux information.&quot;</span>
-                <span class="p">)</span>
-
-            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Best relative rotation is </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rot</span><span class="p">))</span>
-            <span class="k">return</span> <span class="n">rot</span></div>
 
 <div class="viewcode-block" id="FuelHandler.prepCore"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.prepCore">[docs]</a>    <span class="k">def</span> <span class="nf">prepCore</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Aux. function to run before XS generation (do moderation, etc. here)&quot;&quot;&quot;</span></div>
@@ -971,7 +780,7 @@
                 <span class="k">return</span> <span class="n">minDiff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">minDiff</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-            <span class="c1"># warning(&quot;can&#39;t find assembly in targetRing %d with close %s to %s&quot; % (targetRing,param,compareTo),&#39;findAssembly&#39;)</span>
+            <span class="c1"># can&#39;t find assembly in targetRing with close param to compareTo</span>
             <span class="k">pass</span>
 
         <span class="k">if</span> <span class="n">findMany</span><span class="p">:</span>
@@ -1018,7 +827,6 @@
 <span class="sd">        -------</span>
 <span class="sd">        assemblyList : list</span>
 <span class="sd">            List of assemblies in each ring of the ringList. [[a1,a2,a3],[a4,a5,a6,a7],...]</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">assemblyList</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ringList</span><span class="p">))]</span>  <span class="c1"># empty lists for each ring</span>
         <span class="k">if</span> <span class="n">exclusions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1045,9 +853,7 @@
                         <span class="n">assemListTmp2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
                     <span class="c1"># make the list of lists of assemblies</span>
                     <span class="n">assemblyList</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">assemListTmp2</span>
-
         <span class="k">else</span><span class="p">:</span>
-
             <span class="k">if</span> <span class="n">ringList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;SFP&quot;</span><span class="p">:</span>
                 <span class="c1"># kind of a hack for now. Need the capability.</span>
                 <span class="n">assemList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">()</span>
@@ -1069,249 +875,6 @@
                     <span class="n">assemblyList</span><span class="p">[</span><span class="n">ringList</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ring</span><span class="p">)]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">assemblyList</span>
-
-<div class="viewcode-block" id="FuelHandler.buildRingSchedule"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.buildRingSchedule">[docs]</a>    <span class="k">def</span> <span class="nf">buildRingSchedule</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">chargeRing</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">dischargeRing</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">jumpRingFrom</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">jumpRingTo</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">coarseFactor</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Build a ring schedule for shuffling.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        General enough to do convergent, divergent, or any combo, plus jumprings.</span>
-
-<span class="sd">        The center of the core is ring 1, based on the DIF3D numbering scheme.</span>
-
-<span class="sd">        Jump ring behavior can be generalized by first building a base ring list</span>
-<span class="sd">        where assemblies get charged to H and discharge from A::</span>
-
-<span class="sd">            [A,B,C,D,E,F,G,H]</span>
-
-
-<span class="sd">        If a jump should be placed where it jumps from ring G to C, reversed back to F, and then discharges from A,</span>
-<span class="sd">        we simply reverse the sublist [C,D,E,F], leaving us with::</span>
-
-<span class="sd">            [A,B,F,E,D,C,G,H]</span>
-
-
-<span class="sd">        A less-complex, more standard convergent-divergent scheme is a subcase of this, where the</span>
-<span class="sd">        sublist [A,B,C,D,E] or so is reversed, leaving::</span>
-
-<span class="sd">            [E,D,C,B,A,F,G,H]</span>
-
-
-<span class="sd">        So the task of this function is simply to determine what subsection, if any, to reverse of</span>
-<span class="sd">        the baselist.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        chargeRing : int, optional</span>
-<span class="sd">            The peripheral ring into which an assembly enters the core. Default is outermost ring.</span>
-
-<span class="sd">        dischargeRing : int, optional</span>
-<span class="sd">            The last ring an assembly sits in before discharging. Default is jumpRing-1</span>
-
-<span class="sd">        jumpRingFrom : int</span>
-<span class="sd">            The last ring an assembly sits in before jumping to the center</span>
-
-<span class="sd">        jumpRingTo : int, optional</span>
-<span class="sd">            The inner ring into which a jumping assembly jumps. Default is 1.</span>
-
-<span class="sd">        coarseFactor : float, optional</span>
-<span class="sd">            A number between 0 and 1 where 0 hits all rings and 1 only hits the outer, rJ, center, and rD rings.</span>
-<span class="sd">            This allows coarse shuffling, with large jumps. Default: 0</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        ringSchedule : list</span>
-<span class="sd">            A list of rings in order from discharge to charge.</span>
-
-<span class="sd">        ringWidths : list</span>
-<span class="sd">            A list of integers corresponding to the ringSchedule determining the widths of each ring area</span>
-
-<span class="sd">        Examples</span>
-<span class="sd">        -------</span>
-<span class="sd">        &gt;&gt;&gt; f.buildRingSchedule(17,1,jumpRingFrom=14)</span>
-<span class="sd">        ([13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 14, 15, 16, 17],</span>
-<span class="sd">        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])</span>
-
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        findAssembly</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">maxRingInCore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">dischargeRing</span> <span class="o">&gt;</span> <span class="n">maxRingInCore</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Discharge ring </span><span class="si">{</span><span class="n">dischargeRing</span><span class="si">}</span><span class="s2"> is outside the core (max </span><span class="si">{</span><span class="n">maxRingInCore</span><span class="si">}</span><span class="s2">). &quot;</span>
-                <span class="s2">&quot;Changing it to be the max ring&quot;</span>
-            <span class="p">)</span>
-            <span class="n">dischargeRing</span> <span class="o">=</span> <span class="n">maxRingInCore</span>
-        <span class="k">if</span> <span class="n">chargeRing</span> <span class="o">&gt;</span> <span class="n">maxRingInCore</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Charge ring </span><span class="si">{</span><span class="n">chargeRing</span><span class="si">}</span><span class="s2"> is outside the core (max </span><span class="si">{</span><span class="n">maxRingInCore</span><span class="si">}</span><span class="s2">). &quot;</span>
-                <span class="s2">&quot;Changing it to be the max ring.&quot;</span>
-            <span class="p">)</span>
-            <span class="n">chargeRing</span> <span class="o">=</span> <span class="n">maxRingInCore</span>
-
-        <span class="c1"># process arguments</span>
-        <span class="k">if</span> <span class="n">dischargeRing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># No discharge ring given, so we default to converging from outside to inside</span>
-            <span class="c1"># and therefore discharging from the center</span>
-            <span class="n">dischargeRing</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="k">if</span> <span class="n">chargeRing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># Charge ring not specified. Since we default to convergent shuffling, we</span>
-            <span class="c1"># must insert the fuel at the periphery.</span>
-            <span class="n">chargeRing</span> <span class="o">=</span> <span class="n">maxRingInCore</span>
-        <span class="k">if</span> <span class="n">jumpRingFrom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;</span> <span class="n">jumpRingFrom</span> <span class="o">&lt;</span> <span class="n">maxRingInCore</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JumpRingFrom </span><span class="si">{</span><span class="n">jumpRingFrom</span><span class="si">}</span><span class="s2"> is not in the core.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">jumpRingTo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;=</span> <span class="n">jumpRingTo</span> <span class="o">&lt;</span> <span class="n">maxRingInCore</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JumpRingTo </span><span class="si">{</span><span class="n">jumpRingTo</span><span class="si">}</span><span class="s2"> is not in the core.&quot;</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">chargeRing</span> <span class="o">&gt;</span> <span class="n">dischargeRing</span> <span class="ow">and</span> <span class="n">jumpRingTo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># a convergent shuffle with no jumping. By setting</span>
-            <span class="c1"># jumpRingTo to be 1, no jumping will be activated</span>
-            <span class="c1"># in the later logic.</span>
-            <span class="n">jumpRingTo</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="k">elif</span> <span class="n">jumpRingTo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># divergent case. Disable jumping by putting jumpring</span>
-            <span class="c1"># at periphery.</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">:</span>
-                <span class="n">jumpRingTo</span> <span class="o">=</span> <span class="n">maxRingInCore</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">jumpRingTo</span> <span class="o">=</span> <span class="mi">18</span>
-
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="n">chargeRing</span> <span class="o">&gt;</span> <span class="n">dischargeRing</span>
-            <span class="ow">and</span> <span class="n">jumpRingFrom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="n">jumpRingFrom</span> <span class="o">&lt;</span> <span class="n">jumpRingTo</span>
-        <span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot have outward jumps in convergent cases.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="n">chargeRing</span> <span class="o">&lt;</span> <span class="n">dischargeRing</span>
-            <span class="ow">and</span> <span class="n">jumpRingFrom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="ow">and</span> <span class="n">jumpRingFrom</span> <span class="o">&gt;</span> <span class="n">jumpRingTo</span>
-        <span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot have inward jumps in divergent cases.&quot;</span><span class="p">)</span>
-
-        <span class="c1"># step 1: build the base rings</span>
-        <span class="n">numSteps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="nb">abs</span><span class="p">(</span><span class="n">dischargeRing</span> <span class="o">-</span> <span class="n">chargeRing</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">coarseFactor</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">numSteps</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="c1"># don&#39;t let it be smaller than 2 because linspace(1,5,1)= [1], linspace(1,5,2)= [1,5]</span>
-            <span class="n">numSteps</span> <span class="o">=</span> <span class="mi">2</span>
-        <span class="n">baseRings</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="nb">int</span><span class="p">(</span><span class="n">ring</span><span class="p">)</span> <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="n">numpy</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">dischargeRing</span><span class="p">,</span> <span class="n">chargeRing</span><span class="p">,</span> <span class="n">numSteps</span><span class="p">)</span>
-        <span class="p">]</span>
-        <span class="c1"># eliminate duplicates.</span>
-        <span class="n">newBaseRings</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">br</span> <span class="ow">in</span> <span class="n">baseRings</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">br</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">newBaseRings</span><span class="p">:</span>
-                <span class="n">newBaseRings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">br</span><span class="p">)</span>
-        <span class="n">baseRings</span> <span class="o">=</span> <span class="n">newBaseRings</span>
-        <span class="c1"># baseRings = list(set(baseRings)) # eliminate duplicates. but ruins order.</span>
-        <span class="c1"># build widths</span>
-        <span class="n">widths</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ring</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">baseRings</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
-            <span class="c1"># 0 is the most restrictive, meaning don&#39;t even look in other rings.</span>
-            <span class="n">widths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">baseRings</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">ring</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">widths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># add the last ring with width 0.</span>
-
-        <span class="c1"># step 2: locate which rings should be reversed to give the jump-ring effect.</span>
-        <span class="k">if</span> <span class="n">jumpRingFrom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">_closestRingFrom</span><span class="p">,</span> <span class="n">jumpRingFromIndex</span> <span class="o">=</span> <span class="n">findClosest</span><span class="p">(</span>
-                <span class="n">baseRings</span><span class="p">,</span> <span class="n">jumpRingFrom</span><span class="p">,</span> <span class="n">indx</span><span class="o">=</span><span class="kc">True</span>
-            <span class="p">)</span>
-            <span class="n">_closestRingTo</span><span class="p">,</span> <span class="n">jumpRingToIndex</span> <span class="o">=</span> <span class="n">findClosest</span><span class="p">(</span>
-                <span class="n">baseRings</span><span class="p">,</span> <span class="n">jumpRingTo</span><span class="p">,</span> <span class="n">indx</span><span class="o">=</span><span class="kc">True</span>
-            <span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">jumpRingToIndex</span> <span class="o">=</span> <span class="mi">0</span>
-
-        <span class="c1"># step 3: build the final ring list, potentially with a reversed section</span>
-        <span class="n">newBaseRings</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">newWidths</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="c1"># add in the non-reversed section before the reversed section</span>
-
-        <span class="k">if</span> <span class="n">jumpRingFrom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">newBaseRings</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">baseRings</span><span class="p">[:</span><span class="n">jumpRingToIndex</span><span class="p">])</span>
-            <span class="n">newWidths</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">widths</span><span class="p">[:</span><span class="n">jumpRingToIndex</span><span class="p">])</span>
-            <span class="c1"># add in reversed section that is jumped</span>
-            <span class="n">newBaseRings</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">baseRings</span><span class="p">[</span><span class="n">jumpRingToIndex</span><span class="p">:</span><span class="n">jumpRingFromIndex</span><span class="p">]))</span>
-            <span class="n">newWidths</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">widths</span><span class="p">[</span><span class="n">jumpRingToIndex</span><span class="p">:</span><span class="n">jumpRingFromIndex</span><span class="p">]))</span>
-            <span class="c1"># add the rest.</span>
-            <span class="n">newBaseRings</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">baseRings</span><span class="p">[</span><span class="n">jumpRingFromIndex</span><span class="p">:])</span>
-            <span class="n">newWidths</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">widths</span><span class="p">[</span><span class="n">jumpRingFromIndex</span><span class="p">:])</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># no jump section. Just fill in the rest.</span>
-            <span class="n">newBaseRings</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">baseRings</span><span class="p">[</span><span class="n">jumpRingToIndex</span><span class="p">:])</span>
-            <span class="n">newWidths</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">widths</span><span class="p">[</span><span class="n">jumpRingToIndex</span><span class="p">:])</span>
-
-        <span class="k">return</span> <span class="n">newBaseRings</span><span class="p">,</span> <span class="n">newWidths</span></div>
-
-<div class="viewcode-block" id="FuelHandler.buildConvergentRingSchedule"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.buildConvergentRingSchedule">[docs]</a>    <span class="k">def</span> <span class="nf">buildConvergentRingSchedule</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">dischargeRing</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">chargeRing</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coarseFactor</span><span class="o">=</span><span class="mf">0.0</span>
-    <span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Builds a ring schedule for convergent shuffling from chargeRing to dischargeRing</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        dischargeRing : int, optional</span>
-<span class="sd">            The last ring an assembly sits in before discharging. If no discharge, this is the one that</span>
-<span class="sd">            gets placed where the charge happens. Default: Innermost ring</span>
-
-<span class="sd">        chargeRing : int, optional</span>
-<span class="sd">            The peripheral ring into which an assembly enters the core. Default is outermost ring.</span>
-
-<span class="sd">        coarseFactor : float, optional</span>
-<span class="sd">            A number between 0 and 1 where 0 hits all rings and 1 only hits the outer, rJ, center, and rD rings.</span>
-<span class="sd">            This allows coarse shuffling, with large jumps. Default: 0</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        convergent : list</span>
-<span class="sd">            A list of rings in order from discharge to charge.</span>
-
-<span class="sd">        conWidths : list</span>
-<span class="sd">            A list of integers corresponding to the ringSchedule determining the widths of each ring area</span>
-
-<span class="sd">        Examples</span>
-<span class="sd">        -------</span>
-
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        findAssembly</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># process arguments</span>
-        <span class="k">if</span> <span class="n">chargeRing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">chargeRing</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">()</span>
-
-        <span class="c1"># step 1: build the convergent rings</span>
-        <span class="n">numSteps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">chargeRing</span> <span class="o">-</span> <span class="n">dischargeRing</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">coarseFactor</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">numSteps</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="c1"># don&#39;t let it be smaller than 2 because linspace(1,5,1)= [1], linspace(1,5,2)= [1,5]</span>
-            <span class="n">numSteps</span> <span class="o">=</span> <span class="mi">2</span>
-        <span class="n">convergent</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="nb">int</span><span class="p">(</span><span class="n">ring</span><span class="p">)</span> <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="n">numpy</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">dischargeRing</span><span class="p">,</span> <span class="n">chargeRing</span><span class="p">,</span> <span class="n">numSteps</span><span class="p">)</span>
-        <span class="p">]</span>
-
-        <span class="c1"># step 2. eliminate duplicates</span>
-        <span class="n">convergent</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">convergent</span><span class="p">)))</span>
-
-        <span class="c1"># step 3. compute widths</span>
-        <span class="n">conWidths</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ring</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">convergent</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
-            <span class="n">conWidths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">convergent</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">ring</span><span class="p">)</span>
-        <span class="n">conWidths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="c1"># step 4. assemble and return</span>
-        <span class="k">return</span> <span class="n">convergent</span><span class="p">,</span> <span class="n">conWidths</span></div>
 
 <div class="viewcode-block" id="FuelHandler.swapAssemblies"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.swapAssemblies">[docs]</a>    <span class="k">def</span> <span class="nf">swapAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">):</span>
         <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
@@ -1489,7 +1052,6 @@
 <span class="sd">        processMoveList : Converts a stored list of moves into a functional list of assemblies to swap</span>
 <span class="sd">        makeShuffleReport : Creates the file that is processed here</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="c1"># read moves file</span>
         <span class="n">moves</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">readMoves</span><span class="p">(</span><span class="n">explicitRepeatShuffles</span><span class="p">)</span>
         <span class="c1"># get the correct cycle number</span>
@@ -1538,7 +1100,6 @@
 <span class="sd">        repeatShufflePattern : reads this file and repeats the shuffling</span>
 <span class="sd">        outage : creates the moveList in the first place.</span>
 <span class="sd">        makeShuffleReport : writes the file that is read here.</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
@@ -1651,9 +1212,7 @@
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
 <span class="sd">        repeatShufflePattern</span>
-<span class="sd">        mcnpInterface.getMoveCards</span>
 <span class="sd">        processMoveList</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">alreadyDone</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">alreadyDone</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1771,13 +1330,10 @@
 <span class="sd">        --------</span>
 <span class="sd">        makeShuffleReport : writes the file that is being processed</span>
 <span class="sd">        repeatShufflePattern : uses this to repeat shuffles</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">alreadyDone</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">loadChains</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># moves that have discharges</span>
-        <span class="n">loadChargeTypes</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="p">[]</span>
-        <span class="p">)</span>  <span class="c1"># the assembly types (strings) that should be used in a load chain.</span>
+        <span class="n">loadChargeTypes</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># the assembly types (str) to be used in a load chain.</span>
         <span class="n">loopChains</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># moves that don&#39;t have discharges</span>
         <span class="n">enriches</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># enrichments of each loadChain</span>
         <span class="n">loadNames</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># assembly name of each load assembly (to read from SFP)</span>
@@ -1930,122 +1486,6 @@
 
         <span class="k">return</span> <span class="n">moved</span></div>
 
-<div class="viewcode-block" id="FuelHandler.buildEqRingSchedule"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.buildEqRingSchedule">[docs]</a>    <span class="k">def</span> <span class="nf">buildEqRingSchedule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ringSchedule</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Expands simple ringSchedule input into full-on location schedule</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        ringSchedule, r, cs</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        locationSchedule : list</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="k">def</span> <span class="nf">squaredDistanceFromOrigin</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
-            <span class="n">origin</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
-            <span class="n">p</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">())</span>
-            <span class="k">return</span> <span class="p">((</span><span class="n">p</span> <span class="o">-</span> <span class="n">origin</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-
-        <span class="k">def</span> <span class="nf">assemAngle</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
-            <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span>
-            <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">atan2</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
-
-        <span class="n">locationSchedule</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="c1"># start by expanding the user-input eqRingSchedule list into a list containing</span>
-        <span class="c1"># all the rings as it goes.</span>
-        <span class="n">ringList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">buildEqRingScheduleHelper</span><span class="p">(</span><span class="n">ringSchedule</span><span class="p">)</span>
-
-        <span class="c1"># now build the locationSchedule ring by ring using this ringSchedule.</span>
-        <span class="n">lastRing</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="n">ringList</span><span class="p">:</span>
-            <span class="n">assemsInRing</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssembliesInRing</span><span class="p">(</span><span class="n">ring</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;circularRingOrder&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;angle&quot;</span><span class="p">:</span>
-                <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">assemAngle</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;circularRingOrder&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;distanceSmart&quot;</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">lastRing</span> <span class="o">==</span> <span class="n">ring</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="c1"># converging. Put things on the outside first.</span>
-                    <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="o">-</span><span class="n">squaredDistanceFromOrigin</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="c1"># diverging. Put things on the inside first.</span>
-                    <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">squaredDistanceFromOrigin</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># purely based on distance. Can mix things up in convergent-divergent cases. Prefer distanceSmart</span>
-                <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">squaredDistanceFromOrigin</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-            <span class="n">assemsInRing</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">assemsInRing</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">sorter</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assemsInRing</span><span class="p">:</span>
-                <span class="n">locationSchedule</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">getLocation</span><span class="p">())</span>
-            <span class="n">lastRing</span> <span class="o">=</span> <span class="n">ring</span>
-        <span class="k">return</span> <span class="n">locationSchedule</span></div>
-
-<div class="viewcode-block" id="FuelHandler.buildEqRingScheduleHelper"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.buildEqRingScheduleHelper">[docs]</a>    <span class="k">def</span> <span class="nf">buildEqRingScheduleHelper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ringSchedule</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        turns ringScheduler into explicit list of rings</span>
-
-<span class="sd">        Pulled out of buildEqRingSchedule for testing.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        ringSchedule : list</span>
-<span class="sd">            List of ring bounds that is required to be an even number of entries.  These</span>
-<span class="sd">            entries then are used in a from - to approach to add the rings.  The from ring will</span>
-<span class="sd">            always be included.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        ringList : list</span>
-<span class="sd">            List of all rings in the order they should be shuffled.</span>
-
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; buildEqRingScheduleHelper([1,5])</span>
-<span class="sd">        [1,2,3,4,5]</span>
-
-<span class="sd">        &gt;&gt;&gt; buildEqRingScheduleHelper([1,5,9,6])</span>
-<span class="sd">        [1,2,3,4,5,9,8,7,6]</span>
-
-<span class="sd">        &gt;&gt;&gt; buildEqRingScheduleHelper([9,5,3,4,1,2])</span>
-<span class="sd">        [9,8,7,6,5,3,4,1,2]</span>
-
-<span class="sd">        &gt;&gt;&gt; buildEqRingScheduleHelper([2,5,1,1])</span>
-<span class="sd">        [2,3,4,5,1]</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ringSchedule</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Ring schedule: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ringSchedule</span><span class="p">))</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Ring schedule does not have an even number of entries.&quot;</span><span class="p">)</span>
-
-        <span class="n">ringList</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ringSchedule</span><span class="p">),</span> <span class="mi">2</span><span class="p">):</span>
-            <span class="n">fromRing</span> <span class="o">=</span> <span class="n">ringSchedule</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="n">toRing</span> <span class="o">=</span> <span class="n">ringSchedule</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-            <span class="n">numRings</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">toRing</span> <span class="o">-</span> <span class="n">fromRing</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
-
-            <span class="n">ringList</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
-                <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">numpy</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">fromRing</span><span class="p">,</span> <span class="n">toRing</span><span class="p">,</span> <span class="n">numRings</span><span class="p">)]</span>
-            <span class="p">)</span>
-
-        <span class="c1"># eliminate doubles (but allow a ring to show up multiple times)</span>
-        <span class="n">newList</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">lastRing</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="n">ringList</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">ring</span> <span class="o">!=</span> <span class="n">lastRing</span><span class="p">:</span>
-                <span class="n">newList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ring</span><span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span> <span class="ow">and</span> <span class="n">ring</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">():</span>
-                <span class="c1"># error checking.</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;Ring </span><span class="si">{0}</span><span class="s2"> in eqRingSchedule larger than largest ring in reactor </span><span class="si">{1}</span><span class="s2">. &quot;</span>
-                    <span class="s2">&quot;Adjust shuffling.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ring</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">()),</span>
-                    <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;too many rings&quot;</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="n">lastRing</span> <span class="o">=</span> <span class="n">ring</span>
-        <span class="n">ringList</span> <span class="o">=</span> <span class="n">newList</span>
-
-        <span class="k">return</span> <span class="n">ringList</span></div>
-
 <div class="viewcode-block" id="FuelHandler.workerOperate"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.workerOperate">[docs]</a>    <span class="k">def</span> <span class="nf">workerOperate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Handle a mpi command on the worker nodes.&quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
@@ -2064,7 +1504,6 @@
 <span class="sd">        -------</span>
 <span class="sd">        arrows : list</span>
 <span class="sd">            Values are (currentCoords, oldCoords) tuples</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">arrows</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Building list of shuffle arrows.&quot;</span><span class="p">)</span>
@@ -2075,6 +1514,7 @@
                 <span class="n">oldCoords</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="o">-</span><span class="mi">50</span><span class="p">,</span> <span class="o">-</span><span class="mi">50</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
             <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">currentCoords</span> <span class="o">!=</span> <span class="n">oldCoords</span><span class="p">):</span>
                 <span class="n">arrows</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">oldCoords</span><span class="p">,</span> <span class="n">currentCoords</span><span class="p">))</span>
+
         <span class="k">return</span> <span class="n">arrows</span></div></div>
 </pre></div>
 
@@ -2089,7 +1529,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-11-12.
+        Last updated on 2022-11-15.
       </span>
 
     </p>
