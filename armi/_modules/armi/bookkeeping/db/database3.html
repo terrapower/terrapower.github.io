@@ -265,6 +265,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.db.typedefs</span> <span class="kn">import</span> <span class="n">History</span><span class="p">,</span> <span class="n">Histories</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">systemLayoutInput</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">getNodesPerCycle</span>
 <span class="kn">from</span> <span class="nn">armi.utils.textProcessors</span> <span class="kn">import</span> <span class="n">resolveMarkupInclusions</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
 
@@ -867,19 +868,20 @@
 <span class="sd">        Providing these from the client could be useful when performing snapshot runs</span>
 <span class="sd">        or where it is expected to use results from a run using different settings and</span>
 <span class="sd">        continue with new settings (or if blueprints are not on the database).</span>
-<span class="sd">        Geom is read from the database itself.</span>
+<span class="sd">        Geometry is read from the database itself.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        cycle : int</span>
-<span class="sd">            cycle number</span>
+<span class="sd">            Cycle number</span>
 <span class="sd">        node : int</span>
-<span class="sd">            time node</span>
-<span class="sd">        cs : armi.settings.Settings, optional</span>
-<span class="sd">            if not provided one is read from the database</span>
-<span class="sd">        bp : armi.reactor.Blueprints, optional</span>
-<span class="sd">            if not provided one is read from the database</span>
-<span class="sd">        statePointName : str, optional</span>
+<span class="sd">            Time node. If value is negative, will be indexed from EOC backwards</span>
+<span class="sd">            like a list.</span>
+<span class="sd">        cs : armi.settings.Settings (optional)</span>
+<span class="sd">            If not provided one is read from the database</span>
+<span class="sd">        bp : armi.reactor.Blueprints (optional)</span>
+<span class="sd">            If not provided one is read from the database</span>
+<span class="sd">        statePointName : str</span>
 <span class="sd">            Optional arbitrary statepoint name (e.g., &quot;special&quot; for &quot;c00n00-special/&quot;)</span>
 <span class="sd">        allowMissing : bool, optional</span>
 <span class="sd">            Whether to emit a warning, rather than crash if reading a database</span>
@@ -905,6 +907,14 @@
             <span class="c1"># apply to avoid defaults in getMasterCs calls</span>
             <span class="n">settings</span><span class="o">.</span><span class="n">setMasterCs</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
         <span class="n">bp</span> <span class="o">=</span> <span class="n">bp</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">loadBlueprints</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">node</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">numNodes</span> <span class="o">=</span> <span class="n">getNodesPerCycle</span><span class="p">(</span><span class="n">cs</span><span class="p">)[</span><span class="n">cycle</span><span class="p">]</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">node</span> <span class="o">+</span> <span class="n">numNodes</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Node </span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2"> specified does not exist for cycle </span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">node</span> <span class="o">=</span> <span class="n">numNodes</span> <span class="o">+</span> <span class="n">node</span>
 
         <span class="n">h5group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="n">getH5GroupName</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">statePointName</span><span class="p">)]</span>
 
