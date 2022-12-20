@@ -247,7 +247,6 @@ information for <code class="xref py py-mod docutils literal notranslate"><span 
 <li><p><a class="reference internal" href="#doc-nuclide-bases"><span class="std std-ref">Generic nuclide data</span></a> - this includes  mass, atomic number, natural
 abundance and various names and labels that are used in ARMI for the nuclide. It also includes
 decay and transmutation modes.</p></li>
-<li><p>Nuclide specific <a class="reference internal" href="#doc-nuclides"><span class="std std-ref">cross section information</span></a>.</p></li>
 </ol>
 <div class="section" id="elements">
 <span id="doc-elements"></span><h2>Elements<a class="headerlink" href="#elements" title="Permalink to this headline">¶</a></h2>
@@ -321,26 +320,23 @@ be filled with nuclide base objects. Nuclide bases do not <em>do</em> much, but 
 basic information about a nuclide, such as the atomic mass, atomic number (Z), the mass
 number (A), the natural abundance, and all of the decay and transmutation modes (well, ARMI’s
 decay and transmutation modes).</p>
-<div class="section" id="nuclide-names-labels-and-mc-2-ids">
-<h3>Nuclide names, labels and MC**2 IDs<a class="headerlink" href="#nuclide-names-labels-and-mc-2-ids" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="nuclide-names-labels-and-ids">
+<h3>Nuclide names, labels, and IDs<a class="headerlink" href="#nuclide-names-labels-and-ids" title="Permalink to this headline">¶</a></h3>
 <p>Nuclides have names, labels and IDs.</p>
 <dl class="simple">
 <dt><code class="xref py py-attr docutils literal notranslate"><span class="pre">INuclide.name</span></code></dt><dd><p>The nuclide name is what <em>should</em> be used within ARMI itself. This is a human readable name
 such as, <code class="docutils literal notranslate"><span class="pre">U235</span></code> or <code class="docutils literal notranslate"><span class="pre">FE</span></code>. The names contain <strong>only</strong> capital letters and numbers, made up
 from the corresponding element symbol and mass number (A).</p>
 </dd>
-<dt><code class="xref py py-attr docutils literal notranslate"><span class="pre">INuclide.label</span></code></dt><dd><p>The nuclide label is a unique 4 character name which identifies the nuclide from all others
-within MC**2 and DIF3D. The label must be 4 characters, because MC**2 and DIF3D only
-allow 6 character labels, two of which we reserver for the cross section ID. Labels
-are not necessarily human readable, but are generally the nuclide symbol followed by
-the last two digits of the mass number (A), so the nuclide for U235 has the label
-<code class="docutils literal notranslate"><span class="pre">U235</span></code>, but PU239 has the label <code class="docutils literal notranslate"><span class="pre">PU39</span></code>.</p>
-</dd>
-<dt><code class="xref py py-attr docutils literal notranslate"><span class="pre">INuclide.mc2id</span></code></dt><dd><p>The mc2id is the MC**2 id used for MC**2 version 2. This should only be used
-when loading an ISOTXS file, or writing MC**2 input.</p>
-</dd>
-<dt><code class="xref py py-meth docutils literal notranslate"><span class="pre">INuclide.mc3id()</span></code></dt><dd><p>The mc3id is the MC**2 id used for MC**2 version 3. This should only be used
-when loading an ISOTXS file, or writing MC**2 input.</p>
+<dt><code class="xref py py-attr docutils literal notranslate"><span class="pre">INuclide.label</span></code></dt><dd><p>The nuclide label is a unique 4 character name which identifies the nuclide from all others.
+The label is fixed to 4 characters to conform with the CCCC standard files, which traditionally
+only allow for a maximum of 6 character labels in legacy nuclear codes. Of the 6 allowable
+characters, 4 are reserved for the unique identifier of the nuclide and 2 characters are reserved
+for cross section labels (i.e., AA, AB, ZA, etc.). The cross section labels are based on the
+cross section group manager implementation within the framework. These labels are not necessarily
+human readable/interpretable, but are generally the nuclide symbol followed by the last two digits
+of the mass number (A), so the nuclide for U235 has the label <code class="docutils literal notranslate"><span class="pre">U235</span></code>, but PU239 has the label
+<code class="docutils literal notranslate"><span class="pre">PU39</span></code>.</p>
 </dd>
 </dl>
 <p>For reference, there is a complete list of the nuclides along with the names, labels and IDs
@@ -352,8 +348,9 @@ when loading an ISOTXS file, or writing MC**2 input.</p>
 what information you have, or “know,” about a nuclide. For example, if you know a nuclide name, use
 the <code class="xref py py-data docutils literal notranslate"><span class="pre">byName</span></code> dictionary. There are also dictionaries
 available for retrieving by the label, <code class="xref py py-data docutils literal notranslate"><span class="pre">byLabel</span></code>, and by
-the MC**2 ID, <code class="xref py py-data docutils literal notranslate"><span class="pre">byMccId</span></code> (this works for both version 2
-and version 3 IDs).</p>
+other software-specific IDs (i.e., MCNP, Serpent, MC2-2, and MC2-3). The software-specific labels
+are incorporated into the framework to support plugin developments and may be extended as needed
+by end-users as needs arise.</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">pu239</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s1">&#39;PU239&#39;</span><span class="p">]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">pu239</span><span class="o">.</span><span class="n">z</span>
@@ -381,13 +378,6 @@ the index which contains the name or label is not fulfilling its intended purpos
 perform the operation, <code class="docutils literal notranslate"><span class="pre">weight</span> <span class="pre">*</span> <span class="pre">numberDensity</span></code>, you’ll still need the nuclide object!</p>
 </div>
 </div>
-</div>
-<div class="section" id="nuclides">
-<span id="doc-nuclides"></span><h2>Nuclides<a class="headerlink" href="#nuclides" title="Permalink to this headline">¶</a></h2>
-<p>Another closely related object is the <code class="xref py py-class docutils literal notranslate"><span class="pre">armi.nucDirectory.nuclide.Nuclide</span></code>.
-<code class="xref py py-class docutils literal notranslate"><span class="pre">Nuclides</span></code> are created when loading an ISOTXS file from MC**2.
-<code class="xref py py-class docutils literal notranslate"><span class="pre">Nuclides</span></code> contain the same information as
-<code class="xref py py-class docutils literal notranslate"><span class="pre">INuclides</span></code>, but also contain multi-group microscopic cross section data.</p>
 </div>
 <div class="section" id="subpackages">
 <h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this headline">¶</a></h2>

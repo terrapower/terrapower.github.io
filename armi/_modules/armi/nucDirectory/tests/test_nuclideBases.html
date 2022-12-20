@@ -196,12 +196,15 @@
 
 <span class="sd">&quot;&quot;&quot;Tests for nuclideBases&quot;&quot;&quot;</span>
 <span class="c1"># pylint: disable=missing-function-docstring,missing-class-docstring,protected-access,invalid-name,no-self-use,no-method-argument,import-outside-toplevel</span>
+<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">random</span>
-<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">from</span> <span class="nn">ruamel</span> <span class="kn">import</span> <span class="n">yaml</span>
 
-<span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">elements</span>
-<span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
+<span class="kn">from</span> <span class="nn">armi.context</span> <span class="kn">import</span> <span class="n">RES</span>
+<span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="kn">import</span> <span class="n">SECONDS_PER_HOUR</span><span class="p">,</span> <span class="n">AVOGADROS_NUMBER</span><span class="p">,</span> <span class="n">CURIE_PER_BECQUEREL</span>
+<span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span><span class="p">,</span> <span class="n">elements</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory.tests</span> <span class="kn">import</span> <span class="n">NUCDIRECTORY_TESTS_DEFAULT_DIR_PATH</span>
 
 
@@ -209,25 +212,32 @@
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="bp">cls</span><span class="o">.</span><span class="n">nucDirectoryTestsPath</span> <span class="o">=</span> <span class="n">NUCDIRECTORY_TESTS_DEFAULT_DIR_PATH</span>
+        <span class="n">nuclideBases</span><span class="o">.</span><span class="n">destroyGlobalNuclides</span><span class="p">()</span>
+        <span class="n">elements</span><span class="o">.</span><span class="n">factory</span><span class="p">()</span>
+        <span class="n">nuclideBases</span><span class="o">.</span><span class="n">factory</span><span class="p">()</span>
+        <span class="c1"># Ensure that the burn chain data is initialized before running these tests.</span>
+        <span class="n">nuclideBases</span><span class="o">.</span><span class="n">burnChainImposed</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">RES</span><span class="p">,</span> <span class="s2">&quot;burn-chain.yaml&quot;</span><span class="p">),</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">burnChainStream</span><span class="p">:</span>
+            <span class="n">nuclideBases</span><span class="o">.</span><span class="n">imposeBurnChain</span><span class="p">(</span><span class="n">burnChainStream</span><span class="p">)</span>
 
 <div class="viewcode-block" id="TestNuclide.test_nucBases_fromNameBadNameRaisesException"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_nucBases_fromNameBadNameRaisesException">[docs]</a>    <span class="k">def</span> <span class="nf">test_nucBases_fromNameBadNameRaisesException</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">KeyError</span><span class="p">):</span>
-            <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s2">&quot;WTF&quot;</span><span class="p">]</span></div>
+            <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s2">&quot;Cat&quot;</span><span class="p">]</span></div>
 
 <div class="viewcode-block" id="TestNuclide.test_nucBase_AllAbundancesAddToOne"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_nucBase_AllAbundancesAddToOne">[docs]</a>    <span class="k">def</span> <span class="nf">test_nucBase_AllAbundancesAddToOne</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">zz</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">102</span><span class="p">):</span>
-            <span class="n">clides</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">isotopes</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span>
+            <span class="n">nuclides</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">isotopes</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span>
             <span class="c1"># We only process nuclides with measured masses. Some are purely theoretical, mostly over z=100</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span>
-                <span class="nb">len</span><span class="p">(</span><span class="n">clides</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;z=</span><span class="si">{}</span><span class="s2"> unexpectedly has no nuclides&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">nuclides</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;z=</span><span class="si">{}</span><span class="s2"> unexpectedly has no nuclides&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span>
             <span class="p">)</span>
-            <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">nn</span><span class="o">.</span><span class="n">abundance</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">clides</span> <span class="k">if</span> <span class="n">nn</span><span class="o">.</span><span class="n">a</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span>
+            <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">nn</span><span class="o">.</span><span class="n">abundance</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">nuclides</span> <span class="k">if</span> <span class="n">nn</span><span class="o">.</span><span class="n">a</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
-                <span class="nb">any</span><span class="p">([</span><span class="n">nn</span><span class="o">.</span><span class="n">abundance</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">clides</span><span class="p">]),</span>
+                <span class="nb">any</span><span class="p">([</span><span class="n">nn</span><span class="o">.</span><span class="n">abundance</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">nuclides</span><span class="p">]),</span>
                 <span class="n">total</span><span class="p">,</span>
                 <span class="n">delta</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>
                 <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;Abundance (</span><span class="si">{}</span><span class="s2">) not 1.0 for nuclideBases:</span><span class="se">\n</span><span class="s2">  </span><span class="si">{}</span><span class="s2">&quot;</span>
-                <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">nn</span><span class="p">)</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">clides</span><span class="p">)),</span>
+                <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">nn</span><span class="p">)</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">nuclides</span><span class="p">)),</span>
             <span class="p">)</span></div>
 
 <div class="viewcode-block" id="TestNuclide.test_nucBases_AllLabelsAreUnique"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_nucBases_AllLabelsAreUnique">[docs]</a>    <span class="k">def</span> <span class="nf">test_nucBases_AllLabelsAreUnique</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -249,7 +259,6 @@
 
 <div class="viewcode-block" id="TestNuclide.test_nucBases_Mc2Elementals"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_nucBases_Mc2Elementals">[docs]</a>    <span class="k">def</span> <span class="nf">test_nucBases_Mc2Elementals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">notElemental</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="s2">&quot;LFP00&quot;</span><span class="p">,</span>  <span class="c1"># this is an on-the-fly fission product</span>
             <span class="s2">&quot;LFP35&quot;</span><span class="p">,</span>
             <span class="s2">&quot;LFP38&quot;</span><span class="p">,</span>
             <span class="s2">&quot;LFP39&quot;</span><span class="p">,</span>
@@ -268,36 +277,6 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">lump</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">NaturalNuclideBase</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="TestNuclide.test_element_getNatrualIsotpicsOnlyRetrievesAbundaceGt0"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_element_getNatrualIsotpicsOnlyRetrievesAbundaceGt0">[docs]</a>    <span class="k">def</span> <span class="nf">test_element_getNatrualIsotpicsOnlyRetrievesAbundaceGt0</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># so this test LOOKS like it is in the wrong file,</span>
-        <span class="c1"># but being here eliminates a dependency for test_elements,</span>
-        <span class="c1"># which will make test_elements run faster (particularly when run by itself)</span>
-        <span class="k">for</span> <span class="n">ee</span> <span class="ow">in</span> <span class="n">elements</span><span class="o">.</span><span class="n">byZ</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">ee</span><span class="o">.</span><span class="n">isNaturallyOccurring</span><span class="p">():</span>
-                <span class="k">continue</span>
-            <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">ee</span><span class="o">.</span><span class="n">getNaturalIsotopics</span><span class="p">():</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">abundance</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="TestNuclide.test_element_getNaturalIsotopicsAddsToOne"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_element_getNaturalIsotopicsAddsToOne">[docs]</a>    <span class="k">def</span> <span class="nf">test_element_getNaturalIsotopicsAddsToOne</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># so this test LOOKS like it is in the wrong file,</span>
-        <span class="c1"># but being here eliminates a dependency for test_elements,</span>
-        <span class="c1"># which will make test_elements run faster (particularly when run by itself)</span>
-        <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">ee</span> <span class="ow">in</span> <span class="n">elements</span><span class="o">.</span><span class="n">byZ</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">ee</span><span class="o">.</span><span class="n">isNaturallyOccurring</span><span class="p">():</span>
-                <span class="k">continue</span>
-            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">ee</span><span class="o">.</span><span class="n">getNaturalIsotopics</span><span class="p">()):</span>
-                <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
-                    <span class="mf">1.0</span><span class="p">,</span>
-                    <span class="nb">sum</span><span class="p">([</span><span class="n">ee</span><span class="o">.</span><span class="n">abundance</span> <span class="k">for</span> <span class="n">ee</span> <span class="ow">in</span> <span class="n">ee</span><span class="o">.</span><span class="n">getNaturalIsotopics</span><span class="p">()]),</span>
-                    <span class="n">delta</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>
-                <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span>
-            <span class="n">count</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;Not enough natural isotopes, something went wrong&quot;</span>
-        <span class="p">)</span></div>
-
 <div class="viewcode-block" id="TestNuclide.test_LumpNuclideBase_getNatrualIsotopicsDoesNotFail"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_LumpNuclideBase_getNatrualIsotopicsDoesNotFail">[docs]</a>    <span class="k">def</span> <span class="nf">test_LumpNuclideBase_getNatrualIsotopicsDoesNotFail</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
             <span class="k">lambda</span> <span class="n">nn</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nn</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">LumpNuclideBase</span><span class="p">)</span> <span class="ow">and</span> <span class="n">nn</span><span class="o">.</span><span class="n">z</span> <span class="o">==</span> <span class="mi">0</span>
@@ -309,9 +288,7 @@
             <span class="k">lambda</span> <span class="n">nn</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nn</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">NaturalNuclideBase</span><span class="p">)</span>
         <span class="p">):</span>
             <span class="n">numNaturals</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">getNaturalIsotopics</span><span class="p">()))</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertGreaterEqual</span><span class="p">(</span>
-                <span class="nb">len</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">nuclideBases</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">numNaturals</span>
-            <span class="p">)</span>  <span class="c1"># , nuc)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertGreaterEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">nuclides</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">numNaturals</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="TestNuclide.test_nucBases_singleFailsWithMultipleMatches"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_nucBases_singleFailsWithMultipleMatches">[docs]</a>    <span class="k">def</span> <span class="nf">test_nucBases_singleFailsWithMultipleMatches</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
@@ -401,6 +378,7 @@
             <span class="s2">&quot;CF249&quot;</span><span class="p">:</span> <span class="mf">3.4000</span><span class="p">,</span>
             <span class="s2">&quot;CF250&quot;</span><span class="p">:</span> <span class="mf">3.5200</span><span class="p">,</span>
             <span class="s2">&quot;CF252&quot;</span><span class="p">:</span> <span class="mf">3.7676</span><span class="p">,</span>
+            <span class="s2">&quot;U232&quot;</span><span class="p">:</span> <span class="mf">1.710000</span><span class="p">,</span>
             <span class="s2">&quot;U234&quot;</span><span class="p">:</span> <span class="mf">1.8000</span><span class="p">,</span>
             <span class="s2">&quot;U235&quot;</span><span class="p">:</span> <span class="mf">1.8700</span><span class="p">,</span>
             <span class="s2">&quot;U236&quot;</span><span class="p">:</span> <span class="mf">1.900</span><span class="p">,</span>
@@ -415,12 +393,23 @@
             <span class="s2">&quot;CM244&quot;</span><span class="p">:</span> <span class="mf">2.6875</span><span class="p">,</span>
             <span class="s2">&quot;CM245&quot;</span><span class="p">:</span> <span class="mf">0.0000</span><span class="p">,</span>
             <span class="s2">&quot;CM246&quot;</span><span class="p">:</span> <span class="mf">2.9480</span><span class="p">,</span>
+            <span class="s2">&quot;TH230&quot;</span><span class="p">:</span> <span class="mf">1.390000</span><span class="p">,</span>
             <span class="s2">&quot;TH232&quot;</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span>
             <span class="s2">&quot;NP237&quot;</span><span class="p">:</span> <span class="mf">2.05</span><span class="p">,</span>
+            <span class="s2">&quot;PA231&quot;</span><span class="p">:</span> <span class="mf">1.710000</span><span class="p">,</span>
+            <span class="s2">&quot;PU236&quot;</span><span class="p">:</span> <span class="mf">2.120000</span><span class="p">,</span>
+            <span class="s2">&quot;PU238&quot;</span><span class="p">:</span> <span class="mf">2.210000</span><span class="p">,</span>
+            <span class="s2">&quot;PU239&quot;</span><span class="p">:</span> <span class="mf">2.320000</span><span class="p">,</span>
+            <span class="s2">&quot;PU240&quot;</span><span class="p">:</span> <span class="mf">2.151000</span><span class="p">,</span>
             <span class="s2">&quot;PU241&quot;</span><span class="p">:</span> <span class="mf">2.25</span><span class="p">,</span>
+            <span class="s2">&quot;PU242&quot;</span><span class="p">:</span> <span class="mf">2.141000</span><span class="p">,</span>
+            <span class="s2">&quot;PU244&quot;</span><span class="p">:</span> <span class="mf">2.290000</span><span class="p">,</span>
             <span class="s2">&quot;U232&quot;</span><span class="p">:</span> <span class="mf">1.71</span><span class="p">,</span>
             <span class="s2">&quot;U233&quot;</span><span class="p">:</span> <span class="mf">1.76</span><span class="p">,</span>
             <span class="s2">&quot;AM241&quot;</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">,</span>
+            <span class="s2">&quot;AM242M&quot;</span><span class="p">:</span> <span class="mf">2.56</span><span class="p">,</span>
+            <span class="s2">&quot;AM243&quot;</span><span class="p">:</span> <span class="mf">2.61</span><span class="p">,</span>
+            <span class="s2">&quot;ES253&quot;</span><span class="p">:</span> <span class="mf">4.700000</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">actual</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">expected</span><span class="p">[</span><span class="n">key</span><span class="p">])</span></div>
@@ -438,9 +427,9 @@
 <div class="viewcode-block" id="TestNuclide.test_nucBases_Am242m"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_nucBases_Am242m">[docs]</a>    <span class="k">def</span> <span class="nf">test_nucBases_Am242m</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">am242m</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s2">&quot;AM242&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">am242m</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s2">&quot;AM242M&quot;</span><span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;nAm242&quot;</span><span class="p">,</span> <span class="n">am242m</span><span class="o">.</span><span class="n">getDatabaseName</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;nAm242m&quot;</span><span class="p">,</span> <span class="n">am242m</span><span class="o">.</span><span class="n">getDatabaseName</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">am242m</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byDBName</span><span class="p">[</span><span class="s2">&quot;nAm242&quot;</span><span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">am242m</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="mf">242.05954949</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">am242m</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="mf">242.059601666</span><span class="p">)</span>
 
         <span class="n">am242g</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s2">&quot;AM242G&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">am242g</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s2">&quot;AM242G&quot;</span><span class="p">])</span>
@@ -451,7 +440,12 @@
         <span class="k">for</span> <span class="n">nb</span> <span class="ow">in</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="k">lambda</span> <span class="n">nn</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">z</span> <span class="o">&lt;=</span> <span class="mi">89</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">isHeavyMetal</span><span class="p">())</span>
         <span class="k">for</span> <span class="n">nb</span> <span class="ow">in</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="k">lambda</span> <span class="n">nn</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">z</span> <span class="o">&gt;</span> <span class="mi">89</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">isHeavyMetal</span><span class="p">())</span></div>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nb</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">DummyNuclideBase</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
+                <span class="n">nb</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">LumpNuclideBase</span>
+            <span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">isHeavyMetal</span><span class="p">())</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">isHeavyMetal</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="TestNuclide.test_getDecay"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_getDecay">[docs]</a>    <span class="k">def</span> <span class="nf">test_getDecay</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">nb</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="k">lambda</span> <span class="n">nn</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">z</span> <span class="o">==</span> <span class="mi">89</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
@@ -472,7 +466,124 @@
 <div class="viewcode-block" id="TestNuclide.test_NonMc2Nuclide"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_NonMc2Nuclide">[docs]</a>    <span class="k">def</span> <span class="nf">test_NonMc2Nuclide</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Make sure nuclides that aren&#39;t in MC2 still get nuclide bases.&quot;&quot;&quot;</span>
         <span class="n">nuc</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s2">&quot;YB154&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="mi">154</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="mi">154</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestNuclide.test_kryptonDecayConstants"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_kryptonDecayConstants">[docs]</a>    <span class="k">def</span> <span class="nf">test_kryptonDecayConstants</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Tests that the nuclides data contains the expected decay constants.&quot;&quot;&quot;</span>
+        <span class="c1"># hand calculated reference data includes stable isotopes, radioactive</span>
+        <span class="c1"># isotopes, metastable isotopes and exercises metastable minimum halflife</span>
+        <span class="n">REF_KR_DECAY_CONSTANTS</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;KR69&quot;</span><span class="p">,</span> <span class="mf">24.755256448569472</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR70&quot;</span><span class="p">,</span> <span class="mf">17.3286795139986</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR71&quot;</span><span class="p">,</span> <span class="mf">6.93147180559945</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR72&quot;</span><span class="p">,</span> <span class="mf">0.04053492283976288</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR73&quot;</span><span class="p">,</span> <span class="mf">0.0253900066139174</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR74&quot;</span><span class="p">,</span> <span class="mf">0.0010045611312463</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR75&quot;</span><span class="p">,</span> <span class="mf">0.00251140282811574</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR76&quot;</span><span class="p">,</span> <span class="mf">0.0000130095191546536</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR77&quot;</span><span class="p">,</span> <span class="mf">0.000162139691359051</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR78&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR79&quot;</span><span class="p">,</span> <span class="mf">5.49488822742219e-06</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR79M&quot;</span><span class="p">,</span> <span class="mf">0.0138629436111989</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR80&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR81&quot;</span><span class="p">,</span> <span class="mf">9.591693391393433e-14</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR81M&quot;</span><span class="p">,</span> <span class="mf">0.0529119985160263</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR82&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR83&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR83M&quot;</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.83</span> <span class="o">*</span> <span class="n">SECONDS_PER_HOUR</span><span class="p">)),</span>
+            <span class="p">(</span><span class="s2">&quot;KR84&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR85&quot;</span><span class="p">,</span> <span class="mf">2.0453466678736843e-09</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR85M&quot;</span><span class="p">,</span> <span class="mf">4.29725468419061e-05</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR86&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR87&quot;</span><span class="p">,</span> <span class="mf">0.000151408296321526</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR88&quot;</span><span class="p">,</span> <span class="mf">0.0000681560649518136</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR89&quot;</span><span class="p">,</span> <span class="mf">0.00366744539978807</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR90&quot;</span><span class="p">,</span> <span class="mf">0.021446385537127</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR91&quot;</span><span class="p">,</span> <span class="mf">0.0808806511738559</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR92&quot;</span><span class="p">,</span> <span class="mf">0.376710424217362</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR93&quot;</span><span class="p">,</span> <span class="mf">0.538994697169475</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR94&quot;</span><span class="p">,</span> <span class="mf">3.26956217245257</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR95&quot;</span><span class="p">,</span> <span class="mf">6.08023842596443</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR96&quot;</span><span class="p">,</span> <span class="mf">8.66433975699932</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR97&quot;</span><span class="p">,</span> <span class="mf">11.0023361993642</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR98&quot;</span><span class="p">,</span> <span class="mf">16.1197018734871</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR99&quot;</span><span class="p">,</span> <span class="mf">53.3190138892265</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR100&quot;</span><span class="p">,</span> <span class="mf">99.0210257942778</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;KR101&quot;</span><span class="p">,</span> <span class="mf">1091570.36308652</span><span class="p">),</span>
+        <span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">refDecayConstant</span> <span class="ow">in</span> <span class="n">REF_KR_DECAY_CONSTANTS</span><span class="p">:</span>
+            <span class="n">refNb</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span>
+            <span class="n">decayConstantNb</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">refNb</span><span class="o">.</span><span class="n">halflife</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">refDecayConstant</span> <span class="o">-</span> <span class="n">decayConstantNb</span><span class="p">)</span> <span class="o">/</span> <span class="n">refDecayConstant</span><span class="p">,</span>
+                    <span class="mi">0</span><span class="p">,</span>
+                    <span class="mi">6</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ZeroDivisionError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">refDecayConstant</span><span class="p">,</span> <span class="n">decayConstantNb</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">AssertionError</span><span class="p">:</span>
+                <span class="n">errorMessage</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> reference decay constant </span><span class="si">{}</span><span class="s2"> ARMI decay constant </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">nucName</span><span class="p">,</span> <span class="n">refDecayConstant</span><span class="p">,</span> <span class="n">decayConstantNb</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="n">errorMessage</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;XE134&quot;</span><span class="p">,</span> <span class="s2">&quot;XE136&quot;</span><span class="p">,</span> <span class="s2">&quot;EU151&quot;</span><span class="p">]:</span>
+            <span class="n">nb</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span>
+            <span class="n">decayConstantNb</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">nb</span><span class="o">.</span><span class="n">halflife</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">decayConstantNb</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">places</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestNuclide.test_curieDefinitionWithRa226"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_curieDefinitionWithRa226">[docs]</a>    <span class="k">def</span> <span class="nf">test_curieDefinitionWithRa226</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Tests that the decay constant of Ra-226 is close to 1 Ci.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        The original definition of 1 Ci was based on the half-life of Ra-226</span>
+<span class="sd">        for 1 gram. The latest evaluations show that 1 gram is defined as</span>
+<span class="sd">        0.988 Ci.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ra226</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="s2">&quot;RA226&quot;</span><span class="p">]</span>
+        <span class="n">decayConstantRa226</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">ra226</span><span class="o">.</span><span class="n">halflife</span>
+        <span class="n">weight</span> <span class="o">=</span> <span class="n">ra226</span><span class="o">.</span><span class="n">weight</span>
+        <span class="n">mass</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># gram</span>
+        <span class="n">activity</span> <span class="o">=</span> <span class="n">mass</span> <span class="o">*</span> <span class="n">AVOGADROS_NUMBER</span> <span class="o">/</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">decayConstantRa226</span>  <span class="c1"># 1 gram</span>
+        <span class="n">activity</span> <span class="o">=</span> <span class="n">activity</span> <span class="o">*</span> <span class="n">CURIE_PER_BECQUEREL</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">activity</span><span class="p">,</span> <span class="mf">0.9885593</span><span class="p">,</span> <span class="n">places</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestNuclide.test_loadMcc2Data"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_loadMcc2Data">[docs]</a>    <span class="k">def</span> <span class="nf">test_loadMcc2Data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Tests consistency with the `mcc-nuclides.yaml` input and the nuclides in the data model.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">RES</span><span class="p">,</span> <span class="s2">&quot;mcc-nuclides.yaml&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Loader</span><span class="o">=</span><span class="n">yaml</span><span class="o">.</span><span class="n">RoundTripLoader</span><span class="p">)</span>
+            <span class="n">expectedNuclides</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">nuc</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="n">nuc</span><span class="p">][</span><span class="s2">&quot;ENDF/B-V.2&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">nb</span> <span class="ow">in</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byMcc2Id</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">expectedNuclides</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">getMcc2Id</span><span class="p">(),</span> <span class="n">nb</span><span class="o">.</span><span class="n">mcc2id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">getMcc2Id</span><span class="p">(),</span> <span class="n">nuc</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byMcc2Id</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">expectedNuclides</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="TestNuclide.test_loadMcc3Data"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.TestNuclide.test_loadMcc3Data">[docs]</a>    <span class="k">def</span> <span class="nf">test_loadMcc3Data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Tests consistency with the `mcc-nuclides.yaml` input and the nuclides in the data model.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">RES</span><span class="p">,</span> <span class="s2">&quot;mcc-nuclides.yaml&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Loader</span><span class="o">=</span><span class="n">yaml</span><span class="o">.</span><span class="n">RoundTripLoader</span><span class="p">)</span>
+            <span class="n">expectedNuclides</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">nuc</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="n">nuc</span><span class="p">][</span><span class="s2">&quot;ENDF/B-VII.0&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">nb</span> <span class="ow">in</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byMcc3Id</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">expectedNuclides</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">getMcc3Id</span><span class="p">(),</span> <span class="n">nb</span><span class="o">.</span><span class="n">mcc3id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">getMcc3Id</span><span class="p">(),</span> <span class="n">nuc</span><span class="p">)</span>
+
+        <span class="c1"># Subtract 1 nuclide due to DUMP2.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byMcc3Id</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">expectedNuclides</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="test_getAAAZZZSId"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.test_getAAAZZZSId">[docs]</a><span class="k">class</span> <span class="nc">test_getAAAZZZSId</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -490,26 +601,6 @@
             <span class="n">nb</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">refAaazzzs</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">refAaazzzs</span><span class="p">,</span> <span class="n">nb</span><span class="o">.</span><span class="n">getAAAZZZSId</span><span class="p">())</span></div></div>
-
-
-<div class="viewcode-block" id="readEndfMatNumIndex"><a class="viewcode-back" href="../../../../.apidocs/armi.nucDirectory.tests.test_nuclideBases.html#armi.nucDirectory.tests.test_nuclideBases.readEndfMatNumIndex">[docs]</a><span class="k">def</span> <span class="nf">readEndfMatNumIndex</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    read mat nums from known endf reference</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">endfReferenceFile</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-    <span class="n">endfMatNumbers</span> <span class="o">=</span> <span class="p">{}</span>
-
-    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">endfReferenceFile</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^\s+\d+\)&quot;</span><span class="p">,</span> <span class="n">line</span><span class="p">):</span>
-            <span class="k">continue</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
-        <span class="n">_rowNum</span><span class="p">,</span> <span class="n">matNum</span><span class="p">,</span> <span class="n">nuclide</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>
-        <span class="n">_zNum</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">aNum</span> <span class="o">=</span> <span class="n">nuclide</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)</span>
-        <span class="n">armiNuclideName</span> <span class="o">=</span> <span class="n">element</span> <span class="o">+</span> <span class="n">aNum</span>
-        <span class="n">endfMatNumbers</span><span class="p">[</span><span class="n">armiNuclideName</span><span class="p">]</span> <span class="o">=</span> <span class="n">matNum</span>
-
-    <span class="k">return</span> <span class="n">endfMatNumbers</span></div>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
