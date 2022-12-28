@@ -292,6 +292,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">modelFissionProducts</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">blockNeedsFPs</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;fpModel&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;noFissionProducts&quot;</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">explicitFissionProducts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;fpModel&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;explicitFissionProducts&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">diluteFissionProducts</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">blockNeedsFPs</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;fpModel&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;infinitelyDilute&quot;</span>
         <span class="p">)</span>
@@ -398,11 +399,18 @@
         <span class="p">)</span>
         <span class="n">objNuclides</span> <span class="o">=</span> <span class="n">subjectObject</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
 
-        <span class="n">numDensities</span> <span class="o">=</span> <span class="n">subjectObject</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
+        <span class="c1"># If the explicit fission product model is enabled then the number densities</span>
+        <span class="c1"># on the components will already contain all the nuclides required to be</span>
+        <span class="c1"># modeled by the lattice physics writer. Otherwise, assume that `allNuclidesInProblem`</span>
+        <span class="c1"># should be modeled.</span>
+        <span class="n">nuclides</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">sorted</span><span class="p">(</span><span class="n">objNuclides</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">explicitFissionProducts</span>
+            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
         <span class="p">)</span>
+        <span class="n">numDensities</span> <span class="o">=</span> <span class="n">subjectObject</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">nuclides</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">dens</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span><span class="p">,</span> <span class="n">numDensities</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">dens</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nuclides</span><span class="p">,</span> <span class="n">numDensities</span><span class="p">):</span>
             <span class="n">nuc</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">LumpNuclideBase</span><span class="p">):</span>
                 <span class="k">continue</span>  <span class="c1"># skip LFPs here but add individual FPs below.</span>
@@ -539,15 +547,12 @@
             <span class="k">return</span> <span class="n">dfpDensities</span>
         <span class="n">lfpCollection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block</span><span class="o">.</span><span class="n">getLumpedFissionProductCollection</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">diluteFissionProducts</span><span class="p">:</span>
-            <span class="c1"># set all densities to near zero.</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">_</span><span class="p">,</span> <span class="n">dfp</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">lfpCollection</span><span class="o">.</span><span class="n">items</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span>
+            <span class="k">if</span> <span class="n">lfpCollection</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;Lumped fission products are not initialized. Did interactAll BOL run?&quot;</span>
                 <span class="p">)</span>
-
-            <span class="k">for</span> <span class="n">individualFpBase</span> <span class="ow">in</span> <span class="n">dfp</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">dfps</span> <span class="o">=</span> <span class="n">lfpCollection</span><span class="o">.</span><span class="n">getAllFissionProductNuclideBases</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">individualFpBase</span> <span class="ow">in</span> <span class="n">dfps</span><span class="p">:</span>
                 <span class="n">dfpDensities</span><span class="p">[</span><span class="n">individualFpBase</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">minimumNuclideDensity</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># expand densities and sum</span>
@@ -555,7 +560,7 @@
             <span class="c1"># now, go through the list and make sure that there aren&#39;t any values less than the</span>
             <span class="c1"># minimumNuclideDensity; we need to keep trace amounts of nuclides in the problem</span>
             <span class="k">for</span> <span class="n">fpName</span><span class="p">,</span> <span class="n">fpDens</span> <span class="ow">in</span> <span class="n">dfpDensitiesByName</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">fp</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">fromName</span><span class="p">(</span><span class="n">fpName</span><span class="p">)</span>
+                <span class="n">fp</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">fpName</span><span class="p">]</span>
                 <span class="n">dfpDensities</span><span class="p">[</span><span class="n">fp</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">fpDens</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">minimumNuclideDensity</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">dfpDensities</span>
 
@@ -657,7 +662,7 @@
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-12-27.
+        Last updated on 2022-12-28.
       </span>
 
     </p>

@@ -9,7 +9,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://terrapower.github.io/armi/.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html" />
   <meta property="og:site_name" content="Advanced Reactor Modeling Interface" />
-  <meta property="og:description" content="Fission product model All blocks have a _lumpedFissionProducts attribute that points to a LumpedFissionProductCollection. The LFP collection may be global or each block may have its own. The collec..." />
+  <meta property="og:description" content="This module contains the implementation of the FissionProductModel interface. This FissionProductModel class implements the management of fission products within the reactor core and can be extende..." />
   <meta property="og:image" content="https://terrapower.github.io/armi/_static/armiSchematicView.png" />
   <meta property="og:image:alt" content="Advanced Reactor Modeling Interface" />
   
@@ -245,24 +245,82 @@
 </style>
 <div class="section" id="module-armi.physics.neutronics.fissionProductModel.fissionProductModel">
 <span id="armi-physics-neutronics-fissionproductmodel-fissionproductmodel-module"></span><h1>armi.physics.neutronics.fissionProductModel.fissionProductModel module<a class="headerlink" href="#module-armi.physics.neutronics.fissionProductModel.fissionProductModel" title="Permalink to this headline">¶</a></h1>
-<p>Fission product model</p>
-<p>All blocks have a _lumpedFissionProducts attribute that points to a
-<a class="reference internal" href="armi.physics.neutronics.fissionProductModel.lumpedFissionProduct.html#armi.physics.neutronics.fissionProductModel.lumpedFissionProduct.LumpedFissionProductCollection" title="armi.physics.neutronics.fissionProductModel.lumpedFissionProduct.LumpedFissionProductCollection"><code class="xref py py-class docutils literal notranslate"><span class="pre">LumpedFissionProductCollection</span></code></a>.
-The LFP collection may be global or each block may have its own.
-The collection may have multiple LFPs from various parents or just one single one.
-This module is the shepherd of the block’s _lumpedFissionProducts attribute.
-All other modules can just assume there’s a LFP collection and use it as needed.</p>
-<p class="rubric">Examples</p>
-<p>from armi.physics.neutronics.fissionProductModel import fissionProductModel
-fpInterface = fissionProductModel.FissionProductModel()
-lfp = fpInterface.getGlobalLumpedFissionProducts()
-lfp[‘LFP35’]
-lfp35 = lfp[‘LFP35’]
-lfp35.printDensities(0.05)
-lfp35.values()
-allFPs = [(fpY, fpNuc) for (fpNuc,fpY) in lfp35.items()]
-allFPs.sort()
-lfp35.keys()</p>
+<p>This module contains the implementation of the <code class="docutils literal notranslate"><span class="pre">FissionProductModel</span></code> interface.</p>
+<p>This <code class="docutils literal notranslate"><span class="pre">FissionProductModel</span></code> class implements the management of fission products within
+the reactor core and can be extended to support more general applications. Currently, the
+fission product model supports explicit modeling of fission products in each of the
+blocks/components, independent management of lumped fission products for each
+blocks/components within the core, or global management of lumped fission products
+where the fission products between all blocks/components are shared and are modified
+together.</p>
+<p>Within the framework, there is a coupling between the management of the fission products
+through this model to neutronics evaluations of flux and depletion calculations.</p>
+<p>When using a Monte Carlo solver, such as MCNP (i.e., there is an interface that is attached
+to the operator that has a name of “mcnp”), the fission products will always be treated
+independently and fission products (either explicit or lumped) will be added to all
+blocks/components in the core. The reason for this is that Monte Carlo solvers, like MCNP,
+may implement their own coupling between flux and depletion evaluations and having the
+initialization of these fission products in each block/component independently will
+allow that solver to manage the inventory over time.</p>
+<p>When determining which fission product model to use (either explicit or lumped) it is
+important to consider which cross section data is available to the flux and/or depletion
+solvers, and what level of fidelity is required for the analysis. This is where decisions
+as a developer/user need to be made, and the implementation of this specific model may
+not be, in general, accurate for any reactor system. It is dependent on which plugins
+are implemented and the requirements of the individual flux/depletion solver.</p>
+<p>Lumped fission products are generally useful for fast reactor applications, especially
+in fuel cycle calculations or scoping evaluations where the tracking of the detailed
+nuclide inventory would not have substantial impacts on core reactivity predictions.
+This is typically done by collapsing all fission products into lumped nuclides, like
+<code class="docutils literal notranslate"><span class="pre">LFP35</span></code>, <code class="docutils literal notranslate"><span class="pre">LFP38</span></code>, <code class="docutils literal notranslate"><span class="pre">LFP39</span></code>, <code class="docutils literal notranslate"><span class="pre">LFP40</span></code>, and <code class="docutils literal notranslate"><span class="pre">LFP41</span></code>. This is the implementation
+in the framework, which is discussed a bit more in the <code class="docutils literal notranslate"><span class="pre">fpModel</span></code> setting. These
+lumped fission products are separated into different bins that represent the fission
+product yields from U-235, U-238, Pu-239, Pu-240, and Pu-241/Am-241, respectively. The
+exact binning of which fission events from which target nuclides is specified by the
+<code class="docutils literal notranslate"><span class="pre">burn-chain.yaml</span></code> file, which can be modified by a user/developer. When selecting this
+modeling option, the blocks/components will have these <code class="docutils literal notranslate"><span class="pre">LFP</span></code> nuclides in the number
+density dictionaries. The key thing here is that these lumped nuclides do not exist
+in nature and therefore do not have nuclear data directly available in cross section
+evaluations, like ENDF/B. If the user wishes to consider these nuclides in the flux/depletion
+evaluations, then cross sections for these <code class="docutils literal notranslate"><span class="pre">LFP</span></code> nuclides will need to be prepared. Generally
+speaking, the the <code class="docutils literal notranslate"><span class="pre">crossSectionGroupManager</span></code> and the  <code class="docutils literal notranslate"><span class="pre">latticePhysicsInterface</span></code> could be
+used to implement this for cross section generation codes, like NJOY, CASMO, MC2-3, Serpent,
+etc.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The lumped fission product model and the <code class="docutils literal notranslate"><span class="pre">burn-chain.yaml</span></code> data may not be directly
+applicable to light water reactor systems, especially if there are strong reactivity
+impacts with fission products like <code class="docutils literal notranslate"><span class="pre">Xe</span></code> and <code class="docutils literal notranslate"><span class="pre">Sm</span></code> that need to be tracked independently.
+A user/developer may update the <code class="docutils literal notranslate"><span class="pre">referenceFissionProducts.dat</span></code> data file to exclude
+these important nuclides from the lumped fission product models if need be, but this
+would also require updating the <code class="docutils literal notranslate"><span class="pre">burn-chain.yaml</span></code> file as well as updating the
+<code class="docutils literal notranslate"><span class="pre">nuclideFlags</span></code> specification within the reactor blueprints input.</p>
+</div>
+<p>A further simplified option for lumped fission product treatment that is available is to
+treat all fission products explicitly as <code class="docutils literal notranslate"><span class="pre">Mo-99</span></code>. This is not guaranteed to be an accurate
+treatment of the fission products from a reactivity/depletion perspective, but it is
+available for quick scoping evaluations and model building.</p>
+<p>Finally, the explicit fission product modeling aims to include as many nuclides on the
+blocks/components as the user wishes to consider, but the nuclides that are modeled
+must be compatible with the plugins that are implemented for the application. When using this
+option, the user should look to set the <code class="docutils literal notranslate"><span class="pre">fpModelLibrary</span></code> setting.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>If this setting is not set, then it is expected that the user will need to manually add
+all nuclides to the <code class="docutils literal notranslate"><span class="pre">nuclideFlags</span></code> section of the reactor core blueprints.</p></li>
+<li><p>If the <code class="docutils literal notranslate"><span class="pre">fpModelLibrary</span></code> is selected then this will automatically add to the
+<code class="docutils literal notranslate"><span class="pre">nuclideFlags</span></code> input using <code class="xref py py-func docutils literal notranslate"><span class="pre">isotopicOptions.autoUpdateNuclideFlags()</span></code>
+and this class will initialize all added nuclides to have zero number densities.</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The explicit fission product model is being implemented with the vision of using
+generating multi-group cross sections for nuclides that are added with the
+<code class="docutils literal notranslate"><span class="pre">fpModelLibrary</span></code> setting with follow-on depletion calculations that will be managed by
+a detailed depletion solver, like ORIGEN. There are many caveats to how this model
+is initialized and may not be an out-of-the-box general solution.</p>
+</div>
 <dl class="py function">
 <dt class="sig sig-object py" id="armi.physics.neutronics.fissionProductModel.fissionProductModel.describeInterfaces">
 <span class="sig-prename descclassname"><span class="pre">armi.physics.neutronics.fissionProductModel.fissionProductModel.</span></span><span class="sig-name descname"><span class="pre">describeInterfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_cs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/physics/neutronics/fissionProductModel/fissionProductModel.html#describeInterfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#armi.physics.neutronics.fissionProductModel.fissionProductModel.describeInterfaces" title="Permalink to this definition">¶</a></dt>
@@ -288,31 +346,12 @@ overridden by any concrete class that extends this one.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.setAllBlockLFPs">
-<span class="sig-name descname"><span class="pre">setAllBlockLFPs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blockType</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">setMaterialsLFP</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/physics/neutronics/fissionProductModel/fissionProductModel.html#FissionProductModel.setAllBlockLFPs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.setAllBlockLFPs" title="Permalink to this definition">¶</a></dt>
-<dd><p>Set ALL the block _lumpedFissionProduct attributes</p>
-<p>Can set them to global or turns on independent block-level LFPs if
-requested</p>
-<p>sets block._lumpedFissionProducts to something other than the global.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>blockType</strong> (<em>Flags</em><em>, </em><em>optional</em>) – this is the type of block that the global lumped fission product is
-being applied to. If this is not provided it will get the default
-behavior from <code class="docutils literal notranslate"><span class="pre">self._fissionProductBlockType</span></code>.</p></li>
-<li><p><strong>setMaterialsLFP</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a><em>, </em><em>optional</em>) – this is a flag to tell the method whether or not to try to apply
-the global lumped fission product to the component and thereby
-material – this is only compatable with
-LumpedFissionProductCompatableMaterial</p></li>
-</ul>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<p>self.setAllBlockLFPs(blockType=’fuel’)
-will apply the global lumped fission product or independent LFPs to only
-fuel type blocks</p>
+<span class="sig-name descname"><span class="pre">setAllBlockLFPs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/physics/neutronics/fissionProductModel/fissionProductModel.html#FissionProductModel.setAllBlockLFPs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.setAllBlockLFPs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets all the block lumped fission products attributes and adds fission products
+to each block if <cite>self._explicitFissionProducts</cite> is set to True.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">armi.materials.lumpedFissionProductCompatableMaterial.LumpedFissionProductCompatableMaterial</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">armi.reactor.components.Component.setLumpedFissionProducts</span></code>, <a class="reference internal" href="#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.setAllBlockLFPs" title="armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.setAllBlockLFPs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.setAllBlockLFPs</span></code></a></p>
+<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">armi.reactor.components.Component.setLumpedFissionProducts</span></code></p>
 </div>
 </dd></dl>
 
@@ -351,36 +390,28 @@ fuel type blocks</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.interactEveryNode">
-<span class="sig-name descname"><span class="pre">interactEveryNode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_cycle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_node</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/physics/neutronics/fissionProductModel/fissionProductModel.html#FissionProductModel.interactEveryNode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.interactEveryNode" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.interactDistributeState">
 <span class="sig-name descname"><span class="pre">interactDistributeState</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/physics/neutronics/fissionProductModel/fissionProductModel.html#FissionProductModel.interactDistributeState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.interactDistributeState" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.updateFissionGasRemovalFractions">
-<span class="sig-name descname"><span class="pre">updateFissionGasRemovalFractions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/physics/neutronics/fissionProductModel/fissionProductModel.html#FissionProductModel.updateFissionGasRemovalFractions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.updateFissionGasRemovalFractions" title="Permalink to this definition">¶</a></dt>
-<dd><p>Synchronize fission gas removal fractions of all LFP objects with the reactor state.</p>
-<p>The block parameter <code class="docutils literal notranslate"><span class="pre">fgRemoval</span></code> is adjusted by fuel performance
-modules and is applied here.</p>
-<p>If the <code class="docutils literal notranslate"><span class="pre">makeAllBlockLFPsIndependent</span></code> setting is not activated
-(default), the global lump gets the flux-weighted average of all blocks.
-Otherwise, each block gets its own fission gas release fraction applied
-to its individual LFPs. For MCNP restart cases, it is recommended to
-activate the <code class="docutils literal notranslate"><span class="pre">makeAllBlockLFPsIndependent</span></code> setting.</p>
+<dt class="sig sig-object py" id="armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.getAllFissionProductNames">
+<span class="sig-name descname"><span class="pre">getAllFissionProductNames</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/physics/neutronics/fissionProductModel/fissionProductModel.html#FissionProductModel.getAllFissionProductNames"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.getAllFissionProductNames" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find all fission product names from the lumped fission product collection.</p>
 <div class="admonition-notes admonition">
 <p class="admonition-title">Notes</p>
-<p>The CrossSectionGroupManager does this for each XSG individually for
-lattice physics, but it’s important to keep these up to date as well for
-anything else that may be interested in fission product information
-(e.g. MCNP).</p>
+<p>This considers all LFP collections, whether they are global, block-level,
+or a mix of these.</p>
 </div>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">armi.physics.neutronics.crossSectionGroupManager.AverageBlockCollection.getRepresentativeBlock</span></code></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.removeFissionGasesFromBlocks">
+<span class="sig-name descname"><span class="pre">removeFissionGasesFromBlocks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/armi/physics/neutronics/fissionProductModel/fissionProductModel.html#FissionProductModel.removeFissionGasesFromBlocks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.removeFissionGasesFromBlocks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return False to indicate that no fission products are being removed.</p>
+<div class="admonition-notes admonition">
+<p class="admonition-title">Notes</p>
+<p>This should be implemented on an application-specific model.</p>
 </div>
 </dd></dl>
 
@@ -404,7 +435,7 @@ anything else that may be interested in fission product information
     <p>
         &#169; Copyright 2009-2022, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2022-12-27.
+        Last updated on 2022-12-28.
       </span>
 
     </p>
