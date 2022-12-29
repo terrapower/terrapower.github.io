@@ -213,6 +213,73 @@
 <span class="p">]</span>
 
 
+<div class="viewcode-block" id="getDefaultReferenceAssem"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.getDefaultReferenceAssem">[docs]</a><span class="k">def</span> <span class="nf">getDefaultReferenceAssem</span><span class="p">(</span><span class="n">assems</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return a default reference assembly.&quot;&quot;&quot;</span>
+    <span class="c1"># if assemblies are defined in blueprints, handle meshing</span>
+    <span class="c1"># assume finest mesh is reference</span>
+    <span class="n">assemsByNumBlocks</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+        <span class="n">assems</span><span class="p">,</span>
+        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">),</span>
+        <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">assemsByNumBlocks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">assemsByNumBlocks</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="makeAssemsAbleToSnapToUniformMesh"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.makeAssemsAbleToSnapToUniformMesh">[docs]</a><span class="k">def</span> <span class="nf">makeAssemsAbleToSnapToUniformMesh</span><span class="p">(</span>
+    <span class="n">assems</span><span class="p">,</span> <span class="n">nonUniformAssemFlags</span><span class="p">,</span> <span class="n">referenceAssembly</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Make this set of assemblies aware of the reference mesh so they can stay uniform as they axially expand.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">referenceAssembly</span><span class="p">:</span>
+        <span class="n">referenceAssembly</span> <span class="o">=</span> <span class="n">getDefaultReferenceAssem</span><span class="p">(</span><span class="n">assems</span><span class="p">)</span>
+    <span class="c1"># make the snap lists so assems know how to expand</span>
+    <span class="n">nonUniformAssems</span> <span class="o">=</span> <span class="p">[</span><span class="n">Flags</span><span class="o">.</span><span class="n">fromStringIgnoreErrors</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">nonUniformAssemFlags</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">nonUniformAssems</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">a</span><span class="o">.</span><span class="n">makeAxialSnapList</span><span class="p">(</span><span class="n">referenceAssembly</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="expandColdDimsToHot"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.expandColdDimsToHot">[docs]</a><span class="k">def</span> <span class="nf">expandColdDimsToHot</span><span class="p">(</span><span class="n">assems</span><span class="p">,</span> <span class="n">isDetailedAxialExpansion</span><span class="p">,</span> <span class="n">referenceAssembly</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Expand BOL assemblies, resolve disjoint axial mesh (if needed), and update block BOL heights</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    assems: list</span>
+<span class="sd">        list of :py:class:`Assembly &lt;armi.reactor.assemblies.Assembly&gt;` objects to be thermally expanded</span>
+<span class="sd">    isDetailedAxialExpansion: bool</span>
+<span class="sd">        If true assemblies will be forced to conform to the reference mesh after expansion</span>
+<span class="sd">    referenceAssembly: assembly, optional</span>
+<span class="sd">        Assembly whose mesh other meshes wil conform to if isDetailedAxialExpansion is true.</span>
+<span class="sd">        If not provided, will assume the finest mesh assembly which is typically fuel.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">assems</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">assems</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">referenceAssembly</span><span class="p">:</span>
+        <span class="n">referenceAssembly</span> <span class="o">=</span> <span class="n">getDefaultReferenceAssem</span><span class="p">(</span><span class="n">assems</span><span class="p">)</span>
+    <span class="n">axialExpChanger</span> <span class="o">=</span> <span class="n">AxialExpansionChanger</span><span class="p">(</span><span class="n">isDetailedAxialExpansion</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">):</span>
+            <span class="n">axialExpChanger</span><span class="o">.</span><span class="n">setAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+            <span class="c1"># this doesn&#39;t get applied to control assems, so CR will be interpreted</span>
+            <span class="c1"># as hot. This should be conservative because the control rods will</span>
+            <span class="c1"># be modeled as slightly shorter with the correct hot density. Density</span>
+            <span class="c1"># is more important than height, so we are forcing density to be correct</span>
+            <span class="c1"># since we can&#39;t do axial expansion (yet)</span>
+            <span class="n">axialExpChanger</span><span class="o">.</span><span class="n">applyColdHeightMassIncrease</span><span class="p">()</span>
+            <span class="n">axialExpChanger</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">computeThermalExpansionFactors</span><span class="p">()</span>
+            <span class="n">axialExpChanger</span><span class="o">.</span><span class="n">axiallyExpandAssembly</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">isDetailedAxialExpansion</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">):</span>
+                <span class="n">a</span><span class="o">.</span><span class="n">setBlockMesh</span><span class="p">(</span><span class="n">referenceAssembly</span><span class="o">.</span><span class="n">getAxialMesh</span><span class="p">())</span>
+    <span class="c1"># update block BOL heights to reflect hot heights</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">:</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">heightBOL</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">completeInitialLoading</span><span class="p">()</span></div>
+
+
 <div class="viewcode-block" id="AxialExpansionChanger"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.AxialExpansionChanger">[docs]</a><span class="k">class</span> <span class="nc">AxialExpansionChanger</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Axially expand or contract assemblies or an entire core.</span>
