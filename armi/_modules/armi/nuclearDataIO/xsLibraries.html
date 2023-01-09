@@ -211,6 +211,7 @@
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
 <span class="kn">from</span> <span class="nn">armi.nuclearDataIO.nuclearFileMetadata</span> <span class="kn">import</span> <span class="n">NuclideXSMetadata</span><span class="p">,</span> <span class="n">RegionXSMetadata</span>
+<span class="kn">from</span> <span class="nn">armi.nuclearDataIO</span> <span class="kn">import</span> <span class="n">xsNuclides</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">properties</span>
 
 <span class="n">_ISOTXS_EXT</span> <span class="o">=</span> <span class="s2">&quot;ISO&quot;</span>
@@ -328,9 +329,21 @@
     <span class="k">return</span> <span class="n">isosToMerge</span></div>
 
 
-<div class="viewcode-block" id="mergeXSLibrariesInWorkingDirectory"><a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsLibraries.html#armi.nuclearDataIO.xsLibraries.mergeXSLibrariesInWorkingDirectory">[docs]</a><span class="k">def</span> <span class="nf">mergeXSLibrariesInWorkingDirectory</span><span class="p">(</span><span class="n">lib</span><span class="p">,</span> <span class="n">xsLibrarySuffix</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mergeGammaLibs</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="mergeXSLibrariesInWorkingDirectory"><a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsLibraries.html#armi.nuclearDataIO.xsLibraries.mergeXSLibrariesInWorkingDirectory">[docs]</a><span class="k">def</span> <span class="nf">mergeXSLibrariesInWorkingDirectory</span><span class="p">(</span>
+    <span class="n">lib</span><span class="p">,</span>
+    <span class="n">xsLibrarySuffix</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="n">mergeGammaLibs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">alternateDirectory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Merge neutron (ISOTXS) and gamma (GAMISO/PMATRX) library data into the provided library.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Convention is for fuel XS id to come first alphabetically (A, B, C, etc.) and then be</span>
+<span class="sd">    followed by non-fuel. This should allow `referenceDummyNuclide` to be defined before</span>
+<span class="sd">    it is needed by a non-fuel cross section, but if the convention is not followed then</span>
+<span class="sd">    this could cause an issue.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -345,6 +358,10 @@
 <span class="sd">    mergeGammaLibs : bool, optional</span>
 <span class="sd">        If True, the GAMISO and PMATRX files that correspond to the ISOTXS library will be merged. Note: if these</span>
 <span class="sd">        files do not exist this will fail.</span>
+
+<span class="sd">    alternateDirectory : str, optional</span>
+<span class="sd">        An alternate directory in which to search for files other than the working directory. The main purpose</span>
+<span class="sd">        of this is for testing, but it could also be useful to users.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># pylint: disable=import-outside-toplevel) ; avoid cyclic import with isotxs bringing this in for data structure</span>
     <span class="kn">from</span> <span class="nn">armi.nuclearDataIO.cccc</span> <span class="kn">import</span> <span class="n">isotxs</span>
@@ -352,11 +369,14 @@
     <span class="kn">from</span> <span class="nn">armi.nuclearDataIO.cccc</span> <span class="kn">import</span> <span class="n">pmatrx</span>
     <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">nuclearDataIO</span>
 
+    <span class="n">baseDir</span> <span class="o">=</span> <span class="n">alternateDirectory</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+    <span class="n">globPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">baseDir</span><span class="p">,</span> <span class="n">_ISOTXS_EXT</span> <span class="o">+</span> <span class="s2">&quot;*&quot;</span><span class="p">)</span>
     <span class="n">xsLibFiles</span> <span class="o">=</span> <span class="n">getISOTXSLibrariesToMerge</span><span class="p">(</span>
-        <span class="n">xsLibrarySuffix</span><span class="p">,</span> <span class="p">[</span><span class="n">iso</span> <span class="k">for</span> <span class="n">iso</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">_ISOTXS_EXT</span> <span class="o">+</span> <span class="s2">&quot;*&quot;</span><span class="p">)]</span>
+        <span class="n">xsLibrarySuffix</span><span class="p">,</span> <span class="p">[</span><span class="n">iso</span> <span class="k">for</span> <span class="n">iso</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">globPath</span><span class="p">)]</span>
     <span class="p">)</span>
     <span class="n">librariesToMerge</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">neutronVelocities</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Dictionary of neutron velocities from each ISOTXS file</span>
+    <span class="n">referenceDummyNuclides</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">for</span> <span class="n">xsLibFilePath</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">xsLibFiles</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">xsID</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;ISO([A-Z0-9]</span><span class="si">{2}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">xsLibFilePath</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span>
@@ -381,21 +401,48 @@
                 <span class="p">)</span>
             <span class="p">)</span>
             <span class="k">continue</span>
+
         <span class="n">neutronLibrary</span> <span class="o">=</span> <span class="n">isotxs</span><span class="o">.</span><span class="n">readBinary</span><span class="p">(</span><span class="n">xsLibFilePath</span><span class="p">)</span>
         <span class="n">neutronVelocities</span><span class="p">[</span><span class="n">xsID</span><span class="p">]</span> <span class="o">=</span> <span class="n">neutronLibrary</span><span class="o">.</span><span class="n">neutronVelocity</span>
-        <span class="n">librariesToMerge</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">neutronLibrary</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">mergeGammaLibs</span><span class="p">:</span>
-            <span class="n">dummyNuclides</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">nuc</span>
-                <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">neutronLibrary</span><span class="o">.</span><span class="n">nuclides</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">_base</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">DummyNuclideBase</span><span class="p">)</span>
-            <span class="p">]</span>
 
-            <span class="n">gamisoLibraryPath</span> <span class="o">=</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedGAMISOFileName</span><span class="p">(</span>
-                <span class="n">suffix</span><span class="o">=</span><span class="n">xsLibrarySuffix</span><span class="p">,</span> <span class="n">xsID</span><span class="o">=</span><span class="n">xsID</span>
+        <span class="n">dummyNuclidesInNeutron</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">nuc</span>
+            <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">neutronLibrary</span><span class="o">.</span><span class="n">nuclides</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">_base</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">DummyNuclideBase</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dummyNuclidesInNeutron</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding dummy nuclides to library </span><span class="si">{</span><span class="n">xsID</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">addedDummyData</span> <span class="o">=</span> <span class="n">isotxs</span><span class="o">.</span><span class="n">addDummyNuclidesToLibrary</span><span class="p">(</span>
+                <span class="n">neutronLibrary</span><span class="p">,</span> <span class="n">referenceDummyNuclides</span>
+            <span class="p">)</span>  <span class="c1"># Add DUMMY nuclide data not produced by MC2-3</span>
+            <span class="n">isotxsLibraryPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">baseDir</span><span class="p">,</span>
+                <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedISOTXSFileName</span><span class="p">(</span>
+                    <span class="n">suffix</span><span class="o">=</span><span class="n">xsLibrarySuffix</span><span class="p">,</span> <span class="n">xsID</span><span class="o">=</span><span class="n">xsID</span>
+                <span class="p">),</span>
             <span class="p">)</span>
-            <span class="n">pmatrxLibraryPath</span> <span class="o">=</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedPMATRXFileName</span><span class="p">(</span>
-                <span class="n">suffix</span><span class="o">=</span><span class="n">xsLibrarySuffix</span><span class="p">,</span> <span class="n">xsID</span><span class="o">=</span><span class="n">xsID</span>
+            <span class="n">isotxsDummyPath</span> <span class="o">=</span> <span class="n">isotxsLibraryPath</span>
+            <span class="n">isotxs</span><span class="o">.</span><span class="n">writeBinary</span><span class="p">(</span><span class="n">neutronLibrary</span><span class="p">,</span> <span class="n">isotxsDummyPath</span><span class="p">)</span>
+            <span class="n">neutronLibraryDummyData</span> <span class="o">=</span> <span class="n">isotxs</span><span class="o">.</span><span class="n">readBinary</span><span class="p">(</span><span class="n">isotxsDummyPath</span><span class="p">)</span>
+            <span class="n">librariesToMerge</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">neutronLibraryDummyData</span><span class="p">)</span>
+            <span class="n">dummyNuclidesInNeutron</span> <span class="o">=</span> <span class="n">referenceDummyNuclides</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">librariesToMerge</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">neutronLibrary</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">referenceDummyNuclides</span><span class="p">:</span>
+                <span class="n">referenceDummyNuclides</span> <span class="o">=</span> <span class="n">dummyNuclidesInNeutron</span>
+
+        <span class="k">if</span> <span class="n">mergeGammaLibs</span><span class="p">:</span>
+            <span class="n">gamisoLibraryPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">baseDir</span><span class="p">,</span>
+                <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedGAMISOFileName</span><span class="p">(</span>
+                    <span class="n">suffix</span><span class="o">=</span><span class="n">xsLibrarySuffix</span><span class="p">,</span> <span class="n">xsID</span><span class="o">=</span><span class="n">xsID</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">pmatrxLibraryPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">baseDir</span><span class="p">,</span>
+                <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedPMATRXFileName</span><span class="p">(</span>
+                    <span class="n">suffix</span><span class="o">=</span><span class="n">xsLibrarySuffix</span><span class="p">,</span> <span class="n">xsID</span><span class="o">=</span><span class="n">xsID</span>
+                <span class="p">),</span>
             <span class="p">)</span>
 
             <span class="c1"># Check if the gamiso and pmatrx data paths exist with the xs library suffix so that</span>
@@ -410,18 +457,20 @@
                     <span class="sa">f</span><span class="s2">&quot;Attempting to find GAMISO/PMATRX data with &quot;</span>
                     <span class="sa">f</span><span class="s2">&quot;only XS ID </span><span class="si">{</span><span class="n">xsID</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
                 <span class="p">)</span>
-                <span class="n">gamisoLibraryPath</span> <span class="o">=</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedGAMISOFileName</span><span class="p">(</span><span class="n">xsID</span><span class="o">=</span><span class="n">xsID</span><span class="p">)</span>
-                <span class="n">pmatrxLibraryPath</span> <span class="o">=</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedPMATRXFileName</span><span class="p">(</span><span class="n">xsID</span><span class="o">=</span><span class="n">xsID</span><span class="p">)</span>
+                <span class="n">gamisoLibraryPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="n">baseDir</span><span class="p">,</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedGAMISOFileName</span><span class="p">(</span><span class="n">xsID</span><span class="o">=</span><span class="n">xsID</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">pmatrxLibraryPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="n">baseDir</span><span class="p">,</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedPMATRXFileName</span><span class="p">(</span><span class="n">xsID</span><span class="o">=</span><span class="n">xsID</span><span class="p">)</span>
+                <span class="p">)</span>
 
             <span class="c1"># GAMISO data</span>
             <span class="n">gammaLibrary</span> <span class="o">=</span> <span class="n">gamiso</span><span class="o">.</span><span class="n">readBinary</span><span class="p">(</span><span class="n">gamisoLibraryPath</span><span class="p">)</span>
             <span class="n">addedDummyData</span> <span class="o">=</span> <span class="n">gamiso</span><span class="o">.</span><span class="n">addDummyNuclidesToLibrary</span><span class="p">(</span>
-                <span class="n">gammaLibrary</span><span class="p">,</span> <span class="n">dummyNuclides</span>
+                <span class="n">gammaLibrary</span><span class="p">,</span> <span class="n">dummyNuclidesInNeutron</span>
             <span class="p">)</span>  <span class="c1"># Add DUMMY nuclide data not produced by MC2-3</span>
             <span class="k">if</span> <span class="n">addedDummyData</span><span class="p">:</span>
-                <span class="n">gamisoDummyPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span>
-                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">gamisoLibraryPath</span><span class="p">)</span>
-                <span class="p">)</span>
+                <span class="n">gamisoDummyPath</span> <span class="o">=</span> <span class="n">gamisoLibraryPath</span>
                 <span class="n">gamiso</span><span class="o">.</span><span class="n">writeBinary</span><span class="p">(</span><span class="n">gammaLibrary</span><span class="p">,</span> <span class="n">gamisoDummyPath</span><span class="p">)</span>
                 <span class="n">gammaLibraryDummyData</span> <span class="o">=</span> <span class="n">gamiso</span><span class="o">.</span><span class="n">readBinary</span><span class="p">(</span><span class="n">gamisoDummyPath</span><span class="p">)</span>
                 <span class="n">librariesToMerge</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gammaLibraryDummyData</span><span class="p">)</span>
@@ -431,12 +480,10 @@
             <span class="c1"># PMATRX data</span>
             <span class="n">pmatrxLibrary</span> <span class="o">=</span> <span class="n">pmatrx</span><span class="o">.</span><span class="n">readBinary</span><span class="p">(</span><span class="n">pmatrxLibraryPath</span><span class="p">)</span>
             <span class="n">addedDummyData</span> <span class="o">=</span> <span class="n">pmatrx</span><span class="o">.</span><span class="n">addDummyNuclidesToLibrary</span><span class="p">(</span>
-                <span class="n">pmatrxLibrary</span><span class="p">,</span> <span class="n">dummyNuclides</span>
+                <span class="n">pmatrxLibrary</span><span class="p">,</span> <span class="n">dummyNuclidesInNeutron</span>
             <span class="p">)</span>  <span class="c1"># Add DUMMY nuclide data not produced by MC2-3</span>
             <span class="k">if</span> <span class="n">addedDummyData</span><span class="p">:</span>
-                <span class="n">pmatrxDummyPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span>
-                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">pmatrxLibraryPath</span><span class="p">)</span>
-                <span class="p">)</span>
+                <span class="n">pmatrxDummyPath</span> <span class="o">=</span> <span class="n">pmatrxLibraryPath</span>
                 <span class="n">pmatrx</span><span class="o">.</span><span class="n">writeBinary</span><span class="p">(</span><span class="n">pmatrxLibrary</span><span class="p">,</span> <span class="n">pmatrxDummyPath</span><span class="p">)</span>
                 <span class="n">pmatrxLibraryDummyData</span> <span class="o">=</span> <span class="n">pmatrx</span><span class="o">.</span><span class="n">readBinary</span><span class="p">(</span><span class="n">pmatrxDummyPath</span><span class="p">)</span>
                 <span class="n">librariesToMerge</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pmatrxLibraryDummyData</span><span class="p">)</span>
@@ -852,7 +899,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-01-06.
+        Last updated on 2023-01-09.
       </span>
 
     </p>

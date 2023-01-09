@@ -297,17 +297,13 @@
 
 
 <div class="viewcode-block" id="FissionProductModel"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel">[docs]</a><span class="k">class</span> <span class="nc">FissionProductModel</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Code interface that coordinates the fission product model on the reactor.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Coordinates the fission product model on the reactor.&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;fissionProducts&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_globalLFPs</span> <span class="o">=</span> <span class="n">lumpedFissionProduct</span><span class="o">.</span><span class="n">lumpedFissionProductFactory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
-        <span class="c1"># Boolean that tracks if `setAllBlockLFPs` was called previously.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">_explicitFissionProducts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -336,44 +332,58 @@
 
 <div class="viewcode-block" id="FissionProductModel.interactBOL"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.interactBOL">[docs]</a>    <span class="k">def</span> <span class="nf">interactBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="n">interactBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">setAllBlockLFPs</span><span class="p">()</span></div>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_explicitFissionProducts</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setAllComponentFissionProducts</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setAllBlockLFPs</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="FissionProductModel.setAllComponentFissionProducts"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.setAllComponentFissionProducts">[docs]</a>    <span class="k">def</span> <span class="nf">setAllComponentFissionProducts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize all blueprint nuclides for each ``DEPLETABLE`` component in the core.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This should be called when explicit fission product modeling is enabled to</span>
+<span class="sd">        ensure that fission products are initialized on the depletable components within</span>
+<span class="sd">        the reactor data model.</span>
+
+<span class="sd">        When explicit fission products are enabled and the user has not already included</span>
+<span class="sd">        all fission products in the blueprints (in ``nuclideFlags``), the ``fpModelLibrary`` setting is used</span>
+<span class="sd">        to autofill all the nuclides in a given library into the ``blueprints.allNuclidesInProblem``</span>
+<span class="sd">        list. All nuclides that were not manually initialized by the user are added to</span>
+<span class="sd">        the ``DEPLETABLE`` components throughout every block in the core. The ``DEPLETABLE``</span>
+<span class="sd">        flag is based on the user adding this explicitly in the blueprints, or is based on</span>
+<span class="sd">        the user setting a nuclide to ``burn: true`` in the blueprint ``nuclideFlags``.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        armi.reactor.blueprints.isotopicOptions.autoUpdateNuclideFlags</span>
+<span class="sd">        armi.reactor.blueprints.isotopicOptions.getAllNuclideBasesByLibrary</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">(</span><span class="n">includeAll</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">DEPLETABLE</span><span class="p">):</span>
+                <span class="n">updatedNDens</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">updatedNDens</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">updatedNDens</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">updateNumberDensities</span><span class="p">(</span><span class="n">updatedNDens</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="FissionProductModel.setAllBlockLFPs"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.setAllBlockLFPs">[docs]</a>    <span class="k">def</span> <span class="nf">setAllBlockLFPs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Sets all the block lumped fission products attributes and adds fission products</span>
-<span class="sd">        to each block if `self._explicitFissionProducts` is set to True.</span>
+<span class="sd">        Sets all the block lumped fission products attributes.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
 <span class="sd">        armi.reactor.components.Component.setLumpedFissionProducts</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fissionProductBlockType</span><span class="p">,</span> <span class="n">includeAll</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_useGlobalLFPs</span><span class="p">:</span>
                 <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getGlobalLumpedFissionProducts</span><span class="p">())</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">lfps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getGlobalLumpedFissionProducts</span><span class="p">()</span>
-
-                <span class="c1"># There will be no lumped fission products when explicitFissionProducts</span>
-                <span class="c1"># are modeled.</span>
-                <span class="k">if</span> <span class="n">lfps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span><span class="p">:</span>
-                        <span class="n">targetComponent</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fissionProductBlockType</span><span class="p">)</span>
-                        <span class="k">if</span> <span class="ow">not</span> <span class="n">targetComponent</span><span class="p">:</span>
-                            <span class="k">continue</span>
-                        <span class="n">ndens</span> <span class="o">=</span> <span class="n">targetComponent</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span>
-                        <span class="n">updatedNDens</span> <span class="o">=</span> <span class="p">{}</span>
-                        <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span><span class="p">:</span>
-                            <span class="k">if</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">ndens</span><span class="p">:</span>
-                                <span class="k">continue</span>
-                            <span class="n">updatedNDens</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
-                        <span class="n">targetComponent</span><span class="o">.</span><span class="n">updateNumberDensities</span><span class="p">(</span><span class="n">updatedNDens</span><span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">independentLFPs</span> <span class="o">=</span> <span class="n">lfps</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
-                    <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="n">independentLFPs</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">True</span></div>
+                <span class="n">independentLFPs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getGlobalLumpedFissionProducts</span><span class="p">()</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="n">independentLFPs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="FissionProductModel.getGlobalLumpedFissionProducts"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.getGlobalLumpedFissionProducts">[docs]</a>    <span class="k">def</span> <span class="nf">getGlobalLumpedFissionProducts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
@@ -397,16 +407,11 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_globalLFPs</span> <span class="o">=</span> <span class="n">lfps</span></div>
 
-<div class="viewcode-block" id="FissionProductModel.interactBOC"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.interactBOC">[docs]</a>    <span class="k">def</span> <span class="nf">interactBOC</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Update block groups and fg removal</span>
-
-<span class="sd">        Cross sections update at BOC, so we must prepare LFPs at BOC.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">setAllBlockLFPs</span><span class="p">()</span></div>
-
 <div class="viewcode-block" id="FissionProductModel.interactDistributeState"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.interactDistributeState">[docs]</a>    <span class="k">def</span> <span class="nf">interactDistributeState</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">setAllBlockLFPs</span><span class="p">()</span></div>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_explicitFissionProducts</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setAllComponentFissionProducts</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setAllBlockLFPs</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="FissionProductModel.getAllFissionProductNames"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.getAllFissionProductNames">[docs]</a>    <span class="k">def</span> <span class="nf">getAllFissionProductNames</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -457,7 +462,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-01-06.
+        Last updated on 2023-01-09.
       </span>
 
     </p>
