@@ -218,6 +218,7 @@
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">NEUTRON</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">blockParameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">components</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.components.basicShapes</span> <span class="kn">import</span> <span class="n">Hexagon</span><span class="p">,</span> <span class="n">Circle</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">composites</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">geometry</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
@@ -339,6 +340,21 @@
         <span class="n">b</span><span class="o">.</span><span class="n">_lumpedFissionProducts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lumpedFissionProducts</span>
 
         <span class="k">return</span> <span class="n">b</span>
+
+    <span class="k">def</span> <span class="nf">_createHomogenizedCopy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pinSpatialLocators</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a copy of a block</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Used to implement a copy function for specific block types that can</span>
+<span class="sd">        be much faster than a deepcopy by glossing over details that may be</span>
+<span class="sd">        unnecessary in certain contexts.</span>
+
+<span class="sd">        This base class implementation is just a deepcopy of the block, in full detail</span>
+<span class="sd">        (not homogenized).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">core</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1702,6 +1718,87 @@
             <span class="nb">round</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">units</span><span class="o">.</span><span class="n">FLOAT_DIMENSION_DECIMALS</span><span class="p">),</span>
         <span class="p">)</span></div>
 
+    <span class="k">def</span> <span class="nf">_createHomogenizedCopy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pinSpatialLocators</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a new homogenized copy of a block that is less expensive than a full deepcopy.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This can be used to improve performance when a new copy of a reactor needs to be</span>
+<span class="sd">        built, but the full detail of the block (including component geometry, material,</span>
+<span class="sd">        number density, etc.) is not required for the targeted physics solver being applied</span>
+<span class="sd">        to the new reactor model.</span>
+
+<span class="sd">        The main use case is for the uniform mesh converter (UMC). Frequently, a deterministic</span>
+<span class="sd">        neutronics solver will require a uniform mesh reactor, which is produced by the UMC.</span>
+<span class="sd">        Many deterministic solvers for fast spectrum reactors will also treat the individual</span>
+<span class="sd">        blocks as homogenized mixtures. Since the neutronics solver does not need to know about</span>
+<span class="sd">        the geometric and material details of the individual child components within a block,</span>
+<span class="sd">        we can save significant effort while building the uniform mesh reactor with the UMC</span>
+<span class="sd">        by omitting this detailed data and only providing the necessary level of detail for</span>
+<span class="sd">        the uniform mesh reactor: number densities on each block.</span>
+
+<span class="sd">        .. note: Individual components within a block can have different temperatures, and this</span>
+<span class="sd">        can affect cross sections. This temperature variation is captured by the lattice physics</span>
+<span class="sd">        module. As long as temperature distribution is correctly captured during cross section</span>
+<span class="sd">        generation, it doesn&#39;t need to be transferred to the neutronics solver directly through</span>
+<span class="sd">        this copy operation.</span>
+
+<span class="sd">        .. note: If you make a new block, you must add it to an assembly and a reactor.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.makeAssemWithUniformMesh</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getName</span><span class="p">(),</span> <span class="n">height</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getHeight</span><span class="p">())</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getType</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span><span class="p">)</span>
+
+        <span class="c1"># assign macros and LFP</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">macros</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">macros</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">_lumpedFissionProducts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lumpedFissionProducts</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">buGroup</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">buGroup</span>
+
+        <span class="n">hexComponent</span> <span class="o">=</span> <span class="n">Hexagon</span><span class="p">(</span>
+            <span class="s2">&quot;homogenizedHex&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;_Mixture&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">getAverageTempInC</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">getAverageTempInC</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pitchDefiningComponent</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">hexComponent</span><span class="o">.</span><span class="n">setNumberDensities</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">())</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hexComponent</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">pinSpatialLocators</span><span class="p">:</span>
+            <span class="c1"># create a null component with cladding flags and spatialLocator from source block&#39;s</span>
+            <span class="c1"># clad components in case pin locations need to be known for physics solver</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hasComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">):</span>
+                <span class="n">cladComponents</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">clad</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cladComponents</span><span class="p">):</span>
+                    <span class="n">pinComponent</span> <span class="o">=</span> <span class="n">Circle</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;voidPin</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;Void&quot;</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">getAverageTempInC</span><span class="p">(),</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">getAverageTempInC</span><span class="p">(),</span>
+                        <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="n">pinComponent</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;pin&quot;</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
+                    <span class="n">pinComponent</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
+                        <span class="n">pinComponent</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">MultiIndexLocation</span>
+                    <span class="p">):</span>
+                        <span class="k">for</span> <span class="n">i1</span><span class="p">,</span> <span class="n">i2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                            <span class="nb">list</span><span class="p">(</span><span class="n">pinComponent</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">),</span> <span class="nb">list</span><span class="p">(</span><span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">)</span>
+                        <span class="p">):</span>
+                            <span class="n">i1</span><span class="o">.</span><span class="n">associate</span><span class="p">(</span><span class="n">i2</span><span class="o">.</span><span class="n">grid</span><span class="p">)</span>
+                    <span class="n">pinComponent</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">,</span> <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">))</span>
+                    <span class="n">b</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">pinComponent</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span>
+
+        <span class="k">return</span> <span class="n">b</span>
+
 <div class="viewcode-block" id="HexBlock.getMaxArea"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.getMaxArea">[docs]</a>    <span class="k">def</span> <span class="nf">getMaxArea</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the max area of this block if it was totally full.&quot;&quot;&quot;</span>
         <span class="n">pitch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getPitch</span><span class="p">()</span>
@@ -2402,7 +2499,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-01-15.
+        Last updated on 2023-01-16.
       </span>
 
     </p>
