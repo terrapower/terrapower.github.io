@@ -213,9 +213,13 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span>
 
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">from</span> <span class="nn">numpy.linalg</span> <span class="kn">import</span> <span class="n">norm</span>
+
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">getPluginManagerOrFail</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">utils</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">textProcessors</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 
 
 <div class="viewcode-block" id="STACK_ORDER"><a class="viewcode-back" href="../../.apidocs/armi.interfaces.html#armi.interfaces.STACK_ORDER">[docs]</a><span class="k">class</span> <span class="nc">STACK_ORDER</span><span class="p">:</span>  <span class="c1"># pylint: disable=invalid-name, too-few-public-methods</span>
@@ -257,6 +261,156 @@
     <span class="n">TRANSIENT</span> <span class="o">=</span> <span class="n">REACTIVITY_COEFFS</span> <span class="o">+</span> <span class="mi">1</span>
     <span class="n">BOOKKEEPING</span> <span class="o">=</span> <span class="n">TRANSIENT</span> <span class="o">+</span> <span class="mi">1</span>
     <span class="n">POSTPROCESSING</span> <span class="o">=</span> <span class="n">BOOKKEEPING</span> <span class="o">+</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="TightCoupler"><a class="viewcode-back" href="../../.apidocs/armi.interfaces.html#armi.interfaces.TightCoupler">[docs]</a><span class="k">class</span> <span class="nc">TightCoupler</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Data structure that defines tight coupling attributes that are implemented</span>
+<span class="sd">    within an Interface and called upon when ``interactCoupled`` is called.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    param : str</span>
+<span class="sd">        The name of a parameter defined in the ARMI Reactor model.</span>
+
+<span class="sd">    tolerance : float</span>
+<span class="sd">        Defines the allowable error, epsilon, between the current previous</span>
+<span class="sd">        parameter value(s) to determine if the selected coupling parameter has</span>
+<span class="sd">        been converged.</span>
+
+<span class="sd">    maxIters : int</span>
+<span class="sd">        Maximum number of tight coupling iterations allowed</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_SUPPORTED_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">maxIters</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span> <span class="o">=</span> <span class="n">param</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span> <span class="o">=</span> <span class="n">tolerance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maxIters</span> <span class="o">=</span> <span class="n">maxIters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_numIters</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_previousIterationValue</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">inf</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">, Parameter: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="si">}</span><span class="s2">, Convergence Criteria: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span><span class="si">}</span><span class="s2">, Maximum Coupled Iterations: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">maxIters</span><span class="si">}</span><span class="s2">&gt;&quot;</span>
+
+<div class="viewcode-block" id="TightCoupler.storePreviousIterationValue"><a class="viewcode-back" href="../../.apidocs/armi.interfaces.html#armi.interfaces.TightCoupler.storePreviousIterationValue">[docs]</a>    <span class="k">def</span> <span class="nf">storePreviousIterationValue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="n">_SUPPORTED_TYPES</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Stores the previous iteration value of the given parameter.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        val : _SUPPORTED_TYPES</span>
+<span class="sd">            the value to store. Is commonly equal to interface.getTightCouplingValue()</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            Checks the type of the val against ``_SUPPORTED_TYPES`` before storing.</span>
+<span class="sd">            If invalid, a TypeError is raised.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_SUPPORTED_TYPES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2"> supplied has type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="si">}</span><span class="s2"> which is not supported in </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Supported types: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_SUPPORTED_TYPES</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_previousIterationValue</span> <span class="o">=</span> <span class="n">val</span></div>
+
+<div class="viewcode-block" id="TightCoupler.isConverged"><a class="viewcode-back" href="../../.apidocs/armi.interfaces.html#armi.interfaces.TightCoupler.isConverged">[docs]</a>    <span class="k">def</span> <span class="nf">isConverged</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="n">_SUPPORTED_TYPES</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return boolean indicating if the convergence criteria between the current and previous iteration values are met.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        val : _SUPPORTED_TYPES</span>
+<span class="sd">            the most recent value for computing convergence critera. Is commonly equal to interface.getTightCouplingValue()</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        boolean</span>
+<span class="sd">            True (False) interface is (not) converged</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - On convergence, this class is automatically reset to its initial condition to avoid retaining</span>
+<span class="sd">          or holding a stale state. Calling this method will increment a counter that when exceeded will</span>
+<span class="sd">          clear the state. A warning will be reported if the state is cleared prior to the convergence</span>
+<span class="sd">          criteria being met.</span>
+<span class="sd">        - For computing convergence of arrays, only up to 2D is allowed. 3D arrays would arise from considering</span>
+<span class="sd">          component level parameters. However, converging on component level parameters is not supported at this time.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the previous iteration value has not been assigned. The ``storePreviousIterationValue`` method</span>
+<span class="sd">            must be called first.</span>
+<span class="sd">        RuntimeError</span>
+<span class="sd">            Only support calculating norms for up to 2D arrays.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_previousIterationValue</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot check convergence of </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> with no previous iteration value set. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Set using `storePreviousIterationValue` first.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">previous</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_previousIterationValue</span>
+
+        <span class="c1"># calculate convergence of val and previous</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">val</span> <span class="o">-</span> <span class="n">previous</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getListDimension</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># 1D array</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">=</span> <span class="n">norm</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">previous</span><span class="p">),</span> <span class="nb">ord</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># 2D array</span>
+                <span class="n">epsVec</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">old</span><span class="p">,</span> <span class="n">new</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">previous</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+                    <span class="n">epsVec</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">norm</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">old</span><span class="p">,</span> <span class="n">new</span><span class="p">),</span> <span class="nb">ord</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">=</span> <span class="n">norm</span><span class="p">(</span><span class="n">epsVec</span><span class="p">,</span> <span class="nb">ord</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Currently only support up to 2D arrays for calculating convergence of arrays.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Check if convergence is satisfied. If so, or if reached max number of iters, then</span>
+        <span class="c1"># reset the number of iterations</span>
+        <span class="n">converged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span>
+        <span class="k">if</span> <span class="n">converged</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_numIters</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_numIters</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_numIters</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxIters</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Maximum number of iterations for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="si">}</span><span class="s2"> reached without convergence!&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Prescribed convergence criteria is </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_numIters</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">return</span> <span class="n">converged</span></div>
+
+<div class="viewcode-block" id="TightCoupler.getListDimension"><a class="viewcode-back" href="../../.apidocs/armi.interfaces.html#armi.interfaces.TightCoupler.getListDimension">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">getListDimension</span><span class="p">(</span><span class="n">listToCheck</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;return the dimension of a python list</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        listToCheck: list</span>
+<span class="sd">            the supplied python list to have its dimension returned</span>
+<span class="sd">        dim: int, optional</span>
+<span class="sd">            the dimension of the list</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dim, int</span>
+<span class="sd">            the dimension of the list. Typically 1, 2, or 3 but can be arbitrary order, N.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">listToCheck</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">dim</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">dim</span> <span class="o">=</span> <span class="n">TightCoupler</span><span class="o">.</span><span class="n">getListDimension</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+            <span class="k">break</span>
+        <span class="k">return</span> <span class="n">dim</span></div></div>
 
 
 <div class="viewcode-block" id="Interface"><a class="viewcode-back" href="../../.apidocs/armi.interfaces.html#armi.interfaces.Interface">[docs]</a><span class="k">class</span> <span class="nc">Interface</span><span class="p">:</span>
@@ -335,6 +489,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">getMasterCs</span><span class="p">()</span> <span class="k">if</span> <span class="n">cs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">r</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">o</span> <span class="k">if</span> <span class="n">r</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coupler</span> <span class="o">=</span> <span class="n">_setTightCouplerByInterfaceFunction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;&lt;Interface </span><span class="si">{0}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
@@ -489,7 +644,11 @@
         <span class="k">pass</span></div>
 
 <div class="viewcode-block" id="Interface.interactCoupled"><a class="viewcode-back" href="../../.apidocs/armi.interfaces.html#armi.interfaces.Interface.interactCoupled">[docs]</a>    <span class="k">def</span> <span class="nf">interactCoupled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iteration</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Called repeatedly at each time node/subcycle when tight physics couping is active.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Called repeatedly at each time node/subcycle when tight physics coupling is active.&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Interface.getTightCouplingValue"><a class="viewcode-back" href="../../.apidocs/armi.interfaces.html#armi.interfaces.Interface.getTightCouplingValue">[docs]</a>    <span class="k">def</span> <span class="nf">getTightCouplingValue</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method to retrieve the value in which tight coupling will converge on.&quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
 <div class="viewcode-block" id="Interface.interactError"><a class="viewcode-back" href="../../.apidocs/armi.interfaces.html#armi.interfaces.Interface.interactError">[docs]</a>    <span class="k">def</span> <span class="nf">interactError</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -710,6 +869,35 @@
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
 
 
+<span class="k">def</span> <span class="nf">_setTightCouplerByInterfaceFunction</span><span class="p">(</span><span class="n">interfaceClass</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return an instance of a ``TightCoupler`` class or ``None``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    interfaceClass : Interface</span>
+<span class="sd">        Interface class that a ``TightCoupler`` object will be added to.</span>
+
+<span class="sd">    cs : Settings</span>
+<span class="sd">        Case settings that are parsed to determine if tight coupling is enabled</span>
+<span class="sd">        globally and if both a target parameter and convergence criteria defined.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># No tight coupling if there is no function for the Interface defined.</span>
+    <span class="k">if</span> <span class="n">interfaceClass</span><span class="o">.</span><span class="n">function</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tightCoupling&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="p">(</span>
+        <span class="n">interfaceClass</span><span class="o">.</span><span class="n">function</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tightCouplingSettings&quot;</span><span class="p">]</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">parameter</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tightCouplingSettings&quot;</span><span class="p">][</span><span class="n">interfaceClass</span><span class="o">.</span><span class="n">function</span><span class="p">][</span><span class="s2">&quot;parameter&quot;</span><span class="p">]</span>
+    <span class="n">tolerance</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tightCouplingSettings&quot;</span><span class="p">][</span><span class="n">interfaceClass</span><span class="o">.</span><span class="n">function</span><span class="p">][</span><span class="s2">&quot;convergence&quot;</span><span class="p">]</span>
+    <span class="n">maxIters</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tightCouplingMaxNumIters&quot;</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">TightCoupler</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">maxIters</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="getActiveInterfaceInfo"><a class="viewcode-back" href="../../.apidocs/armi.interfaces.html#armi.interfaces.getActiveInterfaceInfo">[docs]</a><span class="k">def</span> <span class="nf">getActiveInterfaceInfo</span><span class="p">(</span><span class="n">cs</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return a list containing information for all of the Interface classes that are present.</span>
@@ -778,7 +966,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-01-21.
+        Last updated on 2023-01-23.
       </span>
 
     </p>

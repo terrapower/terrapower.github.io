@@ -214,6 +214,7 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">collections</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
@@ -318,6 +319,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_maxBurnSteps</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_powerFractions</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_availabilityFactors</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_convergenceSummary</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Create the welcome headers for the case (case, input, machine, and some basic reactor information)</span>
         <span class="n">reportingUtils</span><span class="o">.</span><span class="n">writeWelcomeHeaders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
@@ -561,10 +563,13 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span> <span class="o">=</span> <span class="n">timeNode</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interactAllEveryNode</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">)</span>
         <span class="c1"># perform tight coupling if requested</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;numCoupledIterations&quot;</span><span class="p">]:</span>
-            <span class="k">for</span> <span class="n">coupledIteration</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;numCoupledIterations&quot;</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">couplingIsActive</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_convergenceSummary</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">coupledIteration</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tightCouplingMaxNumIters&quot;</span><span class="p">]):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">coupledIteration</span> <span class="o">=</span> <span class="n">coupledIteration</span> <span class="o">+</span> <span class="mi">1</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">interactAllCoupled</span><span class="p">(</span><span class="n">coupledIteration</span><span class="p">)</span>
+                <span class="n">converged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interactAllCoupled</span><span class="p">(</span><span class="n">coupledIteration</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">converged</span><span class="p">:</span>
+                    <span class="k">break</span>
             <span class="c1"># database has not yet been written, so we need to write it.</span>
             <span class="n">dbi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;database&quot;</span><span class="p">)</span>
             <span class="n">dbi</span><span class="o">.</span><span class="n">writeDBEveryNode</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">)</span>
@@ -801,7 +806,41 @@
 <span class="sd">        ARMI supports tight and loose coupling.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">enabled</span><span class="p">()]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;Coupled&quot;</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">,</span> <span class="n">coupledIteration</span><span class="p">)</span></div>
+
+        <span class="c1"># Store the previous iteration values before calling interactAllCoupled</span>
+        <span class="c1"># for each interface.</span>
+        <span class="k">for</span> <span class="n">interface</span> <span class="ow">in</span> <span class="n">activeInterfaces</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">interface</span><span class="o">.</span><span class="n">coupler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">interface</span><span class="o">.</span><span class="n">coupler</span><span class="o">.</span><span class="n">storePreviousIterationValue</span><span class="p">(</span>
+                    <span class="n">interface</span><span class="o">.</span><span class="n">getTightCouplingValue</span><span class="p">()</span>
+                <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;Coupled&quot;</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">,</span> <span class="n">coupledIteration</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkTightCouplingConvergence</span><span class="p">(</span><span class="n">activeInterfaces</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_checkTightCouplingConvergence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;check if interfaces are converged</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        activeInterfaces : list</span>
+<span class="sd">            the list of active interfaces on the operator</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This is split off from self.interactAllCoupled to accomodate testing&quot;&quot;&quot;</span>
+        <span class="c1"># Summarize the coupled results and the convergence status.</span>
+        <span class="n">converged</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">interface</span> <span class="ow">in</span> <span class="n">activeInterfaces</span><span class="p">:</span>
+            <span class="n">coupler</span> <span class="o">=</span> <span class="n">interface</span><span class="o">.</span><span class="n">coupler</span>
+            <span class="k">if</span> <span class="n">coupler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">interface</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">coupler</span><span class="o">.</span><span class="n">parameter</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">converged</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coupler</span><span class="o">.</span><span class="n">isConverged</span><span class="p">(</span><span class="n">interface</span><span class="o">.</span><span class="n">getTightCouplingValue</span><span class="p">()))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_convergenceSummary</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coupler</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>
+
+        <span class="n">reportingUtils</span><span class="o">.</span><span class="n">writeTightCouplingConvergenceSummary</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_convergenceSummary</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">converged</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Operator.interactAllError"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllError">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllError</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Interact when an error is raised by any other interface. Provides a wrap-up option on the way to a crash.&quot;&quot;&quot;</span>
@@ -832,6 +871,7 @@
 <span class="sd">        armi.interfaces.getActiveInterfaceInfo : Collects the interface classes from relevant</span>
 <span class="sd">            packages.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">header</span><span class="p">(</span><span class="s2">&quot;=========== Creating Interfaces ===========&quot;</span><span class="p">)</span>
         <span class="n">interfaceList</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">getActiveInterfaceInfo</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">klass</span><span class="p">,</span> <span class="n">kwargs</span> <span class="ow">in</span> <span class="n">interfaceList</span><span class="p">:</span>
@@ -1248,7 +1288,7 @@
 
 <div class="viewcode-block" id="Operator.couplingIsActive"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.couplingIsActive">[docs]</a>    <span class="k">def</span> <span class="nf">couplingIsActive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;True if any kind of physics coupling is active.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;looseCoupling&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;numCoupledIterations&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tightCoupling&quot;</span><span class="p">]</span></div></div>
 </pre></div>
 
            </div>
@@ -1262,7 +1302,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-01-21.
+        Last updated on 2023-01-23.
       </span>
 
     </p>

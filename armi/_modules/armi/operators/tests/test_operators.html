@@ -200,6 +200,7 @@
 
 <span class="c1"># pylint: disable=missing-function-docstring,missing-class-docstring,protected-access,invalid-name,no-method-argument,import-outside-toplevel</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">import</span> <span class="nn">collections</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
 <span class="kn">from</span> <span class="nn">armi.interfaces</span> <span class="kn">import</span> <span class="n">Interface</span>
@@ -207,6 +208,9 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_reactors</span>
 <span class="kn">from</span> <span class="nn">armi.settings.caseSettings</span> <span class="kn">import</span> <span class="n">Settings</span>
 <span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.globalFlux.globalFluxInterface</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GlobalFluxInterfaceUsingExecuters</span><span class="p">,</span>
+<span class="p">)</span>
 
 
 <div class="viewcode-block" id="InterfaceA"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.InterfaceA">[docs]</a><span class="k">class</span> <span class="nc">InterfaceA</span><span class="p">(</span><span class="n">Interface</span><span class="p">):</span>
@@ -230,6 +234,7 @@
 <div class="viewcode-block" id="OperatorTests"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorTests">[docs]</a><span class="k">class</span> <span class="nc">OperatorTests</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">test_reactors</span><span class="o">.</span><span class="n">loadTestReactor</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">interfaces</span> <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">enabled</span><span class="p">()]</span>
 
 <div class="viewcode-block" id="OperatorTests.test_addInterfaceSubclassCollision"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorTests.test_addInterfaceSubclassCollision">[docs]</a>    <span class="k">def</span> <span class="nf">test_addInterfaceSubclassCollision</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()</span>
@@ -281,7 +286,36 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">loadState</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="OperatorTests.test_couplingIsActive"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorTests.test_couplingIsActive">[docs]</a>    <span class="k">def</span> <span class="nf">test_couplingIsActive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">couplingIsActive</span><span class="p">())</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;ensure that cs[&quot;tightCoupling&quot;] controls couplingIsActive&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">couplingIsActive</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tightCoupling&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">couplingIsActive</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="OperatorTests.test_computeTightCouplingConvergence"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorTests.test_computeTightCouplingConvergence">[docs]</a>    <span class="k">def</span> <span class="nf">test_computeTightCouplingConvergence</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;ensure that tight coupling convergence can be computed and checked</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - Assertion #1: ensure that the convergence of Keff, eps, is greater than 1e-5 (the prescribed convergence criteria)</span>
+<span class="sd">        - Assertion #2: ensure that eps is (prevIterKeff - currIterKeff)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">prevIterKeff</span> <span class="o">=</span> <span class="mf">0.9</span>
+        <span class="n">currIterKeff</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tightCoupling&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tightCouplingSettings&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;globalFlux&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;parameter&quot;</span><span class="p">:</span> <span class="s2">&quot;keff&quot;</span><span class="p">,</span> <span class="s2">&quot;convergence&quot;</span><span class="p">:</span> <span class="mf">1e-05</span><span class="p">}</span>
+        <span class="p">}</span>
+        <span class="n">globalFlux</span> <span class="o">=</span> <span class="n">GlobalFluxInterfaceUsingExecuters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+        <span class="n">globalFlux</span><span class="o">.</span><span class="n">coupler</span><span class="o">.</span><span class="n">storePreviousIterationValue</span><span class="p">(</span><span class="n">prevIterKeff</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">addInterface</span><span class="p">(</span><span class="n">globalFlux</span><span class="p">)</span>
+        <span class="c1"># set keff to some new value and compute tight coupling convergence</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">keff</span> <span class="o">=</span> <span class="n">currIterKeff</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">_convergenceSummary</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">_checkTightCouplingConvergence</span><span class="p">([</span><span class="n">globalFlux</span><span class="p">]))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+            <span class="n">globalFlux</span><span class="o">.</span><span class="n">coupler</span><span class="o">.</span><span class="n">eps</span><span class="p">,</span>
+            <span class="n">currIterKeff</span> <span class="o">-</span> <span class="n">prevIterKeff</span><span class="p">,</span>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="OperatorTests.test_setStateToDefault"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorTests.test_setStateToDefault">[docs]</a>    <span class="k">def</span> <span class="nf">test_setStateToDefault</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 
@@ -414,7 +448,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-01-21.
+        Last updated on 2023-01-23.
       </span>
 
     </p>
