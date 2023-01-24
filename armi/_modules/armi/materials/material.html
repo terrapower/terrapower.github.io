@@ -207,6 +207,7 @@
 <span class="sd">     a TerraPower proprietary system. You will see references to it in this module.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="c1"># pylint: disable=unused-argument</span>
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 
@@ -214,9 +215,7 @@
 <span class="kn">import</span> <span class="nn">numpy</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.materials</span> <span class="kn">import</span> <span class="n">materialParameters</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">composites</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">TypeSpec</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">densityTools</span>
 <span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="kn">import</span> <span class="n">getTk</span><span class="p">,</span> <span class="n">getTc</span>
@@ -225,13 +224,10 @@
 <span class="n">FAIL_ON_RANGE</span> <span class="o">=</span> <span class="kc">False</span>
 
 
-<div class="viewcode-block" id="Material"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material">[docs]</a><span class="k">class</span> <span class="nc">Material</span><span class="p">(</span><span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="p">):</span>
+<div class="viewcode-block" id="Material"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material">[docs]</a><span class="k">class</span> <span class="nc">Material</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A material is made up of elements or isotopes. It has bulk properties like mass density.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">pDefs</span> <span class="o">=</span> <span class="n">materialParameters</span><span class="o">.</span><span class="n">getMaterialParameterDefinitions</span><span class="p">()</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;State parameter definitions&quot;&quot;&quot;</span>
 
     <span class="n">DATA_SOURCE</span> <span class="o">=</span> <span class="s2">&quot;ARMI&quot;</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Indication of where the material is loaded from (may be plugin name)&quot;&quot;&quot;</span>
@@ -257,43 +253,70 @@
 <span class="sd">    with information about thermal scattering.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="p">{}</span>
-
-        <span class="c1"># track sum of massFrac (which are modified and won&#39;t always sum to 1.0!)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFracNorm</span> <span class="o">=</span> <span class="mf">0.0</span>
-
-        <span class="c1"># so it doesn&#39;t have to be summed each time ( O(1) vs. O(N))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">atomFracDenom</span> <span class="o">=</span> <span class="mf">0.0</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cached</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_backupCache</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># call subclass implementations</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setDefaultMassFracs</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">propertyRangeUpdated</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;&lt;Material: </span><span class="si">{0}</span><span class="s2">&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getName</span><span class="p">())</span>
 
+<div class="viewcode-block" id="Material.getName"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.getName">[docs]</a>    <span class="k">def</span> <span class="nf">getName</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span></div>
+
 <div class="viewcode-block" id="Material.getChildren"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.getChildren">[docs]</a>    <span class="k">def</span> <span class="nf">getChildren</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">generationNum</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">includeMaterials</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">predicate</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return empty list, representing that this object has no children.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return empty list, representing that materials have no children.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[]</span></div>
 
 <div class="viewcode-block" id="Material.getChildrenWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.getChildrenWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">getChildrenWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span><span class="p">,</span> <span class="n">exactMatch</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return empty list, representing that this object has no children.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[]</span></div>
 
+<div class="viewcode-block" id="Material.backUp"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.backUp">[docs]</a>    <span class="k">def</span> <span class="nf">backUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create and store a backup of the state.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_backupCache</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cached</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backupCache</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cached</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># don&#39;t .clear(), using reference above!</span></div>
+
+<div class="viewcode-block" id="Material.restoreBackup"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.restoreBackup">[docs]</a>    <span class="k">def</span> <span class="nf">restoreBackup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">paramsToApply</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore the parameters from previously created backup.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cached</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backupCache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backupCache</span></div>
+
+<div class="viewcode-block" id="Material.clearCache"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.clearCache">[docs]</a>    <span class="k">def</span> <span class="nf">clearCache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clear the cache so all new values are recomputed.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cached</span> <span class="o">=</span> <span class="p">{}</span></div>
+
+    <span class="k">def</span> <span class="nf">_getCached</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain a value from the cache.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cached</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_setCache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set a value in the cache.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        _getCached : returns a previously-cached value</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cached</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
 <div class="viewcode-block" id="Material.duplicate"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.duplicate">[docs]</a>    <span class="k">def</span> <span class="nf">duplicate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;copy without needing a deepcopy.&quot;&quot;&quot;</span>
         <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">m</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
-        <span class="n">m</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">m</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+        <span class="n">m</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
         <span class="n">m</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span>
 
         <span class="k">return</span> <span class="n">m</span></div>
 
@@ -387,7 +410,7 @@
         <span class="k">pass</span></div>
 
 <div class="viewcode-block" id="Material.setMassFrac"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.setMassFrac">[docs]</a>    <span class="k">def</span> <span class="nf">setMassFrac</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucName</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">massFrac</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span> <span class="o">=</span> <span class="n">massFrac</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span> <span class="o">=</span> <span class="n">massFrac</span></div>
 
 <div class="viewcode-block" id="Material.applyInputParams"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.applyInputParams">[docs]</a>    <span class="k">def</span> <span class="nf">applyInputParams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply material-specific material input parameters.&quot;&quot;&quot;</span>
@@ -429,13 +452,11 @@
                 <span class="p">)</span>
             <span class="p">)</span>
 
-        <span class="n">nucsNames</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span><span class="p">)</span>
+        <span class="n">nucsNames</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span><span class="p">)</span>
 
         <span class="c1"># refDens could be zero, but cannot normalize to zero.</span>
-        <span class="n">density</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">refDens</span> <span class="ow">or</span> <span class="mf">1.0</span>
-        <span class="n">massDensities</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nucsNames</span><span class="p">])</span> <span class="o">*</span> <span class="n">density</span>
-        <span class="p">)</span>
+        <span class="n">density</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span> <span class="ow">or</span> <span class="mf">1.0</span>
+        <span class="n">massDensities</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nucsNames</span><span class="p">])</span> <span class="o">*</span> <span class="n">density</span>
         <span class="n">atomicMasses</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
             <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nucsNames</span><span class="p">]</span>
         <span class="p">)</span>  <span class="c1"># in AMU</span>
@@ -444,9 +465,7 @@
         <span class="n">enrichedIndex</span> <span class="o">=</span> <span class="n">nucsNames</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">nuclideName</span><span class="p">)</span>
         <span class="n">isoAndEles</span> <span class="o">=</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nuclideName</span><span class="p">]</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">nuclides</span>
         <span class="n">allIndicesUpdated</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">nucsNames</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">isoAndEles</span>
-            <span class="k">if</span> <span class="n">nuc</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span>
+            <span class="n">nucsNames</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">nuc</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">isoAndEles</span> <span class="k">if</span> <span class="n">nuc</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span>
         <span class="p">]</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">allIndicesUpdated</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -478,7 +497,7 @@
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                         <span class="s2">&quot;Material </span><span class="si">{}</span><span class="s2"> has too many masses set to zero. cannot enrich </span><span class="si">{}</span><span class="s2"> to </span><span class="si">{}</span><span class="s2">. Current &quot;</span>
                         <span class="s2">&quot;mass fractions: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                            <span class="bp">self</span><span class="p">,</span> <span class="n">nuclideName</span><span class="p">,</span> <span class="n">massFraction</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span>
+                            <span class="bp">self</span><span class="p">,</span> <span class="n">nuclideName</span><span class="p">,</span> <span class="n">massFraction</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span>
                         <span class="p">)</span>
                     <span class="p">)</span>
                 <span class="c1"># massDensities get normalized later when conserving atoms; these are just ratios</span>
@@ -511,9 +530,9 @@
                 <span class="sa">f</span><span class="s2">&quot;The mass fractions </span><span class="si">{</span><span class="n">massFracs</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> do not sum to 1.0.&quot;</span>
             <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="p">{</span><span class="n">nuc</span><span class="p">:</span> <span class="n">weight</span> <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nucsNames</span><span class="p">,</span> <span class="n">massFracs</span><span class="p">)}</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">refDens</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>  <span class="c1"># don&#39;t update density if not assigned</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="n">updatedDensity</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="p">{</span><span class="n">nuc</span><span class="p">:</span> <span class="n">weight</span> <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">weight</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nucsNames</span><span class="p">,</span> <span class="n">massFracs</span><span class="p">)}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>  <span class="c1"># don&#39;t update density if not assigned</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="n">updatedDensity</span></div>
 
 <div class="viewcode-block" id="Material.volumetricExpansion"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.volumetricExpansion">[docs]</a>    <span class="k">def</span> <span class="nf">volumetricExpansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tk</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">Tc</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">pass</span></div>
@@ -561,17 +580,16 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">Tk</span> <span class="o">=</span> <span class="n">getTk</span><span class="p">(</span><span class="n">Tc</span><span class="p">,</span> <span class="n">Tk</span><span class="p">)</span>
         <span class="n">dLL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linearExpansionPercent</span><span class="p">(</span><span class="n">Tk</span><span class="o">=</span><span class="n">Tk</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">refDens</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2"> has no reference density&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
                 <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="n">label</span><span class="o">=</span><span class="s2">&quot;No refD &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">getName</span><span class="p">(),</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="mf">0.0</span>
+
         <span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">dLL</span> <span class="o">/</span> <span class="mf">100.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
-        <span class="c1"># dRhoOverRho = (1.0 - f)/f</span>
-        <span class="c1"># rho = rho + dRho = (1 + dRho/rho) * rho</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">refDens</span> <span class="o">/</span> <span class="n">f</span>  <span class="c1"># g/cm^3</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span> <span class="o">/</span> <span class="n">f</span>  <span class="c1"># g/cm^3</span></div>
 
 <div class="viewcode-block" id="Material.densityKgM3"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.densityKgM3">[docs]</a>    <span class="k">def</span> <span class="nf">densityKgM3</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tk</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Tc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -598,7 +616,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">Tk</span> <span class="o">=</span> <span class="n">getTk</span><span class="p">(</span><span class="n">Tc</span><span class="p">,</span> <span class="n">Tk</span><span class="p">)</span>
         <span class="n">dLL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linearExpansionPercent</span><span class="p">(</span><span class="n">Tk</span><span class="o">=</span><span class="n">Tk</span><span class="p">)</span>
-        <span class="n">refD</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">refDens</span>
+        <span class="n">refD</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span>
         <span class="k">if</span> <span class="n">refD</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2"> has no reference density&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
@@ -648,11 +666,11 @@
 
 <div class="viewcode-block" id="Material.yieldStrength"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.yieldStrength">[docs]</a>    <span class="k">def</span> <span class="nf">yieldStrength</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tk</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Tc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;returns yield strength at given T in MPa&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">yieldStrength</span></div>
+        <span class="k">pass</span></div>
 
 <div class="viewcode-block" id="Material.thermalConductivity"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.thermalConductivity">[docs]</a>    <span class="k">def</span> <span class="nf">thermalConductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tk</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Tc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;thermal conductivity in given T in K&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">thermalConductivity</span></div>
+        <span class="k">pass</span></div>
 
 <div class="viewcode-block" id="Material.getProperty"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.getProperty">[docs]</a>    <span class="k">def</span> <span class="nf">getProperty</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">propName</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Tk</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Tc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
@@ -690,7 +708,7 @@
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        self.p.massFrac are modified mass fractions that may not add up to 1.0</span>
+<span class="sd">        self.massFrac are modified mass fractions that may not add up to 1.0</span>
 <span class="sd">        (for instance, after a axial expansion, the modified mass fracs will sum to less than one.</span>
 <span class="sd">        The alternative is to put a multiplier on the density. They&#39;re mathematically equivalent.</span>
 
@@ -703,32 +721,23 @@
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
 <span class="sd">        setMassFrac</span>
-<span class="sd">        getNDens</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nucName</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Material.clearMassFrac"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.clearMassFrac">[docs]</a>    <span class="k">def</span> <span class="nf">clearMassFrac</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;zero out all nuclide mass fractions.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFracNorm</span> <span class="o">=</span> <span class="mf">0.0</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="Material.removeNucMassFrac"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.removeNucMassFrac">[docs]</a>    <span class="k">def</span> <span class="nf">removeNucMassFrac</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nuc</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setMassFrac</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="c1"># the nuc isn&#39;t in the mass Frac vector</span>
             <span class="k">pass</span></div>
 
-<div class="viewcode-block" id="Material.removeLumpedFissionProducts"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.removeLumpedFissionProducts">[docs]</a>    <span class="k">def</span> <span class="nf">removeLumpedFissionProducts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">():</span>
-            <span class="k">if</span> <span class="s2">&quot;LF&quot;</span> <span class="ow">in</span> <span class="n">nuc</span><span class="p">:</span>
-                <span class="c1"># this component has a lumped fission product to remove</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">removeNucMassFrac</span><span class="p">(</span><span class="n">nuc</span><span class="p">)</span></div>
-
 <div class="viewcode-block" id="Material.getMassFracCopy"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.getMassFracCopy">[docs]</a>    <span class="k">def</span> <span class="nf">getMassFracCopy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massFrac</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Material.checkPropertyTempRange"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.checkPropertyTempRange">[docs]</a>    <span class="k">def</span> <span class="nf">checkPropertyTempRange</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Checks if the given property / value combination fall between the min and max valid</span>
@@ -802,6 +811,19 @@
         <span class="k">return</span> <span class="n">rhoCp</span></div>
 
 <div class="viewcode-block" id="Material.getNuclides"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.getNuclides">[docs]</a>    <span class="k">def</span> <span class="nf">getNuclides</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return nuclides in the component that contains this Material.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This method is the only reason Materials still have self.parent.</span>
+<span class="sd">        Essentially, we want to change that, but right now the logic for finding</span>
+<span class="sd">        nuclides in the Reactor is recursive and considers Materials first.</span>
+<span class="sd">        The bulk of the work in finally removing this method will come in</span>
+<span class="sd">        downstream repos, where users have fully embraced this method and call</span>
+<span class="sd">        it directly in many, many places.</span>
+<span class="sd">        Please do not use this method, as it is being deprecated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Material.getNuclides is being deprecated.&quot;</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span></div>
 
@@ -908,7 +930,7 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">Material</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">density3</span><span class="p">(</span><span class="n">Tk</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">refTempK</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">density3</span><span class="p">(</span><span class="n">Tk</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">refTempK</span><span class="p">)</span>
 
 <div class="viewcode-block" id="SimpleSolid.linearExpansionPercent"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.SimpleSolid.linearExpansionPercent">[docs]</a>    <span class="k">def</span> <span class="nf">linearExpansionPercent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tk</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Tc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -952,7 +974,16 @@
 <span class="sd">    All this really does is enable the special class 1/class 2 isotopics input option.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">pDefs</span> <span class="o">=</span> <span class="n">materialParameters</span><span class="o">.</span><span class="n">getFuelMaterialParameterDefinitions</span><span class="p">()</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">Material</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># support for custom isotopics</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">class1_wt_frac</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">class1_custom_isotopics</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">class2_custom_isotopics</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># tracking depletion status</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">puFrac</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uFrac</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zrFrac</span> <span class="o">=</span> <span class="mf">0.0</span>
 
 <div class="viewcode-block" id="FuelMaterial.applyInputParams"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.FuelMaterial.applyInputParams">[docs]</a>    <span class="k">def</span> <span class="nf">applyInputParams</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -996,9 +1027,9 @@
                     <span class="sa">f</span><span class="s2">&quot; are both &#39;</span><span class="si">{</span><span class="n">class1_custom_isotopics</span><span class="si">}</span><span class="s2">&#39;. You are not actually blending anything!&quot;</span>
                 <span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">class1_wt_frac</span> <span class="o">=</span> <span class="n">class1_wt_frac</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">class1_custom_isotopics</span> <span class="o">=</span> <span class="n">class1_custom_isotopics</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">class2_custom_isotopics</span> <span class="o">=</span> <span class="n">class2_custom_isotopics</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">class1_wt_frac</span> <span class="o">=</span> <span class="n">class1_wt_frac</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">class1_custom_isotopics</span> <span class="o">=</span> <span class="n">class1_custom_isotopics</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">class2_custom_isotopics</span> <span class="o">=</span> <span class="n">class2_custom_isotopics</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_applyIsotopicsMixFromCustomIsotopicsInput</span><span class="p">(</span><span class="n">customIsotopics</span><span class="p">)</span></div>
 
@@ -1011,9 +1042,42 @@
 <span class="sd">        This may also be needed for building charge assemblies during reprocessing, but</span>
 <span class="sd">        will take input from the SFP rather than from the input external feeds.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">class1Isotopics</span> <span class="o">=</span> <span class="n">customIsotopics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">class1_custom_isotopics</span><span class="p">]</span>
-        <span class="n">class2Isotopics</span> <span class="o">=</span> <span class="n">customIsotopics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">class2_custom_isotopics</span><span class="p">]</span>
-        <span class="n">densityTools</span><span class="o">.</span><span class="n">applyIsotopicsMix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">class1Isotopics</span><span class="p">,</span> <span class="n">class2Isotopics</span><span class="p">)</span></div>
+        <span class="n">class1Isotopics</span> <span class="o">=</span> <span class="n">customIsotopics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">class1_custom_isotopics</span><span class="p">]</span>
+        <span class="n">class2Isotopics</span> <span class="o">=</span> <span class="n">customIsotopics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">class2_custom_isotopics</span><span class="p">]</span>
+        <span class="n">densityTools</span><span class="o">.</span><span class="n">applyIsotopicsMix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">class1Isotopics</span><span class="p">,</span> <span class="n">class2Isotopics</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FuelMaterial.duplicate"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.FuelMaterial.duplicate">[docs]</a>    <span class="k">def</span> <span class="nf">duplicate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;copy without needing a deepcopy.&quot;&quot;&quot;</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">()</span>
+
+        <span class="n">m</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+        <span class="n">m</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span>
+
+        <span class="c1"># Handle the case where a developer creates a FuelMaterial,</span>
+        <span class="c1"># but only calls the Material.__init__().</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">class1_wt_frac</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">class1_wt_frac</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;class1_wt_frac&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">class1_custom_isotopics</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">class1_custom_isotopics</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;class1_custom_isotopics&quot;</span><span class="p">)</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">class2_custom_isotopics</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">class2_custom_isotopics</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;class2_custom_isotopics&quot;</span><span class="p">)</span>
+            <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">puFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">puFrac</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;puFrac&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">uFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">uFrac</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;uFrac&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">zrFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zrFrac</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;zrFrac&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+        <span class="k">return</span> <span class="n">m</span></div></div>
 </pre></div>
 
            </div>
