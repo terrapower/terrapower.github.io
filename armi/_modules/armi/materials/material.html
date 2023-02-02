@@ -199,13 +199,7 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Base Material classes.</span>
 
-<span class="sd">All temperatures are in K, but Tc can be specified and the functions will convert for you.</span>
-
-<span class="sd">.. warning:: ARMI uses these objects for all material properties. Under the hood,</span>
-<span class="sd">     A system called MAT_PROPS is in charge of several material properties. It</span>
-<span class="sd">     is a more industrial-strength material property system that is currently</span>
-<span class="sd">     a TerraPower proprietary system. You will see references to it in this module.</span>
-
+<span class="sd">Most temperatures may be specified in either K or C and the functions will convert for you.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="c1"># pylint: disable=unused-argument</span>
 <span class="kn">import</span> <span class="nn">copy</span>
@@ -227,6 +221,26 @@
 <div class="viewcode-block" id="Material"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material">[docs]</a><span class="k">class</span> <span class="nc">Material</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A material is made up of elements or isotopes. It has bulk properties like mass density.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    parent : Component</span>
+<span class="sd">        The component to which this material belongs</span>
+<span class="sd">    massFrac : dict</span>
+<span class="sd">        Mass fractions for all nuclides in the material keyed on the nuclide symbols</span>
+<span class="sd">    refDens : float</span>
+<span class="sd">        A reference density used by some materials, for instance `SimpleSolid`s,</span>
+<span class="sd">        during thermal expansion</span>
+<span class="sd">    theoreticalDensityFrac : float</span>
+<span class="sd">        Fraction of the material&#39;s density in reality, which is commonly different</span>
+<span class="sd">        from 1.0 in solid materials due to the manufacturing process.</span>
+<span class="sd">        Can often be set from the blueprints input via the TD_frac material modification.</span>
+<span class="sd">        For programmatic setting, use `adjustTD()`.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Specific material classes may have many more attributes specific to the implementation</span>
+<span class="sd">    for that material.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">DATA_SOURCE</span> <span class="o">=</span> <span class="s2">&quot;ARMI&quot;</span>
@@ -256,7 +270,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span> <span class="o">=</span> <span class="mf">1.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cached</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_backupCache</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -851,7 +865,16 @@
 <div class="viewcode-block" id="Material.heatCapacity"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.heatCapacity">[docs]</a>    <span class="k">def</span> <span class="nf">heatCapacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tk</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">Tc</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Material </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> does not implement heatCapacity&quot;</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Material.getTD"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.getTD">[docs]</a>    <span class="k">def</span> <span class="nf">getTD</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the fraction of theoretical density for this material.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span></div>
+
+<div class="viewcode-block" id="Material.adjustTD"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.adjustTD">[docs]</a>    <span class="k">def</span> <span class="nf">adjustTD</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set or change the fraction of theoretical density for this material.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clearCache</span><span class="p">()</span></div></div>
 
 
 <div class="viewcode-block" id="Fluid"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Fluid">[docs]</a><span class="k">class</span> <span class="nc">Fluid</span><span class="p">(</span><span class="n">Material</span><span class="p">):</span>
@@ -964,7 +987,14 @@
             <span class="k">return</span> <span class="mi">100</span> <span class="o">*</span> <span class="p">((</span><span class="n">density1</span> <span class="o">/</span> <span class="n">density2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SimpleSolid.density3"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.SimpleSolid.density3">[docs]</a>    <span class="k">def</span> <span class="nf">density3</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tk</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Tc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="k">return</span> <span class="mf">0.0</span></div></div>
+        <span class="k">return</span> <span class="mf">0.0</span></div>
+
+<div class="viewcode-block" id="SimpleSolid.density"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.SimpleSolid.density">[docs]</a>    <span class="k">def</span> <span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tk</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Tc</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The same method as the parent class, but with the ability to apply a</span>
+<span class="sd">        non-unity theoretical density.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Material</span><span class="o">.</span><span class="n">density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tk</span><span class="o">=</span><span class="n">Tk</span><span class="p">,</span> <span class="n">Tc</span><span class="o">=</span><span class="n">Tc</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getTD</span><span class="p">()</span></div></div>
 
 
 <div class="viewcode-block" id="FuelMaterial"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.FuelMaterial">[docs]</a><span class="k">class</span> <span class="nc">FuelMaterial</span><span class="p">(</span><span class="n">Material</span><span class="p">):</span>
@@ -1091,7 +1121,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-02-01.
+        Last updated on 2023-02-02.
       </span>
 
     </p>
