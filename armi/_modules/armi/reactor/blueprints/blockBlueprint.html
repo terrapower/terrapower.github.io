@@ -202,6 +202,7 @@
 <span class="sd">This module defines the ARMI input for a block definition, and code for constructing an ARMI ``Block``.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">signature</span>
 
 <span class="kn">import</span> <span class="nn">yamlize</span>
 
@@ -210,6 +211,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.blueprints</span> <span class="kn">import</span> <span class="n">componentBlueprint</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.components.component</span> <span class="kn">import</span> <span class="n">Component</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="kn">import</span> <span class="n">blockConverters</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings</span> <span class="kn">import</span> <span class="n">globalSettings</span>
 
@@ -301,11 +303,26 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkByComponentMaterialInput</span><span class="p">(</span><span class="n">materialInput</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">componentDesign</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
-            <span class="n">filteredMaterialInput</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filterMaterialInput</span><span class="p">(</span>
+            <span class="n">filteredMaterialInput</span><span class="p">,</span> <span class="n">byComponentMatModKeys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filterMaterialInput</span><span class="p">(</span>
                 <span class="n">materialInput</span><span class="p">,</span> <span class="n">componentDesign</span>
             <span class="p">)</span>
             <span class="n">c</span> <span class="o">=</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">blueprint</span><span class="p">,</span> <span class="n">filteredMaterialInput</span><span class="p">)</span>
             <span class="n">components</span><span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span>
+
+            <span class="c1"># check that the mat mods for this component are valid options</span>
+            <span class="c1"># this will only examine by-component mods, block mods are done later</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Component</span><span class="p">):</span>
+                <span class="c1"># there are other things like composite groups that don&#39;t get</span>
+                <span class="c1"># material modifications -- skip those</span>
+                <span class="n">validMatModOptions</span> <span class="o">=</span> <span class="n">signature</span><span class="p">(</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">applyInputParams</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">byComponentMatModKeys</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">validMatModOptions</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> in block </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> has invalid material modification: </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
+
             <span class="k">if</span> <span class="n">spatialGrid</span><span class="p">:</span>
                 <span class="n">componentLocators</span> <span class="o">=</span> <span class="n">gridDesign</span><span class="o">.</span><span class="n">getMultiLocator</span><span class="p">(</span>
                     <span class="n">spatialGrid</span><span class="p">,</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">latticeIDs</span>
@@ -326,6 +343,24 @@
                     <span class="k">elif</span> <span class="ow">not</span> <span class="n">mult</span> <span class="ow">or</span> <span class="n">mult</span> <span class="o">==</span> <span class="mf">1.0</span><span class="p">:</span>
                         <span class="c1"># learn mult from grid definition</span>
                         <span class="n">c</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">))</span>
+
+        <span class="c1"># check that the block level mat mods use valid options in the same way</span>
+        <span class="c1"># as we did for the by-component mods above</span>
+        <span class="n">validMatModOptions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Component</span><span class="p">):</span>
+                <span class="c1"># there are other things like composite groups that don&#39;t get</span>
+                <span class="c1"># material modifications -- skip those</span>
+                <span class="n">validMatModOptions</span> <span class="o">|=</span> <span class="n">signature</span><span class="p">(</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">applyInputParams</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="s2">&quot;byBlock&quot;</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">[</span><span class="s2">&quot;byBlock&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">validMatModOptions</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Block </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> has invalid material modification key: </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
 
         <span class="c1"># Resolve linked dims after all components in the block are created</span>
         <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
@@ -402,6 +437,7 @@
 <span class="sd">        for a given component, the by-component value will be used.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">filteredMaterialInput</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">byComponentMatModKeys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
 
         <span class="c1"># first add the by-block modifications without question</span>
         <span class="k">if</span> <span class="s2">&quot;byBlock&quot;</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">:</span>
@@ -418,9 +454,10 @@
                 <span class="c1"># overwriting any by-block modifications of the same type</span>
                 <span class="k">if</span> <span class="n">component</span> <span class="o">==</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
                     <span class="k">for</span> <span class="n">modName</span><span class="p">,</span> <span class="n">modVal</span> <span class="ow">in</span> <span class="n">mod</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="n">byComponentMatModKeys</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">modName</span><span class="p">)</span>
                         <span class="n">filteredMaterialInput</span><span class="p">[</span><span class="n">modName</span><span class="p">]</span> <span class="o">=</span> <span class="n">modVal</span>
 
-        <span class="k">return</span> <span class="n">filteredMaterialInput</span>
+        <span class="k">return</span> <span class="n">filteredMaterialInput</span><span class="p">,</span> <span class="n">byComponentMatModKeys</span>
 
     <span class="k">def</span> <span class="nf">_getGridDesign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -532,7 +569,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-02-02.
+        Last updated on 2023-02-03.
       </span>
 
     </p>
