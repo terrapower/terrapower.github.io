@@ -207,6 +207,7 @@
 <span class="kn">import</span> <span class="nn">yamlize</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">getPluginManagerOrFail</span><span class="p">,</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.materials.material</span> <span class="kn">import</span> <span class="n">Material</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">blocks</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
@@ -314,9 +315,16 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Component</span><span class="p">):</span>
                 <span class="c1"># there are other things like composite groups that don&#39;t get</span>
                 <span class="c1"># material modifications -- skip those</span>
-                <span class="n">validMatModOptions</span> <span class="o">=</span> <span class="n">signature</span><span class="p">(</span>
-                    <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">applyInputParams</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                <span class="n">validMatModOptions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">materialParentClass</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__mro__</span><span class="p">:</span>
+                    <span class="c1"># we must loop over parents as well, since applyInputParams</span>
+                    <span class="c1"># could call to Parent.applyInputParams()</span>
+                    <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">materialParentClass</span><span class="p">,</span> <span class="n">Material</span><span class="p">):</span>
+                        <span class="n">validMatModOptions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                            <span class="n">signature</span><span class="p">(</span>
+                                <span class="n">materialParentClass</span><span class="o">.</span><span class="n">applyInputParams</span>
+                            <span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                        <span class="p">)</span>
                 <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">byComponentMatModKeys</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">validMatModOptions</span><span class="p">:</span>
                         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -351,9 +359,15 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Component</span><span class="p">):</span>
                 <span class="c1"># there are other things like composite groups that don&#39;t get</span>
                 <span class="c1"># material modifications -- skip those</span>
-                <span class="n">validMatModOptions</span> <span class="o">|=</span> <span class="n">signature</span><span class="p">(</span>
-                    <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">applyInputParams</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">materialParentClass</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__mro__</span><span class="p">:</span>
+                    <span class="c1"># we must loop over parents as well, since applyInputParams</span>
+                    <span class="c1"># could call to Parent.applyInputParams()</span>
+                    <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">materialParentClass</span><span class="p">,</span> <span class="n">Material</span><span class="p">):</span>
+                        <span class="n">validMatModOptions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                            <span class="n">signature</span><span class="p">(</span>
+                                <span class="n">materialParentClass</span><span class="o">.</span><span class="n">applyInputParams</span>
+                            <span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                        <span class="p">)</span>
 
         <span class="k">if</span> <span class="s2">&quot;byBlock&quot;</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">[</span><span class="s2">&quot;byBlock&quot;</span><span class="p">]:</span>
@@ -569,7 +583,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-02-06.
+        Last updated on 2023-02-07.
       </span>
 
     </p>
