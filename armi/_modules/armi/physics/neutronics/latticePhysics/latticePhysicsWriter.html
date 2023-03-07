@@ -216,8 +216,16 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">components</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
-<span class="kn">from</span> <span class="nn">armi.physics.neutronics.const</span> <span class="kn">import</span> <span class="n">CONF_CROSS_SECTION</span>
 <span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">warn_when_root</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.const</span> <span class="kn">import</span> <span class="n">CONF_CROSS_SECTION</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.fissionProductModel.fissionProductModelSettings</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CONF_FP_MODEL</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CONF_MINIMUM_FISSILE_FRACTION</span><span class="p">,</span>
+    <span class="n">CONF_MINIMUM_NUCLIDE_DENSITY</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">CONF_GEN_XS</span>
 
 
 <span class="c1"># number of decimal places to round temperatures to in _groupNuclidesByTemperature</span>
@@ -277,8 +285,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">cs</span>
         <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Invalid `genXS` setting to generate gamma XS for </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">block</span>
+                <span class="s2">&quot;Invalid `</span><span class="si">{}</span><span class="s2">` setting to generate gamma XS for </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">CONF_GEN_XS</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">block</span>
                 <span class="p">)</span>
             <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">xsId</span> <span class="o">=</span> <span class="n">representativeBlock</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()</span>
@@ -290,13 +298,15 @@
         <span class="n">blockNeedsFPs</span> <span class="o">=</span> <span class="n">representativeBlock</span><span class="o">.</span><span class="n">getLumpedFissionProductCollection</span><span class="p">()</span> <span class="o">!=</span> <span class="kc">None</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">modelFissionProducts</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">blockNeedsFPs</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;fpModel&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;noFissionProducts&quot;</span>
+            <span class="n">blockNeedsFPs</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_FP_MODEL</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;noFissionProducts&quot;</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">explicitFissionProducts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;fpModel&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;explicitFissionProducts&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">explicitFissionProducts</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_FP_MODEL</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;explicitFissionProducts&quot;</span>
+        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">diluteFissionProducts</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">blockNeedsFPs</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;fpModel&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;infinitelyDilute&quot;</span>
+            <span class="n">blockNeedsFPs</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_FP_MODEL</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;infinitelyDilute&quot;</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">minimumNuclideDensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;minimumNuclideDensity&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">minimumNuclideDensity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_MINIMUM_NUCLIDE_DENSITY</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_unusedNuclides</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_allNuclideObjects</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -520,7 +530,7 @@
 <span class="sd">        Assumes that all fission products are at the same temperature of the lumped fission product of U238 within the</span>
 <span class="sd">        block.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;fpModel&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;noFissionProducts&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_FP_MODEL</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;noFissionProducts&quot;</span><span class="p">:</span>
             <span class="n">fissProductTemperatureInC</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAvgNuclideTemperatureInC</span><span class="p">(</span><span class="s2">&quot;LFP38&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">{</span>
                 <span class="n">fp</span><span class="p">:</span> <span class="p">(</span><span class="n">dens</span><span class="p">,</span> <span class="n">fissProductTemperatureInC</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">FISSION_PRODUCT_CATEGORY</span><span class="p">)</span>
@@ -587,7 +597,7 @@
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        We&#39;re going to increase the Pu-239 density to make the ratio of fissile mass to heavy metal mass equal to the</span>
-<span class="sd">        target ``minimumFissileFraction``::</span>
+<span class="sd">        target ``CONF_MINIMUM_FISSILE_FRACTION``::</span>
 
 <span class="sd">            minFrac = (fiss - old + new) / (hm - old + new)</span>
 <span class="sd">            minFrac * (hm - old + new) = fiss - old + new</span>
@@ -596,7 +606,7 @@
 
 <span class="sd">        where::</span>
 
-<span class="sd">            minFrac = ``minimumFissileFraction`` setting</span>
+<span class="sd">            minFrac = ``CONF_MINIMUM_FISSILE_FRACTION`` setting</span>
 <span class="sd">            fiss = fissile mass of block</span>
 <span class="sd">            hm = heavy metal mass of block</span>
 <span class="sd">            old = number density of Pu-239 before adjustment</span>
@@ -604,7 +614,7 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="n">minFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;minimumFissileFraction&quot;</span><span class="p">]</span>
+        <span class="n">minFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_MINIMUM_FISSILE_FRACTION</span><span class="p">]</span>
         <span class="n">fiss</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">dens</span> <span class="ow">in</span> <span class="n">nucDensities</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">nuc</span><span class="o">.</span><span class="n">isFissile</span><span class="p">())</span>
         <span class="n">hm</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dens</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">dens</span> <span class="ow">in</span> <span class="n">nucDensities</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">nuc</span><span class="o">.</span><span class="n">isHeavyMetal</span><span class="p">())</span>
 
@@ -662,7 +672,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-03-03.
+        Last updated on 2023-03-07.
       </span>
 
     </p>
