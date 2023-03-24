@@ -197,21 +197,33 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;Test the Lattice Interface&quot;&quot;&quot;</span>
-<span class="c1"># pylint: disable=missing-function-docstring,missing-class-docstring,protected-access,invalid-name,no-self-use,no-method-argument,import-outside-toplevel</span>
+<span class="c1"># pylint: disable=abstract-method,missing-function-docstring,missing-class-docstring,protected-access,invalid-name,no-method-argument,import-outside-toplevel</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.latticePhysics.latticePhysicsInterface</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">LatticePhysicsInterface</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.tests.test_reactors</span> <span class="kn">import</span> <span class="n">loadTestReactor</span>
-<span class="kn">from</span> <span class="nn">armi.settings</span> <span class="kn">import</span> <span class="n">Settings</span>
-
+<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_RUN_TYPE</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">CONF_GEN_XS</span>
+<span class="kn">from</span> <span class="nn">armi.operators.operator</span> <span class="kn">import</span> <span class="n">Operator</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.reactors</span> <span class="kn">import</span> <span class="n">Reactor</span><span class="p">,</span> <span class="n">Core</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.crossSectionGroupManager</span> <span class="kn">import</span> <span class="n">CrossSectionGroupManager</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.tests.test_blocks</span> <span class="kn">import</span> <span class="n">buildSimpleFuelBlock</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.assemblies</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">HexAssembly</span><span class="p">,</span>
+    <span class="n">grids</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">armi.nuclearDataIO.cccc</span> <span class="kn">import</span> <span class="n">isotxs</span>
+<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">ISOAA_PATH</span>
 
 <span class="c1"># As an interface, LatticePhysicsInterface must be subclassed to be used</span>
 <div class="viewcode-block" id="LatticeInterfaceTester"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.LatticeInterfaceTester">[docs]</a><span class="k">class</span> <span class="nc">LatticeInterfaceTester</span><span class="p">(</span><span class="n">LatticePhysicsInterface</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;LatticeInterfaceTester&quot;</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">LatticeInterfaceTester</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_getExecutablePath</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s2">&quot;/tmp/fake_path&quot;</span>
@@ -220,21 +232,159 @@
         <span class="k">pass</span></div></div>
 
 
-<div class="viewcode-block" id="TestLatticePhysicsInterface"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsInterface">[docs]</a><span class="k">class</span> <span class="nc">TestLatticePhysicsInterface</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="LatticeInterfaceTesterLibFalse"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.LatticeInterfaceTesterLibFalse">[docs]</a><span class="k">class</span> <span class="nc">LatticeInterfaceTesterLibFalse</span><span class="p">(</span><span class="n">LatticeInterfaceTester</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;subclass setting _newLibraryShouldBeCreated = False&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_newLibraryShouldBeCreated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">representativeBlockList</span><span class="p">,</span> <span class="n">xsIDs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="TestLatticePhysicsInterfaceBase"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsInterfaceBase">[docs]</a><span class="k">class</span> <span class="nc">TestLatticePhysicsInterfaceBase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="c1"># create empty reactor core</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">o</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">())</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">Reactor</span><span class="p">(</span><span class="s2">&quot;testReactor&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span> <span class="o">=</span> <span class="n">Core</span><span class="p">(</span><span class="s2">&quot;testCore&quot;</span><span class="p">)</span>
+        <span class="c1"># add an assembly with a single block</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">assembly</span> <span class="o">=</span> <span class="n">HexAssembly</span><span class="p">(</span><span class="s2">&quot;testAssembly&quot;</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">assembly</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">axialUnitGrid</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">assembly</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">armiObject</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">assembly</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">assembly</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">buildSimpleFuelBlock</span><span class="p">())</span>
+        <span class="c1"># cls.o.r.core.add(assembly)</span>
+        <span class="c1"># init and add interfaces</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">xsGroupInterface</span> <span class="o">=</span> <span class="n">CrossSectionGroupManager</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">addInterface</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">xsGroupInterface</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestLatticePhysicsInterface"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsInterface">[docs]</a><span class="k">class</span> <span class="nc">TestLatticePhysicsInterface</span><span class="p">(</span><span class="n">TestLatticePhysicsInterfaceBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Test Lattice Physics Interface.&quot;&quot;&quot;</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">setUpClass</span><span class="p">()</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">latticeInterface</span> <span class="o">=</span> <span class="n">LatticeInterfaceTesterLibFalse</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">addInterface</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">latticeInterface</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="s2">&quot;Nonsense&quot;</span>
 
 <div class="viewcode-block" id="TestLatticePhysicsInterface.test_LatticePhysicsInterface"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsInterface.test_LatticePhysicsInterface">[docs]</a>    <span class="k">def</span> <span class="nf">test_LatticePhysicsInterface</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Super basic test of the LatticePhysicsInterface&quot;&quot;&quot;</span>
-        <span class="n">cs</span> <span class="o">=</span> <span class="n">Settings</span><span class="p">()</span>
-        <span class="n">_o</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">()</span>
-        <span class="n">i</span> <span class="o">=</span> <span class="n">LatticeInterfaceTester</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">_HEX_MODEL</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span> <span class="s2">&quot;hex&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">executablePath</span><span class="p">,</span> <span class="s2">&quot;/tmp/fake_path&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">executableRoot</span><span class="p">,</span> <span class="s2">&quot;/tmp&quot;</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">_HEX_MODEL</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span> <span class="s2">&quot;hex&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">executablePath</span><span class="p">,</span> <span class="s2">&quot;/tmp/fake_path&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">executableRoot</span><span class="p">,</span> <span class="s2">&quot;/tmp&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">updateXSLibrary</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">_oldXsIdsAndBurnup</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span></div>
 
-        <span class="n">i</span><span class="o">.</span><span class="n">updateXSLibrary</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">_oldXsIdsAndBurnup</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span></div></div>
+<div class="viewcode-block" id="TestLatticePhysicsInterface.test_interactCoupled_Snapshots"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsInterface.test_interactCoupled_Snapshots">[docs]</a>    <span class="k">def</span> <span class="nf">test_interactCoupled_Snapshots</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;should change self.o.r.core.lib from Nonesense to None&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_RUN_TYPE</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Snapshots&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">interactCoupled</span><span class="p">(</span><span class="n">iteration</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span><span class="p">)</span>
+        <span class="c1"># reset runtype</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_RUN_TYPE</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Standard&quot;</span></div>
+
+<div class="viewcode-block" id="TestLatticePhysicsInterface.test_interactCoupled_TimeNode0"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsInterface.test_interactCoupled_TimeNode0">[docs]</a>    <span class="k">def</span> <span class="nf">test_interactCoupled_TimeNode0</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;make sure updateXSLibrary is run&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">interactCoupled</span><span class="p">(</span><span class="n">iteration</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestLatticePhysicsInterface.test_interactCoupled_TimeNode1"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsInterface.test_interactCoupled_TimeNode1">[docs]</a>    <span class="k">def</span> <span class="nf">test_interactCoupled_TimeNode1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;make sure updateXSLibrary is NOT run&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">interactCoupled</span><span class="p">(</span><span class="n">iteration</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span><span class="p">,</span> <span class="s2">&quot;Nonsense&quot;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestLatticePhysicsLibraryCreation"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsLibraryCreation">[docs]</a><span class="k">class</span> <span class="nc">TestLatticePhysicsLibraryCreation</span><span class="p">(</span><span class="n">TestLatticePhysicsInterfaceBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;test variations of _newLibraryShouldBeCreated&quot;&quot;&quot;</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">setUpClass</span><span class="p">()</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">latticeInterface</span> <span class="o">=</span> <span class="n">LatticeInterfaceTester</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">addInterface</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">latticeInterface</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">xsGroupInterface</span><span class="o">.</span><span class="n">representativeBlocks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;AA&quot;</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">assembly</span><span class="p">[</span><span class="mi">0</span><span class="p">]})</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">xsIDs</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">_getBlocksAndXsIds</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;reset representativeBlocks and CONF_GEN_XS&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xsGroupInterface</span><span class="o">.</span><span class="n">representativeBlocks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;AA&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">assembly</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assembly</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span> <span class="o">=</span> <span class="s2">&quot;A&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_GEN_XS</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="n">isotxs</span><span class="o">.</span><span class="n">readBinary</span><span class="p">(</span><span class="n">ISOAA_PATH</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TestLatticePhysicsLibraryCreation.test_libCreation_NoGenXS"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsLibraryCreation.test_libCreation_NoGenXS">[docs]</a>    <span class="k">def</span> <span class="nf">test_libCreation_NoGenXS</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;no ISOTXS and xs gen not requested&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">xsGen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">_newLibraryShouldBeCreated</span><span class="p">(</span>
+                <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xsIDs</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span>
+                <span class="s2">&quot;Cross sections will not be generated on cycle 1.&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">xsGen</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestLatticePhysicsLibraryCreation.test_libCreation_GenXS"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsLibraryCreation.test_libCreation_GenXS">[docs]</a>    <span class="k">def</span> <span class="nf">test_libCreation_GenXS</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;no ISOTXS and xs gen requested&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_GEN_XS</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Neutron&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">xsGen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">_newLibraryShouldBeCreated</span><span class="p">(</span>
+                <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xsIDs</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span>
+                <span class="s2">&quot;Cross sections will be generated on cycle 1 for the following XS IDs: [&#39;AA&#39;]&quot;</span><span class="p">,</span>
+                <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">(),</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">xsGen</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestLatticePhysicsLibraryCreation.test_libCreation_NoGenXS_2"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsLibraryCreation.test_libCreation_NoGenXS_2">[docs]</a>    <span class="k">def</span> <span class="nf">test_libCreation_NoGenXS_2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;ISOTXS present and has all of the necessary information&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">xsGen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">_newLibraryShouldBeCreated</span><span class="p">(</span>
+                <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xsIDs</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span>
+                <span class="s2">&quot;The generation of XS will be skipped.&quot;</span><span class="p">,</span>
+                <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">(),</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">xsGen</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestLatticePhysicsLibraryCreation.test_libCreation_GenXS_2"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsLibraryCreation.test_libCreation_GenXS_2">[docs]</a>    <span class="k">def</span> <span class="nf">test_libCreation_GenXS_2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;ISOTXS present and does not have all of the necessary information&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xsGroupInterface</span><span class="o">.</span><span class="n">representativeBlocks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;BB&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">assembly</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span>
+        <span class="p">)</span>
+        <span class="n">b</span><span class="p">,</span> <span class="n">xsIDs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modifyXSType</span><span class="p">()</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">xsGen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">_newLibraryShouldBeCreated</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">xsIDs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span>
+                <span class="s2">&quot;is not enabled, but will be run to generate these missing cross sections.&quot;</span><span class="p">,</span>
+                <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">(),</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">xsGen</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestLatticePhysicsLibraryCreation.test_libCreation_GenXS_3"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.html#armi.physics.neutronics.latticePhysics.tests.test_latticeInterface.TestLatticePhysicsLibraryCreation.test_libCreation_GenXS_3">[docs]</a>    <span class="k">def</span> <span class="nf">test_libCreation_GenXS_3</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;ISOTXS present and does not have all of the necessary information&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_GEN_XS</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Neutron&quot;</span>
+        <span class="n">b</span><span class="p">,</span> <span class="n">xsIDs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_modifyXSType</span><span class="p">()</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">xsGen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">_newLibraryShouldBeCreated</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">xsIDs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;These will be generated on cycle &quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">xsGen</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_modifyXSType</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xsGroupInterface</span><span class="o">.</span><span class="n">representativeBlocks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;BB&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">assembly</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assembly</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span> <span class="o">=</span> <span class="s2">&quot;B&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">latticeInterface</span><span class="o">.</span><span class="n">_getBlocksAndXsIds</span><span class="p">()</span></div>
 
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
@@ -252,7 +402,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-03-14.
+        Last updated on 2023-03-24.
       </span>
 
     </p>
