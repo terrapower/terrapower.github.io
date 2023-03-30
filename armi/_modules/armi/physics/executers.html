@@ -316,6 +316,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">,</span> <span class="n">reactor</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">reactor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dcType</span> <span class="o">=</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span>
 
 <div class="viewcode-block" id="Executer.run"><a class="viewcode-back" href="../../../.apidocs/armi.physics.executers.html#armi.physics.executers.Executer.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -380,20 +381,34 @@
         <span class="c1"># must either write input to CWD for analysis and then copy to runDir</span>
         <span class="c1"># or not list it in inputs (for optimization)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">writeInput</span><span class="p">()</span>
-        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">(</span>
-            <span class="n">root</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">runDir</span><span class="p">,</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">dcType</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">runDir</span><span class="p">,</span>
             <span class="n">filesToMove</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
             <span class="n">filesToRetrieve</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
             <span class="n">outputPath</span><span class="o">=</span><span class="n">outputDir</span><span class="p">,</span>
         <span class="p">)</span> <span class="k">as</span> <span class="n">dc</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">workingDir</span> <span class="o">=</span> <span class="n">dc</span><span class="o">.</span><span class="n">initial</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">runDir</span> <span class="o">=</span> <span class="n">dc</span><span class="o">.</span><span class="n">destination</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_updateRunDir</span><span class="p">(</span><span class="n">dc</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_execute</span><span class="p">()</span>
             <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_readOutput</span><span class="p">()</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">applyResultsToReactor</span><span class="p">:</span>
                 <span class="n">output</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_undoGeometryTransformations</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">output</span></div>
+
+    <span class="k">def</span> <span class="nf">_updateRunDir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">directory</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        If a TemporaryDirectoryChanger is used, the runDir needs to be updated</span>
+
+<span class="sd">        If a ForcedCreationDirectoryChanger is used instead, nothing needs to be done.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        directory : str</span>
+<span class="sd">            New path for runDir</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dcType</span> <span class="o">==</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">runDir</span> <span class="o">=</span> <span class="n">directory</span>
 
     <span class="k">def</span> <span class="nf">_collectInputsAndOutputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -454,7 +469,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-03-29.
+        Last updated on 2023-03-30.
       </span>
 
     </p>
