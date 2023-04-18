@@ -206,6 +206,7 @@
 
 <span class="kn">from</span> <span class="nn">armi.nuclearDataIO.cccc</span> <span class="kn">import</span> <span class="n">isotxs</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">CONF_XS_KERNEL</span>
+<span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_UNIFORM_MESH_MINIMUM_SIZE</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="kn">import</span> <span class="n">uniformMesh</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_assemblies</span>
@@ -260,7 +261,7 @@
 
         <span class="n">sourceAssem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstAssembly</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">IGNITER</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">_computeAverageAxialMesh</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">_generateUniformMesh</span><span class="p">(</span><span class="n">minimumMeshSize</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
         <span class="n">b</span> <span class="o">=</span> <span class="n">sourceAssem</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
         <span class="n">newAssem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">makeAssemWithUniformMesh</span><span class="p">(</span>
             <span class="n">sourceAssem</span><span class="p">,</span>
@@ -404,6 +405,99 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">assertListEqual</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">cachedBlockParams</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="s2">&quot;mgFlux&quot;</span><span class="p">]),</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">])</span></div></div>
 
 
+<div class="viewcode-block" id="TestUniformMeshGenerator"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_uniformMesh.html#armi.reactor.converters.tests.test_uniformMesh.TestUniformMeshGenerator">[docs]</a><span class="k">class</span> <span class="nc">TestUniformMeshGenerator</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="n">newSettings</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">CONF_XS_KERNEL</span><span class="p">:</span> <span class="s2">&quot;MC2v2&quot;</span><span class="p">,</span>
+            <span class="n">CONF_UNIFORM_MESH_MINIMUM_SIZE</span><span class="p">:</span> <span class="mf">3.0</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">customSettings</span><span class="o">=</span><span class="n">newSettings</span><span class="p">)</span>
+        <span class="n">reduceTestReactorRings</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="n">isotxs</span><span class="o">.</span><span class="n">readBinary</span><span class="p">(</span><span class="n">ISOAA_PATH</span><span class="p">)</span>
+
+        <span class="c1"># make the mesh a little non-uniform</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+        <span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">setHeight</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1.05</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">generator</span> <span class="o">=</span> <span class="n">uniformMesh</span><span class="o">.</span><span class="n">UniformMeshGenerator</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_UNIFORM_MESH_MINIMUM_SIZE</span><span class="p">]</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="TestUniformMeshGenerator.test_computeAverageAxialMesh"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_uniformMesh.html#armi.reactor.converters.tests.test_uniformMesh.TestUniformMeshGenerator.test_computeAverageAxialMesh">[docs]</a>    <span class="k">def</span> <span class="nf">test_computeAverageAxialMesh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">refMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">findAllAxialMeshPoints</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstAssembly</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)]</span>
+        <span class="p">)[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">_computeAverageAxialMesh</span><span class="p">()</span>
+        <span class="n">avgMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">_commonMesh</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">refMesh</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">avgMesh</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">refMesh</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">avgMesh</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">(</span><span class="n">refMesh</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">avgMesh</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;Not equal above the fuel.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestUniformMeshGenerator.test_filterMesh"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_uniformMesh.html#armi.reactor.converters.tests.test_uniformMesh.TestUniformMeshGenerator.test_filterMesh">[docs]</a>    <span class="k">def</span> <span class="nf">test_filterMesh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Test that the mesh can be correctly filtered</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">meshList</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">,</span> <span class="mf">9.0</span><span class="p">,</span> <span class="mf">12.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">,</span> <span class="mf">19.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">]</span>
+        <span class="n">anchorPoints</span> <span class="o">=</span> <span class="p">[</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">]</span>
+        <span class="n">combinedMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">_filterMesh</span><span class="p">(</span>
+            <span class="n">meshList</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">minimumMeshSize</span><span class="p">,</span>
+            <span class="n">anchorPoints</span><span class="p">,</span>
+            <span class="n">preference</span><span class="o">=</span><span class="s2">&quot;bottom&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertListEqual</span><span class="p">(</span><span class="n">combinedMesh</span><span class="p">,</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">,</span> <span class="mf">12.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">,</span> <span class="mf">19.0</span><span class="p">])</span>
+
+        <span class="n">combinedMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">_filterMesh</span><span class="p">(</span>
+            <span class="n">meshList</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">minimumMeshSize</span><span class="p">,</span>
+            <span class="n">anchorPoints</span><span class="p">,</span>
+            <span class="n">preference</span><span class="o">=</span><span class="s2">&quot;top&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertListEqual</span><span class="p">(</span><span class="n">combinedMesh</span><span class="p">,</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">9.0</span><span class="p">,</span> <span class="mf">12.0</span><span class="p">,</span> <span class="mf">16.0</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">])</span>
+
+        <span class="n">anchorPoints</span> <span class="o">=</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">_filterMesh</span><span class="p">(</span>
+                <span class="n">meshList</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">minimumMeshSize</span><span class="p">,</span>
+                <span class="n">anchorPoints</span><span class="p">,</span>
+                <span class="n">preference</span><span class="o">=</span><span class="s2">&quot;top&quot;</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestUniformMeshGenerator.test_filteredTopAndBottom"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_uniformMesh.html#armi.reactor.converters.tests.test_uniformMesh.TestUniformMeshGenerator.test_filteredTopAndBottom">[docs]</a>    <span class="k">def</span> <span class="nf">test_filteredTopAndBottom</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fuelBottoms</span><span class="p">,</span> <span class="n">fuelTops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">_getFilteredFuelTopAndBottom</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertListEqual</span><span class="p">(</span><span class="n">fuelBottoms</span><span class="p">,</span> <span class="p">[</span><span class="mf">25.0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertListEqual</span><span class="p">(</span><span class="n">fuelTops</span><span class="p">,</span> <span class="p">[</span><span class="mf">101.25</span><span class="p">])</span>
+
+        <span class="c1"># ctrlBottoms and ctrlTops include the fuelBottoms and fuelTops, respectively</span>
+        <span class="n">ctrlBottoms</span><span class="p">,</span> <span class="n">ctrlTops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">_getFilteredControlTopAndBottom</span><span class="p">(</span>
+            <span class="n">fuelBottoms</span><span class="p">,</span> <span class="n">fuelTops</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertListEqual</span><span class="p">(</span><span class="n">ctrlBottoms</span><span class="p">,</span> <span class="p">[</span><span class="mf">25.0</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertListEqual</span><span class="p">(</span><span class="n">ctrlTops</span><span class="p">,</span> <span class="p">[</span><span class="mf">75.0</span><span class="p">,</span> <span class="mf">101.25</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="TestUniformMeshGenerator.test_generateCommonMesh"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_uniformMesh.html#armi.reactor.converters.tests.test_uniformMesh.TestUniformMeshGenerator.test_generateCommonMesh">[docs]</a>    <span class="k">def</span> <span class="nf">test_generateCommonMesh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Covers generateCommonmesh() and _decuspAxialMesh()</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">generateCommonMesh</span><span class="p">()</span>
+        <span class="n">expectedMesh</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="mf">25.0</span><span class="p">,</span>
+            <span class="mf">50.0</span><span class="p">,</span>
+            <span class="mf">75.0</span><span class="p">,</span>
+            <span class="mf">101.25</span><span class="p">,</span>
+            <span class="mf">118.80952380952381</span><span class="p">,</span>
+            <span class="mf">137.5595238095238</span><span class="p">,</span>
+            <span class="mf">156.3095238095238</span><span class="p">,</span>
+            <span class="mf">175.0595238095238</span><span class="p">,</span>
+        <span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertListEqual</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">generator</span><span class="o">.</span><span class="n">_commonMesh</span><span class="p">),</span> <span class="n">expectedMesh</span><span class="p">)</span></div></div>
+
+
 <div class="viewcode-block" id="TestUniformMeshComponents"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_uniformMesh.html#armi.reactor.converters.tests.test_uniformMesh.TestUniformMeshComponents">[docs]</a><span class="k">class</span> <span class="nc">TestUniformMeshComponents</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Tests individual operations of the uniform mesh converter</span>
@@ -426,17 +520,6 @@
     <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">converter</span> <span class="o">=</span> <span class="n">uniformMesh</span><span class="o">.</span><span class="n">NeutronicsUniformMeshConverter</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">_sourceReactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span>
-
-<div class="viewcode-block" id="TestUniformMeshComponents.test_computeAverageAxialMesh"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_uniformMesh.html#armi.reactor.converters.tests.test_uniformMesh.TestUniformMeshComponents.test_computeAverageAxialMesh">[docs]</a>    <span class="k">def</span> <span class="nf">test_computeAverageAxialMesh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">refMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">findAllAxialMeshPoints</span><span class="p">(</span>
-            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstAssembly</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)]</span>
-        <span class="p">)[</span><span class="mi">1</span><span class="p">:]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">_computeAverageAxialMesh</span><span class="p">()</span>
-        <span class="n">avgMesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">_uniformMesh</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">refMesh</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">avgMesh</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">refMesh</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">avgMesh</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">(</span><span class="n">refMesh</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">avgMesh</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;Not equal above the fuel.&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="TestUniformMeshComponents.test_blueprintCopy"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_uniformMesh.html#armi.reactor.converters.tests.test_uniformMesh.TestUniformMeshComponents.test_blueprintCopy">[docs]</a>    <span class="k">def</span> <span class="nf">test_blueprintCopy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure that necessary blueprint attributes are set&quot;&quot;&quot;</span>
@@ -816,7 +899,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-04-12.
+        Last updated on 2023-04-18.
       </span>
 
     </p>
