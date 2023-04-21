@@ -210,18 +210,28 @@
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.nuclearDataIO</span> <span class="kn">import</span> <span class="n">xsCollections</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">iterables</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">CONF_MINIMUM_NUCLIDE_DENSITY</span>
 
 
 <div class="viewcode-block" id="MacroXSGenerator"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.macroXSGenerationInterface.html#armi.physics.neutronics.macroXSGenerationInterface.MacroXSGenerator">[docs]</a><span class="k">class</span> <span class="nc">MacroXSGenerator</span><span class="p">(</span><span class="n">mpiActions</span><span class="o">.</span><span class="n">MpiAction</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;An action that can make macroscopic cross sections, even in parallel.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">buildScatterMatrix</span><span class="p">,</span> <span class="n">buildOnlyCoolant</span><span class="p">,</span> <span class="n">libType</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">blocks</span><span class="p">,</span>
+        <span class="n">lib</span><span class="p">,</span>
+        <span class="n">buildScatterMatrix</span><span class="p">,</span>
+        <span class="n">buildOnlyCoolant</span><span class="p">,</span>
+        <span class="n">libType</span><span class="p">,</span>
+        <span class="n">minimumNuclideDensity</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+    <span class="p">):</span>
         <span class="n">mpiActions</span><span class="o">.</span><span class="n">MpiAction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">buildScatterMatrix</span> <span class="o">=</span> <span class="n">buildScatterMatrix</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">buildOnlyCoolant</span> <span class="o">=</span> <span class="n">buildOnlyCoolant</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">libType</span> <span class="o">=</span> <span class="n">libType</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="n">lib</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span> <span class="o">=</span> <span class="n">blocks</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">minimumNuclideDensity</span> <span class="o">=</span> <span class="n">minimumNuclideDensity</span>
 
     <span class="k">def</span> <span class="nf">__reduce__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># Prevent blocks and lib from being broadcast by passing None to ctor.</span>
@@ -230,7 +240,14 @@
         <span class="c1"># which utilizes this action. Default arguments make things more complicated.</span>
         <span class="k">return</span> <span class="p">(</span>
             <span class="n">MacroXSGenerator</span><span class="p">,</span>
-            <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buildScatterMatrix</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buildOnlyCoolant</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">libType</span><span class="p">),</span>
+            <span class="p">(</span>
+                <span class="kc">None</span><span class="p">,</span>
+                <span class="kc">None</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">buildScatterMatrix</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">buildOnlyCoolant</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">libType</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">minimumNuclideDensity</span><span class="p">,</span>
+            <span class="p">),</span>
         <span class="p">)</span>
 
 <div class="viewcode-block" id="MacroXSGenerator.invokeHook"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.macroXSGenerationInterface.html#armi.physics.neutronics.macroXSGenerationInterface.MacroXSGenerator.invokeHook">[docs]</a>    <span class="k">def</span> <span class="nf">invokeHook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -250,7 +267,9 @@
             <span class="n">lib</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="n">mc</span> <span class="o">=</span> <span class="n">xsCollections</span><span class="o">.</span><span class="n">MacroscopicCrossSectionCreator</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">buildScatterMatrix</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buildOnlyCoolant</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">buildScatterMatrix</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">buildOnlyCoolant</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">minimumNuclideDensity</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -291,6 +310,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">macrosLastBuiltAt</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">minimumNuclideDensity</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="n">CONF_MINIMUM_NUCLIDE_DENSITY</span><span class="p">]</span>
 
 <div class="viewcode-block" id="MacroXSGenerationInterface.buildMacros"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.macroXSGenerationInterface.html#armi.physics.neutronics.macroXSGenerationInterface.MacroXSGenerationInterface.buildMacros">[docs]</a>    <span class="k">def</span> <span class="nf">buildMacros</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -338,7 +358,12 @@
 
         <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Building macro XS&quot;</span><span class="p">)</span>
         <span class="n">xsGen</span> <span class="o">=</span> <span class="n">MacroXSGenerator</span><span class="p">(</span>
-            <span class="n">bListSome</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">buildScatterMatrix</span><span class="p">,</span> <span class="n">buildOnlyCoolant</span><span class="p">,</span> <span class="n">libType</span>
+            <span class="n">bListSome</span><span class="p">,</span>
+            <span class="n">lib</span><span class="p">,</span>
+            <span class="n">buildScatterMatrix</span><span class="p">,</span>
+            <span class="n">buildOnlyCoolant</span><span class="p">,</span>
+            <span class="n">libType</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">minimumNuclideDensity</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">xsGen</span><span class="o">.</span><span class="n">broadcast</span><span class="p">()</span>
         <span class="n">xsGen</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span></div></div>
@@ -373,7 +398,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-04-18.
+        Last updated on 2023-04-21.
       </span>
 
     </p>
