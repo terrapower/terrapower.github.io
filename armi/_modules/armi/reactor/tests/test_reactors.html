@@ -223,6 +223,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">ARMI_RUN_PATH</span><span class="p">,</span> <span class="n">mockRunLogs</span><span class="p">,</span> <span class="n">TEST_ROOT</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
+<span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_ASSEM_FLAGS_SKIP_AXIAL_EXP</span>
 
 <span class="n">TEST_REACTOR</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># pickled string of test reactor (for fast caching)</span>
 
@@ -1090,9 +1091,16 @@
         <span class="n">nonEqualParameters</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;heightBOL&quot;</span><span class="p">,</span> <span class="s2">&quot;molesHmBOL&quot;</span><span class="p">,</span> <span class="s2">&quot;massHmBOL&quot;</span><span class="p">]</span>
         <span class="n">equalParameters</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;smearDensity&quot;</span><span class="p">,</span> <span class="s2">&quot;nHMAtBOL&quot;</span><span class="p">,</span> <span class="s2">&quot;enrichmentBOL&quot;</span><span class="p">]</span>
 
-        <span class="n">_o</span><span class="p">,</span> <span class="n">coldHeightR</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">(</span>
+        <span class="n">o</span><span class="p">,</span> <span class="n">coldHeightR</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">directoryChanger</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span>
-            <span class="n">customSettings</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;inputHeightsConsideredHot&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+            <span class="n">customSettings</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;inputHeightsConsideredHot&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">&quot;assemFlagsToSkipAxialExpansion&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;feed fuel&quot;</span><span class="p">],</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+        <span class="n">aToSkip</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="n">Flags</span><span class="o">.</span><span class="n">fromStringIgnoreErrors</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_ASSEM_FLAGS_SKIP_AXIAL_EXP</span><span class="p">]</span>
         <span class="p">)</span>
 
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">oldRefBlockAxialMesh</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
@@ -1102,19 +1110,22 @@
 
         <span class="n">coldHeightAssems</span> <span class="o">=</span> <span class="n">coldHeightR</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">coldHeightA</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">originalAssems</span><span class="p">,</span> <span class="n">coldHeightAssems</span><span class="p">):</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">):</span>
-                <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">coldHeightB</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">coldHeightA</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
-                    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">nonEqualParameters</span><span class="p">:</span>
-                        <span class="n">p</span><span class="p">,</span> <span class="n">coldHeightP</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">],</span> <span class="n">coldHeightB</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span>
-                        <span class="k">if</span> <span class="n">p</span> <span class="ow">and</span> <span class="n">coldHeightP</span><span class="p">:</span>
-                            <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">(</span>
-                                <span class="n">p</span><span class="p">,</span> <span class="n">coldHeightP</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">coldHeightP</span><span class="si">}</span><span class="s2">&quot;</span>
-                            <span class="p">)</span>
-                        <span class="k">else</span><span class="p">:</span>
-                            <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">coldHeightP</span><span class="p">)</span>
-                    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">equalParameters</span><span class="p">:</span>
-                        <span class="n">p</span><span class="p">,</span> <span class="n">coldHeightP</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">],</span> <span class="n">coldHeightB</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">coldHeightP</span><span class="p">)</span></div>
+            <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span>
+                <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">aFlags</span><span class="p">)</span> <span class="k">for</span> <span class="n">aFlags</span> <span class="ow">in</span> <span class="n">aToSkip</span>
+            <span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">coldHeightB</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">coldHeightA</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+                <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">nonEqualParameters</span><span class="p">:</span>
+                    <span class="n">p</span><span class="p">,</span> <span class="n">coldHeightP</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">],</span> <span class="n">coldHeightB</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">p</span> <span class="ow">and</span> <span class="n">coldHeightP</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">(</span>
+                            <span class="n">p</span><span class="p">,</span> <span class="n">coldHeightP</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">coldHeightP</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">coldHeightP</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">equalParameters</span><span class="p">:</span>
+                    <span class="n">p</span><span class="p">,</span> <span class="n">coldHeightP</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">],</span> <span class="n">coldHeightB</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">coldHeightP</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="HexReactorTests.test_updateBlockBOLHeights_DBLoad"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_reactors.html#armi.reactor.tests.test_reactors.HexReactorTests.test_updateBlockBOLHeights_DBLoad">[docs]</a>    <span class="k">def</span> <span class="nf">test_updateBlockBOLHeights_DBLoad</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that blueprints assemblies are expanded in DB load.</span>
