@@ -571,6 +571,113 @@
     <span class="k">return</span> <span class="n">nvt</span><span class="p">,</span> <span class="n">nv</span></div>
 
 
+<div class="viewcode-block" id="CylindricalComponentsAverageBlockCollection"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.CylindricalComponentsAverageBlockCollection">[docs]</a><span class="k">class</span> <span class="nc">CylindricalComponentsAverageBlockCollection</span><span class="p">(</span><span class="n">BlockCollection</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a representative block for the purpose of cross section generation with a one-dimensional</span>
+<span class="sd">    cylindrical model.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    When generating the representative block within this collection, the geometry is checked</span>
+<span class="sd">    against all other blocks to ensure that the number of components are consistent. This implementation</span>
+<span class="sd">    is intended to be opinionated, so if a user attempts to put blocks that have geometric differences</span>
+<span class="sd">    then this will fail.</span>
+
+<span class="sd">    This selects a representative block based on the collection of candidates based on the</span>
+<span class="sd">    median block average temperatures as an assumption.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_getNewBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">newBlock</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_selectCandidateBlock</span><span class="p">())</span>
+        <span class="n">newBlock</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;1D_CYL_AVG_&quot;</span> <span class="o">+</span> <span class="n">newBlock</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">newBlock</span>
+
+    <span class="k">def</span> <span class="nf">_selectCandidateBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Selects the candidate block with the median block-average temperature.&quot;&quot;&quot;</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCandidateBlocks</span><span class="p">():</span>
+            <span class="n">info</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">b</span><span class="o">.</span><span class="n">getAverageTempInC</span><span class="p">(),</span> <span class="n">b</span><span class="o">.</span><span class="n">getName</span><span class="p">(),</span> <span class="n">b</span><span class="p">))</span>
+        <span class="n">info</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+        <span class="n">medianBlockData</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">medianBlockData</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_makeRepresentativeBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a representative fuel block based on component number densities.&quot;&quot;&quot;</span>
+        <span class="n">repBlock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getNewBlock</span><span class="p">()</span>
+        <span class="n">bWeights</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">getWeight</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCandidateBlocks</span><span class="p">()]</span>
+        <span class="n">componentsInOrder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_orderComponentsInGroup</span><span class="p">(</span><span class="n">repBlock</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">allSimilarComponents</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">repBlock</span><span class="p">,</span> <span class="n">componentsInOrder</span><span class="p">):</span>
+            <span class="n">allNucsNames</span><span class="p">,</span> <span class="n">densities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAverageComponentNucs</span><span class="p">(</span>
+                <span class="n">allSimilarComponents</span><span class="p">,</span> <span class="n">bWeights</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">aDensity</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">allNucsNames</span><span class="p">,</span> <span class="n">densities</span><span class="p">):</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">aDensity</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">repBlock</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_getAllNucs</span><span class="p">(</span><span class="n">components</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Iterate through components and get all unique nuclides.&quot;&quot;&quot;</span>
+        <span class="n">nucs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">:</span>
+            <span class="n">nucs</span> <span class="o">=</span> <span class="n">nucs</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">())</span>
+        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">nucs</span><span class="p">))</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_checkComponentConsistency</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">repBlock</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Verify that all components being homogenized have same multiplicity and nuclides</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            When the components in a candidate block do not align with</span>
+<span class="sd">            the components in the representative block. This check includes component area, component multiplicity,</span>
+<span class="sd">            and nuclide composition.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">repBlock</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Blocks </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">repBlock</span><span class="si">}</span><span class="s2"> have differing number &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;of components and cannot be homogenized&quot;</span>
+            <span class="p">)</span>
+        <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">repC</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">repBlock</span><span class="p">):</span>
+            <span class="n">compString</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Component </span><span class="si">{</span><span class="n">repC</span><span class="si">}</span><span class="s2"> in block </span><span class="si">{</span><span class="n">repBlock</span><span class="si">}</span><span class="s2"> and component </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> in block </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span> <span class="o">!=</span> <span class="n">repC</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">compString</span><span class="si">}</span><span class="s2"> must have the same multiplicity, but they have.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">repC</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span><span class="si">}</span><span class="s2">, respectively.&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">theseNucs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">())</span>
+            <span class="n">thoseNucs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">repC</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">())</span>
+            <span class="n">diffNucs</span> <span class="o">=</span> <span class="n">theseNucs</span><span class="o">.</span><span class="n">symmetric_difference</span><span class="p">(</span><span class="n">thoseNucs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">diffNucs</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">compString</span><span class="si">}</span><span class="s2"> are in the same location, but nuclides &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;differ by </span><span class="si">{</span><span class="n">diffNucs</span><span class="si">}</span><span class="s2">. </span><span class="se">\n</span><span class="si">{</span><span class="n">theseNucs</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="si">{</span><span class="n">thoseNucs</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_getAverageComponentNucs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">components</span><span class="p">,</span> <span class="n">bWeights</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute average nuclide densities by block weights and component area fractions.&quot;&quot;&quot;</span>
+        <span class="n">allNucNames</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAllNucs</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
+        <span class="n">densities</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">allNucNames</span><span class="p">))</span>
+        <span class="n">totalWeight</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">bWeight</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">components</span><span class="p">,</span> <span class="n">bWeights</span><span class="p">):</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">bWeight</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
+            <span class="n">totalWeight</span> <span class="o">+=</span> <span class="n">weight</span>
+            <span class="n">densities</span> <span class="o">+=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">allNucNames</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">allNucNames</span><span class="p">,</span> <span class="n">densities</span> <span class="o">/</span> <span class="n">totalWeight</span>
+
+    <span class="k">def</span> <span class="nf">_orderComponentsInGroup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">repBlock</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Order the components based on dimension and material type within the representative block.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCandidateBlocks</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkComponentConsistency</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">repBlock</span><span class="p">)</span>
+        <span class="n">componentLists</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCandidateBlocks</span><span class="p">()]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">comps</span><span class="p">)</span> <span class="k">for</span> <span class="n">comps</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">componentLists</span><span class="p">)]</span></div>
+
+
 <div class="viewcode-block" id="SlabComponentsAverageBlockCollection"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.SlabComponentsAverageBlockCollection">[docs]</a><span class="k">class</span> <span class="nc">SlabComponentsAverageBlockCollection</span><span class="p">(</span><span class="n">BlockCollection</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Creates a representative 1D slab block.</span>
@@ -586,6 +693,11 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="k">def</span> <span class="nf">_getNewBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">newBlock</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getCandidateBlocks</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">newBlock</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;1D_SLAB_AVG_&quot;</span> <span class="o">+</span> <span class="n">newBlock</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">newBlock</span>
+
     <span class="k">def</span> <span class="nf">_makeRepresentativeBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a representative fuel block based on component number densities.&quot;&quot;&quot;</span>
         <span class="n">repBlock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getNewBlock</span><span class="p">()</span>
@@ -593,7 +705,7 @@
         <span class="n">componentsInOrder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_orderComponentsInGroup</span><span class="p">(</span><span class="n">repBlock</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">allSimilarComponents</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">repBlock</span><span class="p">,</span> <span class="n">componentsInOrder</span><span class="p">):</span>
-            <span class="n">allNucsNames</span><span class="p">,</span> <span class="n">densities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAverageComponantNucs</span><span class="p">(</span>
+            <span class="n">allNucsNames</span><span class="p">,</span> <span class="n">densities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAverageComponentNucs</span><span class="p">(</span>
                 <span class="n">allSimilarComponents</span><span class="p">,</span> <span class="n">bWeights</span>
             <span class="p">)</span>
             <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">aDensity</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">allNucsNames</span><span class="p">,</span> <span class="n">densities</span><span class="p">):</span>
@@ -694,7 +806,7 @@
                 <span class="n">repBlock</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">repBlock</span>
 
-    <span class="k">def</span> <span class="nf">_getAverageComponantNucs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">components</span><span class="p">,</span> <span class="n">bWeights</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_getAverageComponentNucs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">components</span><span class="p">,</span> <span class="n">bWeights</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute average nuclide densities by block weights and component area fractions.&quot;&quot;&quot;</span>
         <span class="n">allNucNames</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAllNucs</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
         <span class="n">densities</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">allNucNames</span><span class="p">))</span>
@@ -1344,11 +1456,21 @@
             <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;XS ID: </span><span class="si">{}</span><span class="s2">, Collection: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">xsID</span><span class="p">,</span> <span class="n">collection</span><span class="p">))</span></div></div>
 
 
+<span class="c1"># String constants</span>
+<span class="n">MEDIAN_BLOCK_COLLECTION</span> <span class="o">=</span> <span class="s2">&quot;Median&quot;</span>
+<span class="n">AVERAGE_BLOCK_COLLECTION</span> <span class="o">=</span> <span class="s2">&quot;Average&quot;</span>
+<span class="n">FLUX_WEIGHTED_AVERAGE_BLOCK_COLLECTION</span> <span class="o">=</span> <span class="s2">&quot;FluxWeightedAverage&quot;</span>
+<span class="n">SLAB_COMPONENTS_BLOCK_COLLECTION</span> <span class="o">=</span> <span class="s2">&quot;ComponentAverage1DSlab&quot;</span>
+<span class="n">CYLINDRICAL_COMPONENTS_BLOCK_COLLECTION</span> <span class="o">=</span> <span class="s2">&quot;ComponentAverage1DCylinder&quot;</span>
+
+<span class="c1"># Mapping between block collection string constants and their</span>
+<span class="c1"># respective block collection classes.</span>
 <span class="n">BLOCK_COLLECTIONS</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;Median&quot;</span><span class="p">:</span> <span class="n">MedianBlockCollection</span><span class="p">,</span>
-    <span class="s2">&quot;Average&quot;</span><span class="p">:</span> <span class="n">AverageBlockCollection</span><span class="p">,</span>
-    <span class="s2">&quot;ComponentAverage1DSlab&quot;</span><span class="p">:</span> <span class="n">SlabComponentsAverageBlockCollection</span><span class="p">,</span>
-    <span class="s2">&quot;FluxWeightedAverage&quot;</span><span class="p">:</span> <span class="n">FluxWeightedAverageBlockCollection</span><span class="p">,</span>
+    <span class="n">MEDIAN_BLOCK_COLLECTION</span><span class="p">:</span> <span class="n">MedianBlockCollection</span><span class="p">,</span>
+    <span class="n">AVERAGE_BLOCK_COLLECTION</span><span class="p">:</span> <span class="n">AverageBlockCollection</span><span class="p">,</span>
+    <span class="n">FLUX_WEIGHTED_AVERAGE_BLOCK_COLLECTION</span><span class="p">:</span> <span class="n">FluxWeightedAverageBlockCollection</span><span class="p">,</span>
+    <span class="n">SLAB_COMPONENTS_BLOCK_COLLECTION</span><span class="p">:</span> <span class="n">SlabComponentsAverageBlockCollection</span><span class="p">,</span>
+    <span class="n">CYLINDRICAL_COMPONENTS_BLOCK_COLLECTION</span><span class="p">:</span> <span class="n">CylindricalComponentsAverageBlockCollection</span><span class="p">,</span>
 <span class="p">}</span>
 
 
@@ -1374,7 +1496,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-04-25.
+        Last updated on 2023-04-27.
       </span>
 
     </p>
