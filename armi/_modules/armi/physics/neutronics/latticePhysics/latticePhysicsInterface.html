@@ -214,9 +214,10 @@
     <span class="n">CONF_CLEAR_XS</span><span class="p">,</span>
     <span class="n">CONF_TOLERATE_BURNUP_CHANGE</span><span class="p">,</span>
     <span class="n">CONF_XS_KERNEL</span><span class="p">,</span>
+    <span class="n">CONF_LATTICE_PHYSICS_FREQUENCY</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">important</span>
-<span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_RUN_TYPE</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">LatticePhysicsFrequency</span>
 
 
 <span class="n">LATTICE_PHYSICS</span> <span class="o">=</span> <span class="s2">&quot;latticePhysics&quot;</span>
@@ -272,26 +273,42 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">includeGammaXS</span> <span class="o">=</span> <span class="n">neutronics</span><span class="o">.</span><span class="n">gammaTransportIsRequested</span><span class="p">(</span>
             <span class="n">cs</span>
         <span class="p">)</span> <span class="ow">or</span> <span class="n">neutronics</span><span class="o">.</span><span class="n">gammaXsAreRequested</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_latticePhysicsFrequency</span> <span class="o">=</span> <span class="n">LatticePhysicsFrequency</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_LATTICE_PHYSICS_FREQUENCY</span><span class="p">]</span>
+        <span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">_getExecutablePath</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="nd">@codeTiming</span><span class="o">.</span><span class="n">timed</span>
+    <span class="k">def</span> <span class="nf">interactBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run the lattice physics code if ``genXS`` is set and update burnup groups.</span>
+
+<span class="sd">        Generate new cross sections based off the case settings and the current state</span>
+<span class="sd">        of the reactor if the lattice physics frequency is BOL.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latticePhysicsFrequency</span> <span class="o">==</span> <span class="n">LatticePhysicsFrequency</span><span class="o">.</span><span class="n">BOL</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updateXSLibrary</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span>
 
     <span class="nd">@codeTiming</span><span class="o">.</span><span class="n">timed</span>
     <span class="k">def</span> <span class="nf">interactBOC</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run the lattice physics code if ``genXS`` is set and update burnup groups.</span>
 
-<span class="sd">        Generate new cross sections based off the case settings and the current state of the reactor.</span>
+<span class="sd">        Generate new cross sections based off the case settings and the current state</span>
+<span class="sd">        of the reactor if the lattice physics frequency is BOC.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        :py:meth:`armi.physics.fuelCycle.fuelHandlers.FuelHandler.interactBOC` also calls this if the</span>
-<span class="sd">        ``runLatticePhysicsBeforeShuffling``setting is True.</span>
+<span class="sd">        :py:meth:`armi.physics.fuelCycle.fuelHandlerInterface.FuelHandlerInterface.interactBOC`</span>
+<span class="sd">        also calls this if the ``runLatticePhysicsBeforeShuffling``setting is True.</span>
 <span class="sd">        This happens because branch searches may need XS.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">updateXSLibrary</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latticePhysicsFrequency</span> <span class="o">==</span> <span class="n">LatticePhysicsFrequency</span><span class="o">.</span><span class="n">BOC</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updateXSLibrary</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span>
 
-<div class="viewcode-block" id="LatticePhysicsInterface.updateXSLibrary"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.latticePhysics.latticePhysicsInterface.html#armi.physics.neutronics.latticePhysics.latticePhysicsInterface.LatticePhysicsInterface.updateXSLibrary">[docs]</a>    <span class="k">def</span> <span class="nf">updateXSLibrary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">):</span>
+<div class="viewcode-block" id="LatticePhysicsInterface.updateXSLibrary"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.latticePhysics.latticePhysicsInterface.html#armi.physics.neutronics.latticePhysics.latticePhysicsInterface.LatticePhysicsInterface.updateXSLibrary">[docs]</a>    <span class="k">def</span> <span class="nf">updateXSLibrary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Update the current XS library, either by creating or reloading one.</span>
 
@@ -299,6 +316,8 @@
 <span class="sd">        ----------</span>
 <span class="sd">        cycle : int</span>
 <span class="sd">            The cycle that is being processed. Used to name the library.</span>
+<span class="sd">        node : int, optional</span>
+<span class="sd">            The node that is being processed. Used to name the library.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -312,36 +331,38 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">computeCrossSections</span><span class="p">(</span>
                 <span class="n">blockList</span><span class="o">=</span><span class="n">representativeBlocks</span><span class="p">,</span> <span class="n">xsLibrarySuffix</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_getSuffix</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_renameExistingLibrariesForCycle</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_renameExistingLibrariesForStatepoint</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">readExistingXSLibraries</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">readExistingXSLibraries</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkInputs</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_renameExistingLibrariesForCycle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_renameExistingLibrariesForStatepoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Copy the existing neutron and/or gamma libraries into cycle-dependent files.&quot;&quot;&quot;</span>
-        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">neutronics</span><span class="o">.</span><span class="n">ISOTXS</span><span class="p">,</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedISOTXSFileName</span><span class="p">(</span><span class="n">cycle</span><span class="p">))</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
+            <span class="n">neutronics</span><span class="o">.</span><span class="n">ISOTXS</span><span class="p">,</span> <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedISOTXSFileName</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">includeGammaXS</span><span class="p">:</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
                 <span class="n">neutronics</span><span class="o">.</span><span class="n">GAMISO</span><span class="p">,</span>
                 <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedGAMISOFileName</span><span class="p">(</span>
-                    <span class="n">cycle</span><span class="o">=</span><span class="n">cycle</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_getSuffix</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span>
+                    <span class="n">cycle</span><span class="o">=</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="o">=</span><span class="n">node</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_getSuffix</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span>
                 <span class="p">),</span>
             <span class="p">)</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
                 <span class="n">neutronics</span><span class="o">.</span><span class="n">PMATRX</span><span class="p">,</span>
                 <span class="n">nuclearDataIO</span><span class="o">.</span><span class="n">getExpectedPMATRXFileName</span><span class="p">(</span>
-                    <span class="n">cycle</span><span class="o">=</span><span class="n">cycle</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_getSuffix</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span>
+                    <span class="n">cycle</span><span class="o">=</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="o">=</span><span class="n">node</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_getSuffix</span><span class="p">(</span><span class="n">cycle</span><span class="p">)</span>
                 <span class="p">),</span>
             <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_checkInputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>
 
-<div class="viewcode-block" id="LatticePhysicsInterface.readExistingXSLibraries"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.latticePhysics.latticePhysicsInterface.html#armi.physics.neutronics.latticePhysics.latticePhysicsInterface.LatticePhysicsInterface.readExistingXSLibraries">[docs]</a>    <span class="k">def</span> <span class="nf">readExistingXSLibraries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">):</span>
+<div class="viewcode-block" id="LatticePhysicsInterface.readExistingXSLibraries"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.latticePhysics.latticePhysicsInterface.html#armi.physics.neutronics.latticePhysics.latticePhysicsInterface.LatticePhysicsInterface.readExistingXSLibraries">[docs]</a>    <span class="k">def</span> <span class="nf">readExistingXSLibraries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-<div class="viewcode-block" id="LatticePhysicsInterface.makeCycleXSFilesAsBaseFiles"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.latticePhysics.latticePhysicsInterface.html#armi.physics.neutronics.latticePhysics.latticePhysicsInterface.LatticePhysicsInterface.makeCycleXSFilesAsBaseFiles">[docs]</a>    <span class="k">def</span> <span class="nf">makeCycleXSFilesAsBaseFiles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">):</span>
+<div class="viewcode-block" id="LatticePhysicsInterface.makeCycleXSFilesAsBaseFiles"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.latticePhysics.latticePhysicsInterface.html#armi.physics.neutronics.latticePhysics.latticePhysicsInterface.LatticePhysicsInterface.makeCycleXSFilesAsBaseFiles">[docs]</a>    <span class="k">def</span> <span class="nf">makeCycleXSFilesAsBaseFiles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
     <span class="nd">@staticmethod</span>
@@ -379,6 +400,17 @@
     <span class="k">def</span> <span class="nf">_getSuffix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">):</span>  <span class="c1"># pylint: disable=unused-argument, no-self-use</span>
         <span class="k">return</span> <span class="s2">&quot;&quot;</span>
 
+<div class="viewcode-block" id="LatticePhysicsInterface.interactEveryNode"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.latticePhysics.latticePhysicsInterface.html#armi.physics.neutronics.latticePhysics.latticePhysicsInterface.LatticePhysicsInterface.interactEveryNode">[docs]</a>    <span class="k">def</span> <span class="nf">interactEveryNode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">node</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run the lattice physics code if ``genXS`` is set and update burnup groups.</span>
+
+<span class="sd">        Generate new cross sections based off the case settings and the current state</span>
+<span class="sd">        of the reactor if the lattice physics frequency is at least everyNode.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latticePhysicsFrequency</span> <span class="o">==</span> <span class="n">LatticePhysicsFrequency</span><span class="o">.</span><span class="n">everyNode</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updateXSLibrary</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="LatticePhysicsInterface.interactCoupled"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.latticePhysics.latticePhysicsInterface.html#armi.physics.neutronics.latticePhysics.latticePhysicsInterface.LatticePhysicsInterface.interactCoupled">[docs]</a>    <span class="k">def</span> <span class="nf">interactCoupled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iteration</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Runs on coupled iterations to generate cross sections that are updated with the temperature state.</span>
@@ -405,9 +437,14 @@
 <span class="sd">            This is unused since cross sections are generated on a per-cycle basis.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># always run for snapshots to account for temp effect of different flow or power statepoint</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_RUN_TYPE</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Snapshots&quot;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">targetFrequency</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">LatticePhysicsFrequency</span><span class="o">.</span><span class="n">firstCoupledIteration</span>
+            <span class="k">if</span> <span class="n">iteration</span> <span class="o">==</span> <span class="mi">0</span>
+            <span class="k">else</span> <span class="n">LatticePhysicsFrequency</span><span class="o">.</span><span class="n">all</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latticePhysicsFrequency</span> <span class="o">&gt;=</span> <span class="n">targetFrequency</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">updateXSLibrary</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">updateXSLibrary</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LatticePhysicsInterface.clearXS"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.latticePhysics.latticePhysicsInterface.html#armi.physics.neutronics.latticePhysics.latticePhysicsInterface.LatticePhysicsInterface.clearXS">[docs]</a>    <span class="k">def</span> <span class="nf">clearXS</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
@@ -699,7 +736,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-05-05.
+        Last updated on 2023-05-09.
       </span>
 
     </p>

@@ -206,11 +206,13 @@
 <span class="kn">from</span> <span class="nn">armi.scripts.migration.crossSectionBlueprintsToSettings</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">migrateCrossSectionsFromBlueprints</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">LatticePhysicsFrequency</span>
 <span class="kn">from</span> <span class="nn">armi.settings</span> <span class="kn">import</span> <span class="n">setting</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CONF_DETAILED_AXIAL_EXPANSION</span><span class="p">,</span>
     <span class="n">CONF_NON_UNIFORM_ASSEM_FLAGS</span><span class="p">,</span>
+    <span class="n">CONF_RUN_TYPE</span><span class="p">,</span>
 <span class="p">)</span>
 
 
@@ -264,6 +266,7 @@
 <span class="n">CONF_XS_SCATTERING_ORDER</span> <span class="o">=</span> <span class="s2">&quot;xsScatteringOrder&quot;</span>
 <span class="n">CONF_XS_BUCKLING_CONVERGENCE</span> <span class="o">=</span> <span class="s2">&quot;xsBucklingConvergence&quot;</span>
 <span class="n">CONF_XS_EIGENVALUE_CONVERGENCE</span> <span class="o">=</span> <span class="s2">&quot;xsEigenvalueConvergence&quot;</span>
+<span class="n">CONF_LATTICE_PHYSICS_FREQUENCY</span> <span class="o">=</span> <span class="s2">&quot;latticePhysicsFrequency&quot;</span>
 
 
 <div class="viewcode-block" id="defineSettings"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.settings.html#armi.physics.neutronics.settings.defineSettings">[docs]</a><span class="k">def</span> <span class="nf">defineSettings</span><span class="p">():</span>
@@ -509,6 +512,13 @@
             <span class="n">options</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;MC2v2&quot;</span><span class="p">,</span> <span class="s2">&quot;MC2v3&quot;</span><span class="p">,</span> <span class="s2">&quot;MC2v3-PARTISN&quot;</span><span class="p">,</span> <span class="s2">&quot;SERPENT&quot;</span><span class="p">],</span>
         <span class="p">),</span>
         <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
+            <span class="n">CONF_LATTICE_PHYSICS_FREQUENCY</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="s2">&quot;BOC&quot;</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Frequency of lattice physics updates&quot;</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Define the frequency at which cross sections are updated with new lattice physics interactions.&quot;</span><span class="p">,</span>
+            <span class="n">options</span><span class="o">=</span><span class="p">[</span><span class="n">opt</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">opt</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">LatticePhysicsFrequency</span><span class="p">)],</span>
+        <span class="p">),</span>
+        <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
             <span class="n">CONF_XS_SCATTERING_ORDER</span><span class="p">,</span>
             <span class="n">default</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
             <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Scattering Order&quot;</span><span class="p">,</span>
@@ -714,6 +724,31 @@
         <span class="p">)</span>
     <span class="p">)</span>
 
+    <span class="n">queryMsg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;A Snapshots case is selected but the `latticePhysicsFrequency` &quot;</span>
+        <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2"> is less than `firstCoupledIteration`. `firstCoupledIteration`&quot;</span>
+        <span class="s2">&quot; or `all` is recommended for Snapshots when they involve large changes &quot;</span>
+        <span class="s2">&quot;in power or flow compared to the loaded state.&quot;</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_LATTICE_PHYSICS_FREQUENCY</span><span class="p">])</span>
+    <span class="n">queryPrompt</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;Would you like to update `latticePhysicsFrequency` from &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_LATTICE_PHYSICS_FREQUENCY</span><span class="p">]</span><span class="si">}</span><span class="s2"> to `firstCoupledIteration`?&quot;</span>
+    <span class="p">)</span>
+    <span class="n">queries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">settingsValidation</span><span class="o">.</span><span class="n">Query</span><span class="p">(</span>
+            <span class="k">lambda</span><span class="p">:</span> <span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_RUN_TYPE</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Snapshots&quot;</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">LatticePhysicsFrequency</span><span class="p">[</span>
+                <span class="n">inspector</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_LATTICE_PHYSICS_FREQUENCY</span><span class="p">]</span>
+            <span class="p">]</span>
+            <span class="o">&gt;=</span> <span class="n">LatticePhysicsFrequency</span><span class="o">.</span><span class="n">firstCoupledIteration</span><span class="p">,</span>
+            <span class="n">queryMsg</span><span class="p">,</span>
+            <span class="n">queryPrompt</span><span class="p">,</span>
+            <span class="k">lambda</span><span class="p">:</span> <span class="n">inspector</span><span class="o">.</span><span class="n">_assignCS</span><span class="p">(</span>
+                <span class="n">CONF_LATTICE_PHYSICS_FREQUENCY</span><span class="p">,</span> <span class="s2">&quot;firstCoupledIteration&quot;</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
     <span class="k">return</span> <span class="n">queries</span></div>
 </pre></div>
 
@@ -728,7 +763,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-05-05.
+        Last updated on 2023-05-09.
       </span>
 
     </p>
