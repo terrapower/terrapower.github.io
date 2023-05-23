@@ -216,6 +216,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="kn">import</span> <span class="n">geometryConverters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="kn">import</span> <span class="n">uniformMesh</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">armi.settings.caseSettings</span> <span class="kn">import</span> <span class="n">Settings</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span><span class="p">,</span> <span class="n">codeTiming</span><span class="p">,</span> <span class="n">getMaxBurnSteps</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CONF_BOUNDARIES</span><span class="p">,</span>
@@ -529,49 +530,99 @@
 
 
 <div class="viewcode-block" id="GlobalFluxOptions"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxOptions">[docs]</a><span class="k">class</span> <span class="nc">GlobalFluxOptions</span><span class="p">(</span><span class="n">executers</span><span class="o">.</span><span class="n">ExecutionOptions</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Data structure representing common options in Global Flux Solvers&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Data structure representing common options in Global Flux Solvers</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adjoint : bool</span>
+<span class="sd">        True if the ``CONF_NEUTRONICS_TYPE`` setting is set to ``adjoint`` or ``real``.</span>
+<span class="sd">    calcReactionRatesOnMeshConversion : bool</span>
+<span class="sd">        This option is used to recalculate reaction rates after a mesh</span>
+<span class="sd">        conversion and remapping of neutron flux. This can be disabled</span>
+<span class="sd">        in certain global flux implementations if reaction rates are not</span>
+<span class="sd">        required, but by default it is enabled.</span>
+<span class="sd">    eigenvalueProblem : bool</span>
+<span class="sd">        Whether this is a eigenvalue problem or a fixed source problem</span>
+<span class="sd">    includeFixedSource : bool</span>
+<span class="sd">        This can happen in eig if Fredholm Alternative satisfied.</span>
+<span class="sd">    photons : bool</span>
+<span class="sd">        Run the photon/gamma uniform mesh converter?</span>
+<span class="sd">    real : bool</span>
+<span class="sd">        True if  ``CONF_NEUTRONICS_TYPE`` setting is set to ``real``.</span>
+<span class="sd">    aclpDoseLimit : float</span>
+<span class="sd">        Dose limit in dpa used to position the above-core load pad (if one exists)</span>
+<span class="sd">    boundaries : str</span>
+<span class="sd">        External Neutronic Boundary Conditions. Reflective does not include axial.</span>
+<span class="sd">    cs : Settings</span>
+<span class="sd">        Settings for this run</span>
+<span class="sd">    detailedAxialExpansion : bool</span>
+<span class="sd">        Turn on detailed axial expansion? from settings</span>
+<span class="sd">    dpaPerFluence : float</span>
+<span class="sd">        A quick and dirty conversion that is used to get dpaPeak by multiplying</span>
+<span class="sd">        the factor and fastFluencePeak</span>
+<span class="sd">    energyDepoCalcMethodStep : str</span>
+<span class="sd">        For gamma transport/normalization</span>
+<span class="sd">    epsEigenvalue : float</span>
+<span class="sd">        Convergence criteria for calculating the eigenvalue in the global flux solver</span>
+<span class="sd">    epsFissionSourceAvg : float</span>
+<span class="sd">        Convergence criteria for average fission source, from settings</span>
+<span class="sd">    epsFissionSourcePoint : float</span>
+<span class="sd">        Convergence criteria for point fission source, from settings</span>
+<span class="sd">    geomType : geometry.GeomType</span>
+<span class="sd">        Reactor Core geometry type (HEX, RZ, RZT, etc)</span>
+<span class="sd">    hasNonUniformAssems: bool</span>
+<span class="sd">        Has any non-uniform assembly flags, from settings</span>
+<span class="sd">    isRestart : bool</span>
+<span class="sd">        Restart global flux case using outputs from last time as a guess</span>
+<span class="sd">    kernelName : str</span>
+<span class="sd">        The neutronics / depletion solver for global flux solve.</span>
+<span class="sd">    loadPadElevation : float</span>
+<span class="sd">        The elevation of the bottom of the above-core load pad (ACLP) from</span>
+<span class="sd">        the bottom of the upper grid plate (in cm).</span>
+<span class="sd">    loadPadLength : float</span>
+<span class="sd">        The length of the load pad. Used to compute average and peak dose.</span>
+<span class="sd">    maxOuters : int</span>
+<span class="sd">        XY and Axial partial current sweep max outer iterations.</span>
+<span class="sd">    savePhysicsFilesList : bool</span>
+<span class="sd">        Is this timestamp in the list of savePhysicsFiles in the settings?</span>
+<span class="sd">    symmetry : str</span>
+<span class="sd">        Reactor symmetry: full core, third-core, etc</span>
+<span class="sd">    xsKernel : str</span>
+<span class="sd">        Lattice Physics Kernel, from settings</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="n">executers</span><span class="o">.</span><span class="n">ExecutionOptions</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">real</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">adjoint</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">neutrons</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">photons</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">boundaryConditions</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">epsFissionSourceAvg</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">epsFissionSourcePoint</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">epsEigenvalue</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">maxOuters</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="c1"># can happen in eig if Fredholm Alternative satisfied</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">includeFixedSource</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">eigenvalueProblem</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">kernelName</span><span class="p">:</span> <span class="nb">str</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">isRestart</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">energyDepoCalcMethodStep</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># for gamma transport/normalization</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">detailedAxialExpansion</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># have defaults</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">adjoint</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calcReactionRatesOnMeshConversion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eigenvalueProblem</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">includeFixedSource</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">photons</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">real</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">boundaries</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">xsKernel</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># no defaults</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aclpDoseLimit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">boundaries</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Settings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">detailedAxialExpansion</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dpaPerFluence</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">energyDepoCalcMethodStep</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsEigenvalue</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsFissionSourceAvg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsFissionSourcePoint</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">geomType</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">geometry</span><span class="o">.</span><span class="n">GeomType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hasNonUniformAssems</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">isRestart</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kernelName</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loadPadElevation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loadPadLength</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maxOuters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">savePhysicsFilesList</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xsKernel</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">dpaPerFluence</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">aclpDoseLimit</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">loadPadElevation</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">loadPadLength</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">savePhysicsFilesList</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_geomType</span><span class="p">:</span> <span class="n">geometry</span><span class="o">.</span><span class="n">GeomType</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">symmetry</span><span class="p">:</span> <span class="nb">str</span>
-
-        <span class="c1"># This option is used to recalculate reaction</span>
-        <span class="c1"># rates after a mesh conversion and remapping</span>
-        <span class="c1"># of neutron flux. This can be disabled</span>
-        <span class="c1"># in certain global flux implementations</span>
-        <span class="c1"># if reaction rates are not required, but</span>
-        <span class="c1"># by default it is enabled.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">calcReactionRatesOnMeshConversion</span> <span class="o">=</span> <span class="kc">True</span>
-
-<div class="viewcode-block" id="GlobalFluxOptions.fromUserSettings"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxOptions.fromUserSettings">[docs]</a>    <span class="k">def</span> <span class="nf">fromUserSettings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
+<div class="viewcode-block" id="GlobalFluxOptions.fromUserSettings"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxOptions.fromUserSettings">[docs]</a>    <span class="k">def</span> <span class="nf">fromUserSettings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">:</span> <span class="n">Settings</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Map user input settings from cs to a set of specific global flux options.</span>
 
@@ -1452,7 +1503,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-05-19.
+        Last updated on 2023-05-23.
       </span>
 
     </p>
