@@ -212,6 +212,9 @@
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">hexagon</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
 <span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.isotopicDepletion.isotopicDepletionInterface</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">isDepletable</span><span class="p">,</span>
+<span class="p">)</span>
 
 
 <div class="viewcode-block" id="TestBlockConverter"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_blockConverter.html#armi.reactor.converters.tests.test_blockConverter.TestBlockConverter">[docs]</a><span class="k">class</span> <span class="nc">TestBlockConverter</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -312,15 +315,27 @@
         <span class="p">)</span>
 
         <span class="n">block</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">)</span>
+        <span class="n">control</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">)</span>
+
+        <span class="c1"># add depletable flag to see if it is carried</span>
+        <span class="n">control</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span> <span class="o">|=</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DEPLETABLE</span>
 
         <span class="n">driverBlock</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">block</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">HexGrid</span><span class="o">.</span><span class="n">fromPitch</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_testConvertWithDriverRings</span><span class="p">(</span>
+        <span class="n">convertedWithoutDriver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_testConvertWithDriverRings</span><span class="p">(</span>
             <span class="n">block</span><span class="p">,</span>
             <span class="n">driverBlock</span><span class="p">,</span>
             <span class="n">blockConverters</span><span class="o">.</span><span class="n">HexComponentsToCylConverter</span><span class="p">,</span>
             <span class="n">hexagon</span><span class="o">.</span><span class="n">numPositionsInRing</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="nb">len</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">convertedWithoutDriver</span> <span class="k">if</span> <span class="n">isDepletable</span><span class="p">(</span><span class="n">c</span><span class="p">)]))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span>
+            <span class="mi">5</span><span class="p">,</span> <span class="nb">len</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">convertedWithoutDriver</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">)])</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span>
+            <span class="mi">9</span><span class="p">,</span> <span class="nb">len</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">convertedWithoutDriver</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)])</span>
         <span class="p">)</span>
 
         <span class="c1"># This should fail because a spatial grid is required</span>
@@ -341,12 +356,14 @@
         <span class="n">driverBlock</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">block</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_testConvertWithDriverRings</span><span class="p">(</span>
+        <span class="n">convertedWithoutDriver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_testConvertWithDriverRings</span><span class="p">(</span>
             <span class="n">block</span><span class="p">,</span>
             <span class="n">driverBlock</span><span class="p">,</span>
             <span class="n">blockConverters</span><span class="o">.</span><span class="n">BlockAvgToCylConverter</span><span class="p">,</span>
             <span class="n">hexagon</span><span class="o">.</span><span class="n">numPositionsInRing</span><span class="p">,</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span>
+        <span class="c1"># block went to 1 component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">convertedWithoutDriver</span><span class="p">]))</span></div>
 
 <div class="viewcode-block" id="TestBlockConverter.test_convertHexWithFuelDriverOnNegativeComponentAreaBlock"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_blockConverter.html#armi.reactor.converters.tests.test_blockConverter.TestBlockConverter.test_convertHexWithFuelDriverOnNegativeComponentAreaBlock">[docs]</a>    <span class="k">def</span> <span class="nf">test_convertHexWithFuelDriverOnNegativeComponentAreaBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -412,8 +429,10 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">isFuel</span><span class="p">(),</span> <span class="s2">&quot;c was </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
                 <span class="c1"># remove external driver rings in preperation to check composition</span>
                 <span class="n">convertedBlock</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="n">convBlockWithoutDriver</span> <span class="o">=</span> <span class="n">convertedBlock</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_checkAreaAndComposition</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">convBlockWithoutDriver</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_checkAreaAndComposition</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">convertedBlock</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">convBlockWithoutDriver</span>
 
     <span class="k">def</span> <span class="nf">_checkAreaAndComposition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="n">convertedBlock</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">getArea</span><span class="p">(),</span> <span class="n">convertedBlock</span><span class="o">.</span><span class="n">getArea</span><span class="p">())</span>
