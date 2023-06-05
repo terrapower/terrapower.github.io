@@ -420,7 +420,25 @@
 
 <span class="sd">        .. tip:: The proper way to treat non-fuel blocks is to apply a leakage spectrum from fuel onto them.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">b</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_validRepresentativeBlockTypes</span><span class="p">)]</span></div></div>
+        <span class="k">return</span> <span class="p">[</span><span class="n">b</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span> <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_validRepresentativeBlockTypes</span><span class="p">)]</span></div>
+
+    <span class="k">def</span> <span class="nf">_calcWeightedBurnup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For a blockCollection that represents fuel, calculate the weighted average burnup</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - Only used for logging purposes</span>
+<span class="sd">        - Burnup needs to be weighted by heavy metal mass instead of volume</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">weightedBurnup</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">totalWeight</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="c1"># self.getWeight(b) incorporates the volume as does mass, so divide by volume not to double-count</span>
+            <span class="n">weighting</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getWeight</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">/</span> <span class="n">b</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+            <span class="n">totalWeight</span> <span class="o">+=</span> <span class="n">weighting</span>
+            <span class="n">weightedBurnup</span> <span class="o">+=</span> <span class="n">weighting</span> <span class="o">*</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span>
+        <span class="k">return</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">totalWeight</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="n">weightedBurnup</span> <span class="o">/</span> <span class="n">totalWeight</span></div>
 
 
 <div class="viewcode-block" id="MedianBlockCollection"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.MedianBlockCollection">[docs]</a><span class="k">class</span> <span class="nc">MedianBlockCollection</span><span class="p">(</span><span class="n">BlockCollection</span><span class="p">):</span>
@@ -494,6 +512,7 @@
         <span class="n">lfpCollection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAverageFuelLFP</span><span class="p">()</span>
         <span class="n">newBlock</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="n">lfpCollection</span><span class="p">)</span>
         <span class="n">newBlock</span><span class="o">.</span><span class="n">setNumberDensities</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_getAverageNumberDensities</span><span class="p">())</span>
+        <span class="n">newBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calcWeightedBurnup</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">calcAvgNuclideTemperatures</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">newBlock</span>
 
@@ -605,6 +624,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a representative fuel block based on component number densities.&quot;&quot;&quot;</span>
         <span class="n">repBlock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getNewBlock</span><span class="p">()</span>
         <span class="n">bWeights</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">getWeight</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCandidateBlocks</span><span class="p">()]</span>
+        <span class="n">repBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calcWeightedBurnup</span><span class="p">()</span>
         <span class="n">componentsInOrder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_orderComponentsInGroup</span><span class="p">(</span><span class="n">repBlock</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">allSimilarComponents</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">repBlock</span><span class="p">,</span> <span class="n">componentsInOrder</span><span class="p">):</span>
@@ -702,6 +722,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a representative fuel block based on component number densities.&quot;&quot;&quot;</span>
         <span class="n">repBlock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getNewBlock</span><span class="p">()</span>
         <span class="n">bWeights</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">getWeight</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCandidateBlocks</span><span class="p">()]</span>
+        <span class="n">repBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calcWeightedBurnup</span><span class="p">()</span>
         <span class="n">componentsInOrder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_orderComponentsInGroup</span><span class="p">(</span><span class="n">repBlock</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">allSimilarComponents</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">repBlock</span><span class="p">,</span> <span class="n">componentsInOrder</span><span class="p">):</span>
@@ -1506,7 +1527,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-06-02.
+        Last updated on 2023-06-05.
       </span>
 
     </p>
