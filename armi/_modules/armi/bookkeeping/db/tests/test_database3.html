@@ -211,6 +211,7 @@
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.db.databaseInterface</span> <span class="kn">import</span> <span class="n">DatabaseInterface</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.tests.test_reactors</span> <span class="kn">import</span> <span class="n">loadTestReactor</span><span class="p">,</span> <span class="n">reduceTestReactorRings</span>
+<span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_SORT_REACTOR</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">TEST_ROOT</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">getPreviousTimeNode</span>
 <span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
@@ -518,6 +519,7 @@
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">KeyError</span><span class="p">):</span>
             <span class="n">_r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
+        <span class="c1"># default load, should pass without error</span>
         <span class="n">_r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">allowMissing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># show that we can use negative indices to load</span>
@@ -535,6 +537,21 @@
         <span class="c1"># we shouldn&#39;t be able to set the fileName if a file is open</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">fileName</span> <span class="o">=</span> <span class="s2">&quot;whatever.h5&quot;</span></div>
+
+<div class="viewcode-block" id="TestDatabase3.test_loadSortSetting"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.db.tests.test_database3.html#armi.bookkeeping.db.tests.test_database3.TestDatabase3.test_loadSortSetting">[docs]</a>    <span class="k">def</span> <span class="nf">test_loadSortSetting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">makeShuffleHistory</span><span class="p">()</span>
+
+        <span class="c1"># default load, should pass without error</span>
+        <span class="n">r0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">allowMissing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># test that the reactor loads differently, dependent on the setting</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">loadCS</span><span class="p">()</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">CONF_SORT_REACTOR</span><span class="p">:</span> <span class="kc">False</span><span class="p">})</span>
+        <span class="n">r1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="n">cs</span><span class="p">,</span> <span class="n">allowMissing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># the reactor / core should be the same size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r0</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">r1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r0</span><span class="o">.</span><span class="n">core</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">r1</span><span class="o">.</span><span class="n">core</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="TestDatabase3.test_load_updateGlobalAssemNum"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.db.tests.test_database3.html#armi.bookkeeping.db.tests.test_database3.TestDatabase3.test_load_updateGlobalAssemNum">[docs]</a>    <span class="k">def</span> <span class="nf">test_load_updateGlobalAssemNum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblies</span>
