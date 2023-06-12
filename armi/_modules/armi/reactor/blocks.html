@@ -211,19 +211,20 @@
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">report</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">GAMMA</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">NEUTRON</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.components</span> <span class="kn">import</span> <span class="n">basicShapes</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">blockParameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">components</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.components.basicShapes</span> <span class="kn">import</span> <span class="n">Hexagon</span><span class="p">,</span> <span class="n">Circle</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">composites</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">geometry</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.components</span> <span class="kn">import</span> <span class="n">basicShapes</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.components.basicShapes</span> <span class="kn">import</span> <span class="n">Hexagon</span><span class="p">,</span> <span class="n">Circle</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.components.complexShapes</span> <span class="kn">import</span> <span class="n">Helix</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.parameters</span> <span class="kn">import</span> <span class="n">ParamLocation</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">densityTools</span>
@@ -2395,11 +2396,19 @@
                 <span class="mi">6</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;ip&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="k">else</span> <span class="mf">0.0</span>
             <span class="p">)</span>
 
-        <span class="c1"># solid circle = od * pi</span>
-        <span class="c1"># NOTE: since these are pin components, multiply by the number of pins</span>
+        <span class="c1"># solid circle = NumPins * pi * (Comp Diam + Wire Diam)</span>
         <span class="n">wettedPinPerimeter</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">wettedPinComponents</span><span class="p">:</span>
-            <span class="n">wettedPinPerimeter</span> <span class="o">+=</span> <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="n">correctionFactor</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Helix</span><span class="p">):</span>
+                <span class="c1"># account for the helical wire wrap</span>
+                <span class="n">correctionFactor</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span>
+                    <span class="mf">1.0</span><span class="p">,</span>
+                    <span class="n">math</span><span class="o">.</span><span class="n">pi</span>
+                    <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;helixDiameter&quot;</span><span class="p">)</span>
+                    <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;axialPitch&quot;</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="n">wettedPinPerimeter</span> <span class="o">+=</span> <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span> <span class="o">*</span> <span class="n">correctionFactor</span>
         <span class="n">wettedPinPerimeter</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">()</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span>
 
         <span class="c1"># hollow circle = (id + od) * pi</span>
@@ -2538,7 +2547,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-06-08.
+        Last updated on 2023-06-12.
       </span>
 
     </p>
