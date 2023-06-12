@@ -209,6 +209,7 @@
 <span class="kn">import</span> <span class="nn">collections</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">import</span> <span class="nn">ordered_set</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
@@ -226,6 +227,7 @@
     <span class="n">CONF_MINIMUM_NUCLIDE_DENSITY</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">CONF_GEN_XS</span>
+<span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_DETAILED_AXIAL_EXPANSION</span>
 
 
 <span class="c1"># number of decimal places to round temperatures to in _groupNuclidesByTemperature</span>
@@ -235,7 +237,7 @@
 
 
 <span class="nd">@warn_when_root</span>
-<span class="k">def</span> <span class="nf">NuclideNameFoundMultipleTimes</span><span class="p">(</span><span class="n">nuclideName</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">nuclideNameFoundMultipleTimes</span><span class="p">(</span><span class="n">nuclideName</span><span class="p">):</span>
     <span class="k">return</span> <span class="s2">&quot;Nuclide `</span><span class="si">{}</span><span class="s2">&#39; was found multiple times.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nuclideName</span><span class="p">)</span>
 
 
@@ -425,11 +427,19 @@
         <span class="c1"># on the components will already contain all the nuclides required to be</span>
         <span class="c1"># modeled by the lattice physics writer. Otherwise, assume that `allNuclidesInProblem`</span>
         <span class="c1"># should be modeled.</span>
-        <span class="n">nuclides</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">sorted</span><span class="p">(</span><span class="n">objNuclides</span><span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">explicitFissionProducts</span>
-            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">explicitFissionProducts</span><span class="p">:</span>
+            <span class="c1"># If detailed axial expansion is active, mapping between blocks occurs on uniform mesh</span>
+            <span class="c1"># and this can cause blocks to have isotopes that they don&#39;t have cross sections for.</span>
+            <span class="c1"># Fix this by adding all isotopes so they are present in lattice physics.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_DETAILED_AXIAL_EXPANSION</span><span class="p">]:</span>
+                <span class="n">nuclides</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">nuclides</span> <span class="o">=</span> <span class="n">ordered_set</span><span class="o">.</span><span class="n">OrderedSet</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">objNuclides</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">nuclides</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
+
+        <span class="n">nuclides</span> <span class="o">=</span> <span class="n">nuclides</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">nucsToForceInXsGen</span><span class="p">)</span>
+
         <span class="n">numDensities</span> <span class="o">=</span> <span class="n">subjectObject</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">nuclides</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">dens</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nuclides</span><span class="p">,</span> <span class="n">numDensities</span><span class="p">):</span>
@@ -446,7 +456,7 @@
 
             <span class="n">density</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">dens</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">minimumNuclideDensity</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nucDensities</span><span class="p">:</span>
-                <span class="n">NuclideNameFoundMultipleTimes</span><span class="p">(</span><span class="n">nucName</span><span class="p">)</span>
+                <span class="n">nuclideNameFoundMultipleTimes</span><span class="p">(</span><span class="n">nucName</span><span class="p">)</span>
                 <span class="n">dens</span><span class="p">,</span> <span class="n">nucTemperatureInC</span><span class="p">,</span> <span class="n">nucCategory</span> <span class="o">=</span> <span class="n">nucDensities</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span>
                 <span class="n">density</span> <span class="o">=</span> <span class="n">dens</span> <span class="o">+</span> <span class="n">density</span>
                 <span class="n">nucDensities</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">density</span><span class="p">,</span> <span class="n">nucTemperatureInC</span><span class="p">,</span> <span class="n">nucCategory</span><span class="p">)</span>

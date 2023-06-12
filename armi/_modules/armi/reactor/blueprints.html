@@ -399,11 +399,12 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">assemblies</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_prepped</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assembliesBySpecifier</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">allNuclidesInProblem</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">ordered_set</span><span class="o">.</span><span class="n">OrderedSet</span><span class="p">()</span>
-        <span class="p">)</span>  <span class="c1"># Better for performance since these are used for lookups</span>
+
+        <span class="c1"># Better for performance since these are used for lookups</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">allNuclidesInProblem</span> <span class="o">=</span> <span class="n">ordered_set</span><span class="o">.</span><span class="n">OrderedSet</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">activeNuclides</span> <span class="o">=</span> <span class="n">ordered_set</span><span class="o">.</span><span class="n">OrderedSet</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inertNuclides</span> <span class="o">=</span> <span class="n">ordered_set</span><span class="o">.</span><span class="n">OrderedSet</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nucsToForceInXsGen</span> <span class="o">=</span> <span class="n">ordered_set</span><span class="o">.</span><span class="n">OrderedSet</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">return</span> <span class="bp">self</span>
 
@@ -577,46 +578,47 @@
 
         <span class="n">actives</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="n">inerts</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="n">undefBurnChainActiveNuclides</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span> <span class="o">=</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">genDefaultNucFlags</span><span class="p">()</span>
 
-        <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">autoUpdateNuclideFlags</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span><span class="p">)</span>
+        <span class="n">nuclideFlags</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span> <span class="ow">or</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">genDefaultNucFlags</span><span class="p">()</span>
 
+        <span class="n">nucsToForceInXsGen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="c1"># just expanding flags now. ndense gets expanded in comp blueprints</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">nucFlag</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">nucFlag</span> <span class="ow">in</span> <span class="n">nuclideFlags</span><span class="p">:</span>
             <span class="c1"># this returns any nuclides that are flagged specifically for expansion by input</span>
-            <span class="n">expandedElements</span> <span class="o">=</span> <span class="n">nucFlag</span><span class="o">.</span><span class="n">fileAsActiveOrInert</span><span class="p">(</span>
-                <span class="n">actives</span><span class="p">,</span> <span class="n">inerts</span><span class="p">,</span> <span class="n">undefBurnChainActiveNuclides</span>
+            <span class="p">(</span>
+                <span class="n">expandedElements</span><span class="p">,</span>
+                <span class="n">undefBurnChainActiveNuclides</span><span class="p">,</span>
+            <span class="p">)</span> <span class="o">=</span> <span class="n">nucFlag</span><span class="o">.</span><span class="n">fileAsActiveOrInert</span><span class="p">(</span>
+                <span class="n">actives</span><span class="p">,</span>
+                <span class="n">inerts</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">expandedElements</span><span class="p">)</span>
 
         <span class="n">inerts</span> <span class="o">-=</span> <span class="n">actives</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">customIsotopics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">customIsotopics</span> <span class="ow">or</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">CustomIsotopics</span><span class="p">()</span>
-        <span class="p">(</span>
-            <span class="n">elementalsToKeep</span><span class="p">,</span>
-            <span class="n">expansions</span><span class="p">,</span>
-        <span class="p">)</span> <span class="o">=</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">autoSelectElementsToKeepFromSettings</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+        <span class="n">eleKeep</span><span class="p">,</span> <span class="n">eleExpand</span> <span class="o">=</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">eleExpandInfoBasedOnCodeENDF</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
 
         <span class="c1"># Flag all elementals for expansion unless they&#39;ve been flagged otherwise by</span>
         <span class="c1"># user input or automatic lattice/datalib rules.</span>
-        <span class="k">for</span> <span class="n">elemental</span> <span class="ow">in</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">instances</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">elemental</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">NaturalNuclideBase</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">nucBase</span> <span class="ow">in</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">instances</span><span class="p">:</span>
+            <span class="n">isAlreadyIsotopic</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nucBase</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">NaturalNuclideBase</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">isAlreadyIsotopic</span><span class="p">:</span>
                 <span class="c1"># `elemental` may be a NaturalNuclideBase or a NuclideBase</span>
-                <span class="c1"># skip all NuclideBases</span>
+                <span class="c1"># skip all NuclideBases (isotopics)</span>
                 <span class="k">continue</span>
 
-            <span class="k">if</span> <span class="n">elemental</span> <span class="ow">in</span> <span class="n">elementalsToKeep</span><span class="p">:</span>
+            <span class="c1"># we now know its an elemental</span>
+            <span class="n">elemental</span> <span class="o">=</span> <span class="n">nucBase</span>
+            <span class="k">if</span> <span class="n">elemental</span> <span class="ow">in</span> <span class="n">eleKeep</span><span class="p">:</span>
                 <span class="k">continue</span>
 
             <span class="k">if</span> <span class="n">elemental</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">actives</span><span class="p">:</span>
                 <span class="n">currentSet</span> <span class="o">=</span> <span class="n">actives</span>
-                <span class="n">actives</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">elemental</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">elemental</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">inerts</span><span class="p">:</span>
                 <span class="n">currentSet</span> <span class="o">=</span> <span class="n">inerts</span>
-                <span class="n">inerts</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">elemental</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># This was not specified in the nuclide flags at all.</span>
+                <span class="c1"># This was not specified in the nuclide flags at all as burn or xs.</span>
                 <span class="c1"># If a material with this in its composition is brought in</span>
                 <span class="c1"># it&#39;s nice from a user perspective to allow it.</span>
                 <span class="c1"># But current behavior is that all nuclides in problem</span>
@@ -626,20 +628,17 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="p">(</span>
-                <span class="n">elemental</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span>
-                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span><span class="p">[</span><span class="n">elemental</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">expandTo</span>
+                <span class="n">elemental</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">nuclideFlags</span>
+                <span class="ow">and</span> <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="p">]</span><span class="o">.</span><span class="n">expandTo</span>
             <span class="p">):</span>
-                <span class="c1"># user-input has precedence</span>
+                <span class="c1"># user-input expandTo has precedence</span>
                 <span class="n">newNuclides</span> <span class="o">=</span> <span class="p">[</span>
                     <span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nn</span><span class="p">]</span>
-                    <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span><span class="p">[</span><span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="p">]</span><span class="o">.</span><span class="n">expandTo</span>
+                    <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="p">]</span><span class="o">.</span><span class="n">expandTo</span>
                 <span class="p">]</span>
-            <span class="k">elif</span> <span class="p">(</span>
-                <span class="n">elemental</span> <span class="ow">in</span> <span class="n">expansions</span>
-                <span class="ow">and</span> <span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span>
-            <span class="p">):</span>
-                <span class="c1"># code-specific expansion required</span>
-                <span class="n">newNuclides</span> <span class="o">=</span> <span class="n">expansions</span><span class="p">[</span><span class="n">elemental</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="n">elemental</span> <span class="ow">in</span> <span class="n">eleExpand</span> <span class="ow">and</span> <span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span> <span class="ow">in</span> <span class="n">nuclideFlags</span><span class="p">:</span>
+                <span class="c1"># code-specific expansion required based on code and ENDF</span>
+                <span class="n">newNuclides</span> <span class="o">=</span> <span class="n">eleExpand</span><span class="p">[</span><span class="n">elemental</span><span class="p">]</span>
                 <span class="c1"># overlay code details onto nuclideFlags for other parts of the code</span>
                 <span class="c1"># that will use them.</span>
                 <span class="c1"># TODO: would be better if nuclideFlags did this upon reading s.t.</span>
@@ -649,15 +648,24 @@
                 <span class="c1"># This must be updated because the operative expansion code just uses the flags</span>
                 <span class="c1">#</span>
                 <span class="c1"># Also, if this element is not in nuclideFlags at all, we just don&#39;t add it</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span><span class="p">[</span><span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="p">]</span><span class="o">.</span><span class="n">expandTo</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">nuclideFlags</span><span class="p">[</span><span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="p">]</span><span class="o">.</span><span class="n">expandTo</span> <span class="o">=</span> <span class="p">[</span>
                     <span class="n">nb</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">nb</span> <span class="ow">in</span> <span class="n">newNuclides</span>
                 <span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># expand to all possible natural isotopics</span>
                 <span class="n">newNuclides</span> <span class="o">=</span> <span class="n">elemental</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">getNaturalIsotopics</span><span class="p">()</span>
 
+            <span class="c1"># remove the elemental and add the isotopic</span>
+            <span class="n">currentSet</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">elemental</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">nb</span> <span class="ow">in</span> <span class="n">newNuclides</span><span class="p">:</span>
                 <span class="n">currentSet</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">nb</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># force everything asked for in xsGen</span>
+        <span class="n">nucsToForceInXsGen</span> <span class="o">=</span> <span class="n">ordered_set</span><span class="o">.</span><span class="n">OrderedSet</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">actives</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">inerts</span><span class="p">)))</span>
+
+        <span class="c1"># add all detailed isotopes in ENDF if requested</span>
+        <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">autoUpdateNuclideFlags</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">nuclideFlags</span><span class="p">,</span> <span class="n">inerts</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nuclideFlags</span> <span class="o">=</span> <span class="n">nuclideFlags</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">elementsToExpand</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
@@ -671,6 +679,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">allNuclidesInProblem</span> <span class="o">=</span> <span class="n">ordered_set</span><span class="o">.</span><span class="n">OrderedSet</span><span class="p">(</span>
             <span class="nb">sorted</span><span class="p">(</span><span class="n">actives</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">inerts</span><span class="p">))</span>
         <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nucsToForceInXsGen</span> <span class="o">=</span> <span class="n">ordered_set</span><span class="o">.</span><span class="n">OrderedSet</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">nucsToForceInXsGen</span><span class="p">))</span>
 
         <span class="c1"># Inform user which nuclides are truncating the burn chain.</span>
         <span class="k">if</span> <span class="n">undefBurnChainActiveNuclides</span> <span class="ow">and</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">burnChainImposed</span><span class="p">:</span>

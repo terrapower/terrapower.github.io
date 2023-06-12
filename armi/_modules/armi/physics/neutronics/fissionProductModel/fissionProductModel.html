@@ -288,7 +288,7 @@
     <span class="n">CONF_FP_MODEL</span><span class="p">,</span>
     <span class="n">CONF_MAKE_ALL_BLOCK_LFPS_INDEPENDENT</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_DETAILED_AXIAL_EXPANSION</span>
+
 
 <span class="n">NUM_FISSION_PRODUCTS_PER_LFP</span> <span class="o">=</span> <span class="mf">2.0</span>
 
@@ -309,10 +309,6 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_globalLFPs</span> <span class="o">=</span> <span class="n">lumpedFissionProduct</span><span class="o">.</span><span class="n">lumpedFissionProductFactory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
-        <span class="c1"># If detailed axial expansion is active, mapping between blocks occurs on uniform mesh</span>
-        <span class="c1"># and this can cause blocks to have isotopes that they don&#39;t have cross sections for.</span>
-        <span class="c1"># Fix this by adding all isotopes to all blocks so they are present it lattice physics.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">allBlocksNeedAllNucs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_DETAILED_AXIAL_EXPANSION</span><span class="p">]</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">_explicitFissionProducts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -340,10 +336,7 @@
 <span class="sd">        products be consistent across all blocks, even if fission products are</span>
 <span class="sd">        not generated when the block is depleted.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;mcnp&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">allBlocksNeedAllNucs</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;mcnp&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span>
 
 <div class="viewcode-block" id="FissionProductModel.interactBOL"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.interactBOL">[docs]</a>    <span class="k">def</span> <span class="nf">interactBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="n">interactBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
@@ -352,31 +345,15 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">setAllBlockLFPs</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_getComponentToInitDensities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the component to initialize ndens keys on.&quot;&quot;&quot;</span>
-        <span class="c1"># add the isotopics to the smallest solid since that is usually the most &quot;interesting&quot;</span>
-        <span class="c1"># sorted() calls getBoundingCircleOuterDiameter under the hood</span>
-        <span class="n">solidsOrderedBySize</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">containsSolidMaterial</span><span class="p">())</span>
-        <span class="k">if</span> <span class="n">solidsOrderedBySize</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">solidsOrderedBySize</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># no solids, so just add to smallest component</span>
-            <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-
 <div class="viewcode-block" id="FissionProductModel.setAllComponentFissionProducts"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.setAllComponentFissionProducts">[docs]</a>    <span class="k">def</span> <span class="nf">setAllComponentFissionProducts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Initialize all nuclides for each ``DEPLETABLE`` component in the core, or all blocks if detailedAxialExpansion is enabled.</span>
+<span class="sd">        Initialize all nuclides for each ``DEPLETABLE`` component in the core.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        This should be called when explicit fission product modeling is enabled to</span>
 <span class="sd">        ensure that all isotopes are initialized on the depletable components within</span>
-<span class="sd">        the reactor data model so that cross sections are created during depletion.</span>
-
-<span class="sd">        When detailedAxialExpansion is also enabled, all regions will have fission/activation</span>
-<span class="sd">        products added to avoid missing cross sections during mesh conversion (since converted</span>
-<span class="sd">        blocks only have one xsID but may have isotopes from multiple blocks with different IDs.)</span>
-<span class="sd">        Setting density to zero here enables small number densities is XS generation.</span>
+<span class="sd">        the reactor data model so that there is some density as a starting point.</span>
 
 <span class="sd">        When explicit fission products are enabled and the user has not already included</span>
 <span class="sd">        all fission products in the blueprints (in ``nuclideFlags``), the ``fpModelLibrary`` setting is used</span>
@@ -394,28 +371,15 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">(</span><span class="n">includeAll</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
             <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_initializeIsoDensities</span><span class="p">(</span><span class="n">b</span><span class="p">)</span></div>
-
-    <span class="k">def</span> <span class="nf">_initializeIsoDensities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Initialize isotope densities to include all on depletable components.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        In non-uniform reactor cases all blocks will get all isotopes so that the</span>
-<span class="sd">        global flux solve does not have any missing cross sections.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">compsToAddIso</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">DEPLETABLE</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">allBlocksNeedAllNucs</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">compsToAddIso</span><span class="p">:</span>
-            <span class="n">compsToAddIso</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_getComponentToInitDensities</span><span class="p">(</span><span class="n">b</span><span class="p">)]</span>
-        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">compsToAddIso</span><span class="p">:</span>
-            <span class="c1"># Add all isotopes in problem at 0.0 density</span>
-            <span class="n">updatedNDens</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span>
-            <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">updatedNDens</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">updatedNDens</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
-            <span class="n">c</span><span class="o">.</span><span class="n">updateNumberDensities</span><span class="p">(</span><span class="n">updatedNDens</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">DEPLETABLE</span><span class="p">):</span>
+                <span class="c1"># Add all isotopes in problem at 0.0 density</span>
+                <span class="n">updatedNDens</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span>
+                <span class="c1"># self.r.blueprints.allNuclidesInProblem contains ~everything in ENDF if _explicitFissionProducts</span>
+                <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">updatedNDens</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">updatedNDens</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">updateNumberDensities</span><span class="p">(</span><span class="n">updatedNDens</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="FissionProductModel.setAllBlockLFPs"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.setAllBlockLFPs">[docs]</a>    <span class="k">def</span> <span class="nf">setAllBlockLFPs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -430,9 +394,7 @@
                 <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getGlobalLumpedFissionProducts</span><span class="p">())</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">independentLFPs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getGlobalLumpedFissionProducts</span><span class="p">()</span><span class="o">.</span><span class="n">duplicate</span><span class="p">()</span>
-                <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="n">independentLFPs</span><span class="p">)</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">allBlocksNeedAllNucs</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_initializeIsoDensities</span><span class="p">(</span><span class="n">b</span><span class="p">)</span></div>
+                <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="n">independentLFPs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="FissionProductModel.getGlobalLumpedFissionProducts"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.fissionProductModel.fissionProductModel.html#armi.physics.neutronics.fissionProductModel.fissionProductModel.FissionProductModel.getGlobalLumpedFissionProducts">[docs]</a>    <span class="k">def</span> <span class="nf">getGlobalLumpedFissionProducts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
