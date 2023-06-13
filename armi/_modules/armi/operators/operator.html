@@ -225,6 +225,9 @@
 <span class="kn">from</span> <span class="nn">armi.operators</span> <span class="kn">import</span> <span class="n">settingsValidation</span>
 <span class="kn">from</span> <span class="nn">armi.operators.runTypes</span> <span class="kn">import</span> <span class="n">RunTypes</span>
 <span class="kn">from</span> <span class="nn">armi.physics.fuelCycle.settings</span> <span class="kn">import</span> <span class="n">CONF_SHUFFLE_LOGIC</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.globalFlux.globalFluxInterface</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GlobalFluxInterfaceUsingExecuters</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CONF_TIGHT_COUPLING</span><span class="p">,</span>
     <span class="n">CONF_TIGHT_COUPLING_MAX_ITERS</span><span class="p">,</span>
@@ -1256,7 +1259,7 @@
 
         <span class="n">dbi</span><span class="o">.</span><span class="n">loadState</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">timeNode</span><span class="p">,</span> <span class="n">timeStepName</span><span class="p">,</span> <span class="n">fileName</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Operator.snapshotRequest"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.snapshotRequest">[docs]</a>    <span class="k">def</span> <span class="nf">snapshotRequest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+<div class="viewcode-block" id="Operator.snapshotRequest"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.snapshotRequest">[docs]</a>    <span class="k">def</span> <span class="nf">snapshotRequest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">iteration</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Process a snapshot request at this time.</span>
 
@@ -1296,28 +1299,40 @@
         <span class="k">for</span> <span class="n">fileName</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
             <span class="k">if</span> <span class="s2">&quot;mcc&quot;</span> <span class="ow">in</span> <span class="n">fileName</span> <span class="ow">and</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[A-Z]AF?\d?.inp&quot;</span><span class="p">,</span> <span class="n">fileName</span><span class="p">):</span>
                 <span class="n">base</span><span class="p">,</span> <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">fileName</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">iteration</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">newFile</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">_</span><span class="si">{1:03d}</span><span class="s2">_</span><span class="si">{2:d}</span><span class="s2">_</span><span class="si">{4}{3}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">base</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">ext</span><span class="p">,</span> <span class="n">iteration</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">newFile</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">_</span><span class="si">{1:03d}</span><span class="s2">_</span><span class="si">{2:d}{3}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">ext</span><span class="p">)</span>
                 <span class="c1"># add the cycle and timenode to the XS input file names so that a rx-coeff case that runs</span>
                 <span class="c1"># in here won&#39;t overwrite them.</span>
-                <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span>
-                    <span class="n">fileName</span><span class="p">,</span>
-                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-                        <span class="n">newFolder</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">_</span><span class="si">{1:03d}</span><span class="s2">_</span><span class="si">{2:d}{3}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">ext</span><span class="p">)</span>
-                    <span class="p">),</span>
-                <span class="p">)</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">fileName</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newFolder</span><span class="p">,</span> <span class="n">newFile</span><span class="p">))</span>
             <span class="k">if</span> <span class="s2">&quot;rzmflx&quot;</span> <span class="ow">in</span> <span class="n">fileName</span><span class="p">:</span>
                 <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span><span class="s2">&quot;rzmflx for snapshot&quot;</span><span class="p">,</span> <span class="n">fileName</span><span class="p">,</span> <span class="n">newFolder</span><span class="p">)</span>
 
-        <span class="n">isoFName</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;ISOTXS-c</span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">n</span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">isoFName</span><span class="p">):</span>
-            <span class="n">isoFName</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;ISOTXS-c</span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">fileNamePossibilities</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="sa">f</span><span class="s2">&quot;ISOTXS-c</span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">n</span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">&quot;ISOTXS-c</span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">iteration</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fileNamePossibilities</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="sa">f</span><span class="s2">&quot;ISOTXS-c</span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">n</span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">i</span><span class="si">{</span><span class="n">iteration</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">]</span> <span class="o">+</span> <span class="n">fileNamePossibilities</span>
+
+        <span class="k">for</span> <span class="n">isoFName</span> <span class="ow">in</span> <span class="n">fileNamePossibilities</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">isoFName</span><span class="p">):</span>
+                <span class="k">break</span>
         <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span>
             <span class="s2">&quot;ISOTXS for snapshot&quot;</span><span class="p">,</span> <span class="n">isoFName</span><span class="p">,</span> <span class="n">pathTools</span><span class="o">.</span><span class="n">armiAbsPath</span><span class="p">(</span><span class="n">newFolder</span><span class="p">,</span> <span class="s2">&quot;ISOTXS&quot;</span><span class="p">)</span>
         <span class="p">)</span>
-        <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span>
-            <span class="s2">&quot;DIF3D output for snapshot&quot;</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="si">{0:03d}</span><span class="s2">.out&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cycle</span><span class="p">),</span>
-            <span class="n">newFolder</span><span class="p">,</span>
+        <span class="n">globalFluxLabel</span> <span class="o">=</span> <span class="n">GlobalFluxInterfaceUsingExecuters</span><span class="o">.</span><span class="n">getLabel</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">iteration</span>
         <span class="p">)</span>
+        <span class="n">globalFluxInput</span> <span class="o">=</span> <span class="n">globalFluxLabel</span> <span class="o">+</span> <span class="s2">&quot;.inp&quot;</span>
+        <span class="n">globalFluxOutput</span> <span class="o">=</span> <span class="n">globalFluxLabel</span> <span class="o">+</span> <span class="s2">&quot;.out&quot;</span>
+        <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span><span class="s2">&quot;DIF3D input for snapshot&quot;</span><span class="p">,</span> <span class="n">globalFluxInput</span><span class="p">,</span> <span class="n">newFolder</span><span class="p">)</span>
+        <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span><span class="s2">&quot;DIF3D output for snapshot&quot;</span><span class="p">,</span> <span class="n">globalFluxOutput</span><span class="p">,</span> <span class="n">newFolder</span><span class="p">)</span>
         <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span>
             <span class="s2">&quot;Shuffle logic for snapshot&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_SHUFFLE_LOGIC</span><span class="p">],</span> <span class="n">newFolder</span>
         <span class="p">)</span>
