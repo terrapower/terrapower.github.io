@@ -198,11 +198,13 @@
 <span class="sd">&quot;&quot;&quot;Enable component-wise axial expansion for assemblies and/or a reactor.&quot;&quot;&quot;</span>
 
 <span class="kn">from</span> <span class="nn">statistics</span> <span class="kn">import</span> <span class="n">mean</span>
-<span class="kn">from</span> <span class="nn">numpy</span> <span class="kn">import</span> <span class="n">array</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
+
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.materials</span> <span class="kn">import</span> <span class="n">material</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.components</span> <span class="kn">import</span> <span class="n">UnshapedComponent</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">numpy</span> <span class="kn">import</span> <span class="n">array</span>
 
 <span class="n">TARGET_FLAGS_IN_PREFERRED_ORDER</span> <span class="o">=</span> <span class="p">[</span>
     <span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span>
@@ -338,7 +340,6 @@
         <span class="n">tempGrid</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
         <span class="n">tempField</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
         <span class="n">setFuel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">updateNDensForRadialExp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform thermal expansion for an assembly given an axial temperature grid and field.</span>
 
@@ -353,21 +354,9 @@
 <span class="sd">        setFuel : boolean, optional</span>
 <span class="sd">            Boolean to determine whether or not fuel blocks should have their target components set</span>
 <span class="sd">            This is useful when target components within a fuel block need to be determined on-the-fly.</span>
-<span class="sd">        updateNDensForRadialExp: optional, bool</span>
-<span class="sd">            boolean to determine whether or not the component number densities should be updated</span>
-<span class="sd">            to account for radial expansion/contraction</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        - Setting updateNDensForRadialExp to False isolates the number density changes due to the</span>
-<span class="sd">          temp change to just the axial dim. This is useful for testing. However, in practical use</span>
-<span class="sd">          updateNDensForRadialExp should be set to True to capture radial expansion/contraction</span>
-<span class="sd">          effects associated with updating the component temperature.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">setFuel</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">updateComponentTempsBy1DTempField</span><span class="p">(</span>
-            <span class="n">tempGrid</span><span class="p">,</span> <span class="n">tempField</span><span class="p">,</span> <span class="n">updateNDensForRadialExp</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">updateComponentTempsBy1DTempField</span><span class="p">(</span><span class="n">tempGrid</span><span class="p">,</span> <span class="n">tempField</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">computeThermalExpansionFactors</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">axiallyExpandAssembly</span><span class="p">()</span></div>
 
@@ -445,13 +434,10 @@
                 <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span>
             <span class="n">isDummyBlock</span> <span class="o">=</span> <span class="n">ib</span> <span class="o">==</span> <span class="p">(</span><span class="n">numOfBlocks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">isDummyBlock</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">_getSolidComponents</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">getSolidComponents</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
                     <span class="n">growFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">getExpansionFactor</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">msg</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;      Component </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">, growFrac = </span><span class="si">{</span><span class="n">growFrac</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">growFrac</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">:</span>
-                        <span class="n">c</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">growFrac</span><span class="p">)</span> <span class="o">*</span> <span class="n">blockHeight</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="n">c</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">growFrac</span><span class="p">))</span> <span class="o">*</span> <span class="n">blockHeight</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">growFrac</span> <span class="o">*</span> <span class="n">blockHeight</span>
                     <span class="c1"># align linked components</span>
                     <span class="k">if</span> <span class="n">ib</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="mf">0.0</span>
@@ -465,21 +451,26 @@
                             <span class="c1"># the top of the block below it</span>
                             <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span>
                     <span class="n">c</span><span class="o">.</span><span class="n">ztop</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">+</span> <span class="n">c</span><span class="o">.</span><span class="n">height</span>
+                    <span class="c1"># update component number densities</span>
+                    <span class="n">newNumberDensities</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="n">nuc</span><span class="p">:</span> <span class="n">c</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">)</span> <span class="o">/</span> <span class="n">growFrac</span>
+                        <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
+                    <span class="p">}</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">setNumberDensities</span><span class="p">(</span><span class="n">newNumberDensities</span><span class="p">)</span>
                     <span class="c1"># redistribute block boundaries if on the target component</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">isTargetComponent</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
                         <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">ztop</span>
+                        <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span> <span class="o">-</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span> <span class="o">-</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span>
 
-            <span class="c1"># see also b.setHeight()</span>
-            <span class="c1"># - the above not chosen due to call to calculateZCoords</span>
-            <span class="n">oldComponentVolumes</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="p">]</span>
-            <span class="n">oldHeight</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
-            <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span> <span class="o">-</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">+</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span> <span class="o">/</span> <span class="mf">2.0</span>
 
             <span class="n">_checkBlockHeight</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_conserveComponentDensity</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">oldHeight</span><span class="p">,</span> <span class="n">oldComponentVolumes</span><span class="p">)</span>
-            <span class="c1"># set block mid point and redo mesh</span>
-            <span class="c1"># - functionality based on assembly.calculateZCoords()</span>
-            <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">+</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span> <span class="o">/</span> <span class="mf">2.0</span>
+            <span class="c1"># call component.clearCache to update the component volume, and therefore the masses, of all solid components.</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">getSolidComponents</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">clearCache</span><span class="p">()</span>
+            <span class="c1"># redo mesh -- functionality based on assembly.calculateZCoords()</span>
             <span class="n">mesh</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span><span class="p">)</span>
             <span class="n">b</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ib</span><span class="p">]</span>
 
@@ -512,37 +503,10 @@
         <span class="k">if</span> <span class="n">oldMesh</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Updated r.core.p.axialMesh (old, new)&quot;</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">old</span><span class="p">,</span> <span class="n">new</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">oldMesh</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axialMesh</span><span class="p">):</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">old</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="se">\t</span><span class="si">{</span><span class="n">new</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
-
-    <span class="k">def</span> <span class="nf">_conserveComponentDensity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">oldHeight</span><span class="p">,</span> <span class="n">oldVolume</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update block height dependent component parameters.</span>
-
-<span class="sd">        1) update component volume for all materials (used to compute block volume)</span>
-<span class="sd">        2) update number density for solid materials only (no fluid)</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        oldHeight : list of floats</span>
-<span class="sd">            list containing block heights pre-expansion</span>
-<span class="sd">        oldVolume : list of floats</span>
-<span class="sd">            list containing component volumes pre-expansion</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">solidComponents</span> <span class="o">=</span> <span class="n">_getSolidComponents</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">ic</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
-            <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">volume</span> <span class="o">=</span> <span class="n">oldVolume</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span> <span class="o">*</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span> <span class="o">/</span> <span class="n">oldHeight</span>
-            <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">solidComponents</span><span class="p">:</span>
-                <span class="n">growFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">getExpansionFactor</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">growFrac</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">:</span>
-                    <span class="n">growth</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">growFrac</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">growth</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">growFrac</span><span class="p">)</span>
-                <span class="n">newNumberDensities</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="n">nuc</span><span class="p">:</span> <span class="n">c</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">)</span> <span class="o">/</span> <span class="n">growth</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
-                <span class="p">}</span>
-                <span class="n">c</span><span class="o">.</span><span class="n">setNumberDensities</span><span class="p">(</span><span class="n">newNumberDensities</span><span class="p">)</span></div>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">old</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="se">\t</span><span class="si">{</span><span class="n">new</span><span class="si">:</span><span class="s2">.6e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div></div>
 
 
-<span class="k">def</span> <span class="nf">_getSolidComponents</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+<div class="viewcode-block" id="getSolidComponents"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.getSolidComponents">[docs]</a><span class="k">def</span> <span class="nf">getSolidComponents</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return list of components in the block that have solid material.</span>
 
@@ -551,7 +515,7 @@
 <span class="sd">    Axial expansion only needs to be applied to solid materials. We should not update</span>
 <span class="sd">    number densities on fluid materials to account for changes in block height.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="p">,</span> <span class="n">material</span><span class="o">.</span><span class="n">Fluid</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="p">,</span> <span class="n">material</span><span class="o">.</span><span class="n">Fluid</span><span class="p">)]</span></div>
 
 
 <span class="k">def</span> <span class="nf">_checkBlockHeight</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
@@ -800,40 +764,41 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_componentDeterminesBlockHeight</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_setTargetComponents</span><span class="p">(</span><span class="n">setFuel</span><span class="p">)</span>
 
-<div class="viewcode-block" id="ExpansionData.setExpansionFactors"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.setExpansionFactors">[docs]</a>    <span class="k">def</span> <span class="nf">setExpansionFactors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">componentLst</span><span class="p">,</span> <span class="n">percents</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets user defined expansion factors.</span>
+<div class="viewcode-block" id="ExpansionData.setExpansionFactors"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.setExpansionFactors">[docs]</a>    <span class="k">def</span> <span class="nf">setExpansionFactors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">componentLst</span><span class="p">:</span> <span class="n">List</span><span class="p">,</span> <span class="n">expFrac</span><span class="p">:</span> <span class="n">List</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets user defined expansion fractions.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        componentLst : list[:py:class:`Component &lt;armi.reactor.components.component.Component&gt;`]</span>
+<span class="sd">        componentLst : List[:py:class:`Component &lt;armi.reactor.components.component.Component&gt;`]</span>
 <span class="sd">            list of Components to have their heights changed</span>
-<span class="sd">        percents : list[float]</span>
-<span class="sd">            list of height changes in percent that are to be applied to componentLst</span>
+<span class="sd">        expFrac : List[float]</span>
+<span class="sd">            list of L1/L0 height changes that are to be applied to componentLst</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        RuntimeError</span>
-<span class="sd">            If componentLst and percents are different lengths</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        - requires that the length of componentLst and percents be the same</span>
+<span class="sd">            If componentLst and expFrac are different lengths</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">componentLst</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">percents</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">componentLst</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">expFrac</span><span class="p">):</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                <span class="s2">&quot;Number of components and percent changes must be the same!</span><span class="se">\n\</span>
-<span class="s2">                    len(componentLst) = </span><span class="si">{0:d}</span><span class="se">\n\</span>
-<span class="s2">                        len(percents) = </span><span class="si">{1:d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="nb">len</span><span class="p">(</span><span class="n">componentLst</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">percents</span><span class="p">)</span>
-                <span class="p">)</span>
+                <span class="sa">f</span><span class="s2">&quot;Number of components and expansion fractions must be the same!</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;    len(componentLst) = </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">componentLst</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;        len(expFrac) = </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">expFrac</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span>
-        <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">componentLst</span><span class="p">,</span> <span class="n">percents</span><span class="p">):</span>
+        <span class="k">if</span> <span class="mf">0.0</span> <span class="ow">in</span> <span class="n">expFrac</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;An expansion fraction, L1/L0, equal to 0.0, is not physical. Expansion fractions should be greater than 0.0.&quot;</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">exp</span> <span class="ow">in</span> <span class="n">expFrac</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">exp</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;A negative expansion fraction, L1/L0, is not physical. Expansion fractions should be greater than 0.0.&quot;</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">componentLst</span><span class="p">,</span> <span class="n">expFrac</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span></div>
 
-<div class="viewcode-block" id="ExpansionData.updateComponentTempsBy1DTempField"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.updateComponentTempsBy1DTempField">[docs]</a>    <span class="k">def</span> <span class="nf">updateComponentTempsBy1DTempField</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">tempGrid</span><span class="p">,</span> <span class="n">tempField</span><span class="p">,</span> <span class="n">updateNDensForRadialExp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="p">):</span>
+<div class="viewcode-block" id="ExpansionData.updateComponentTempsBy1DTempField"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.updateComponentTempsBy1DTempField">[docs]</a>    <span class="k">def</span> <span class="nf">updateComponentTempsBy1DTempField</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tempGrid</span><span class="p">,</span> <span class="n">tempField</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign a block-average axial temperature to components.</span>
 
 <span class="sd">        Parameters</span>
@@ -842,19 +807,12 @@
 <span class="sd">            1D axial temperature grid (i.e., physical locations where temp is stored)</span>
 <span class="sd">        tempField : numpy array</span>
 <span class="sd">            temperature values along grid</span>
-<span class="sd">        updateNDensForRadialExp: optional, bool</span>
-<span class="sd">            boolean to determine whether or not the component number densities should be updated</span>
-<span class="sd">            to account for radial expansion/contraction</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        - given a 1D axial temperature grid and distribution, searches for temperatures that fall</span>
 <span class="sd">          within the bounds of a block, and averages them</span>
 <span class="sd">        - this average temperature is then passed to self.updateComponentTemp()</span>
-<span class="sd">        - Setting updateNDensForRadialExp to False isolates the number density changes due to the</span>
-<span class="sd">          temp change to just the axial dim. This is useful for testing. However, in practical use</span>
-<span class="sd">          updateNDensForRadialExp should be set to True to capture radial expansion/contraction</span>
-<span class="sd">          effects associated with updating the component temperature.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
@@ -878,72 +836,49 @@
 
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tmpMapping</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Block </span><span class="si">{0:s}</span><span class="s2"> has no temperature points within it! </span><span class="se">\</span>
-<span class="s2">                        Likely need to increase the refinement of the temperature grid.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                        <span class="nb">str</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-                    <span class="p">)</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> has no temperature points within it!&quot;</span>
+                    <span class="s2">&quot;Likely need to increase the refinement of the temperature grid.&quot;</span>
                 <span class="p">)</span>
 
             <span class="n">blockAveTemp</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span><span class="n">tmpMapping</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">updateComponentTemp</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">blockAveTemp</span><span class="p">,</span> <span class="n">updateNDensForRadialExp</span><span class="p">)</span></div>
+                <span class="bp">self</span><span class="o">.</span><span class="n">updateComponentTemp</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">blockAveTemp</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ExpansionData.updateComponentTemp"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.updateComponentTemp">[docs]</a>    <span class="k">def</span> <span class="nf">updateComponentTemp</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">temp</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">updateNDensForRadialExp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="p">):</span>
+<div class="viewcode-block" id="ExpansionData.updateComponentTemp"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.updateComponentTemp">[docs]</a>    <span class="k">def</span> <span class="nf">updateComponentTemp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">temp</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Update component temperatures with a provided temperature.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        b : :py:class:`Block &lt;armi.reactor.blocks.Block&gt;`</span>
-<span class="sd">            parent block for c</span>
 <span class="sd">        c : :py:class:`Component &lt;armi.reactor.components.component.Component&gt;`</span>
 <span class="sd">            component to which the temperature, temp, is to be applied</span>
 <span class="sd">        temp : float</span>
 <span class="sd">            new component temperature in C</span>
-<span class="sd">        updateNDensForRadialExp : bool</span>
-<span class="sd">            boolean to determine whether or not the component number densities should be updated</span>
-<span class="sd">            to account for the radial expansion/contraction associated with the new temperature</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        - &quot;reference&quot; height and temperature are the current states; i.e. before</span>
 <span class="sd">           1) the new temperature, temp, is applied to the component, and</span>
 <span class="sd">           2) the component is axially expanded</span>
-<span class="sd">        - Setting updateNDensForRadialExp to False isolates the number density changes due to the</span>
-<span class="sd">          temp change to just the axial dim. This is useful for testing. However, in practical use</span>
-<span class="sd">          updateNDensForRadialExp should be set to True to capture radial expansion/contraction</span>
-<span class="sd">          effects associated with updating the component temperature.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">updateNDensForRadialExp</span><span class="p">:</span>
-            <span class="c1"># Update component temp manually to avoid the call to changeNDensByFactor(f) within c.setTemperature().</span>
-            <span class="c1"># This isolates the number density changes due to the temp change to just the axial dim.</span>
-            <span class="c1"># This is useful for testing.</span>
-            <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="n">temp</span>
-            <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">volume</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">*</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">c</span><span class="o">.</span><span class="n">setTemperature</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
-            <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">volume</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">*</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span></div>
+        <span class="n">c</span><span class="o">.</span><span class="n">setTemperature</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="ExpansionData.computeThermalExpansionFactors"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.computeThermalExpansionFactors">[docs]</a>    <span class="k">def</span> <span class="nf">computeThermalExpansionFactors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Computes expansion factors for all components via thermal expansion.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">getSolidComponents</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
                 <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="n">c</span><span class="o">.</span><span class="n">getThermalExpansionFactor</span><span class="p">(</span>
-                            <span class="n">T0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
-                        <span class="p">)</span>
-                        <span class="o">-</span> <span class="mf">1.0</span>
+                    <span class="n">growFrac</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getThermalExpansionFactor</span><span class="p">(</span>
+                        <span class="n">T0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
                     <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">growFrac</span>
                 <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">componentReferenceTemperature</span><span class="p">:</span>
                     <span class="c1"># we want expansion factors relative to componentReferenceTemperature not Tinput.</span>
                     <span class="c1"># But for this component there isn&#39;t a componentReferenceTemperature,</span>
-                    <span class="c1"># so we&#39;ll assume that the expansion factor is 0.0.</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                    <span class="c1"># so we&#39;ll assume that the expansion factor is 1.0.</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getThermalExpansionFactor</span><span class="p">()</span> <span class="o">-</span> <span class="mf">1.0</span></div>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getThermalExpansionFactor</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="ExpansionData.getExpansionFactor"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.ExpansionData.getExpansionFactor">[docs]</a>    <span class="k">def</span> <span class="nf">getExpansionFactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieves expansion factor for c.</span>
@@ -956,7 +891,7 @@
         <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">:</span>
             <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expansionFactors</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="mf">1.0</span>
         <span class="k">return</span> <span class="n">value</span></div>
 
     <span class="k">def</span> <span class="nf">_setTargetComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setFuel</span><span class="p">):</span>
@@ -1079,7 +1014,7 @@
     <p>
         &#169; Copyright 2009-2023, TerraPower, LLC.
       <span class="lastupdated">
-        Last updated on 2023-06-17.
+        Last updated on 2023-06-20.
       </span>
 
     </p>
