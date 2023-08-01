@@ -242,7 +242,6 @@
 <span class="s2">    if self.isEnabledFor(</span><span class="si">{1}</span><span class="s2">):</span>
 <span class="s2">        self._log(</span><span class="si">{1}</span><span class="s2">, message, args, **kws)</span>
 <span class="s2">logging.Logger.</span><span class="si">{0}</span><span class="s2"> = </span><span class="si">{0}</span><span class="s2">&quot;&quot;&quot;</span>
-<span class="n">_WHITE_SPACE</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="mi">6</span>
 <span class="n">LOG_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="s2">&quot;logs&quot;</span><span class="p">)</span>
 <span class="n">OS_SECONDS_TIMEOUT</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">60</span>
 <span class="n">SEP</span> <span class="o">=</span> <span class="s2">&quot;|&quot;</span>
@@ -269,7 +268,6 @@
 <span class="sd">        ----------</span>
 <span class="sd">        mpiRank : int</span>
 <span class="sd">            If this is zero, we are in the parent process, otherwise child process.</span>
-<span class="sd">            The default of 0 means we assume the parent process.</span>
 <span class="sd">            This should not be adjusted after instantiation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span> <span class="o">=</span> <span class="n">mpiRank</span>
@@ -288,25 +286,49 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">NullLogger</span><span class="p">(</span><span class="s2">&quot;NULL&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stderrLogger</span> <span class="o">=</span> <span class="n">NullLogger</span><span class="p">(</span><span class="s2">&quot;NULL2&quot;</span><span class="p">,</span> <span class="n">isStderr</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_setLogLevels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Here we fill the logLevels dict with custom strings that depend on the MPI rank.&quot;&quot;&quot;</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">getLogLevels</span><span class="p">(</span><span class="n">mpiRank</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper method to build an important data object this class needs.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mpiRank : int</span>
+<span class="sd">            If this is zero, we are in the parent process, otherwise child process.</span>
+<span class="sd">            This should not be adjusted after instantiation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rank</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">mpiRank</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;-</span><span class="si">{:&gt;03d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mpiRank</span><span class="p">)</span>
+
         <span class="c1"># NOTE: using ordereddict so we can get right order of options in GUI</span>
-        <span class="n">_rank</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;-</span><span class="si">{:&gt;03d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">(</span>
             <span class="p">[</span>
-                <span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">,</span> <span class="s2">&quot;[dbug</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
-                <span class="p">(</span><span class="s2">&quot;extra&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="s2">&quot;[xtra</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
-                <span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="s2">&quot;[info</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
-                <span class="p">(</span><span class="s2">&quot;important&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="s2">&quot;[impt</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
-                <span class="p">(</span><span class="s2">&quot;prompt&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">27</span><span class="p">,</span> <span class="s2">&quot;[prmt</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
-                <span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span> <span class="s2">&quot;[warn</span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
-                <span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span> <span class="s2">&quot;[err </span><span class="si">{}</span><span class="s2">] &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
-                <span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_rank</span><span class="p">))),</span>
+                <span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;[dbug</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">] &quot;</span><span class="p">)),</span>
+                <span class="p">(</span><span class="s2">&quot;extra&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;[xtra</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">] &quot;</span><span class="p">)),</span>
+                <span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;[info</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">] &quot;</span><span class="p">)),</span>
+                <span class="p">(</span><span class="s2">&quot;important&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;[impt</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">] &quot;</span><span class="p">)),</span>
+                <span class="p">(</span><span class="s2">&quot;prompt&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">27</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;[prmt</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">] &quot;</span><span class="p">)),</span>
+                <span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;[warn</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">] &quot;</span><span class="p">)),</span>
+                <span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;[err </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">] &quot;</span><span class="p">)),</span>
+                <span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)),</span>
             <span class="p">]</span>
         <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">getWhiteSpace</span><span class="p">(</span><span class="n">mpiRank</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper method to build the white space used to left-adjust the log lines.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mpiRank : int</span>
+<span class="sd">            If this is zero, we are in the parent process, otherwise child process.</span>
+<span class="sd">            This should not be adjusted after instantiation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logLevels</span> <span class="o">=</span> <span class="n">_RunLog</span><span class="o">.</span><span class="n">getLogLevels</span><span class="p">(</span><span class="n">mpiRank</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="nb">max</span><span class="p">([</span><span class="n">ll</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">ll</span> <span class="ow">in</span> <span class="n">logLevels</span><span class="o">.</span><span class="n">values</span><span class="p">()]))</span>
+
+    <span class="k">def</span> <span class="nf">_setLogLevels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Here we fill the logLevels dict with custom strings that depend on the MPI rank.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getLogLevels</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mpiRank</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_logLevelNumbers</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">ll</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">ll</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
-        <span class="k">global</span> <span class="n">_WHITE_SPACE</span>
-        <span class="n">_WHITE_SPACE</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="nb">max</span><span class="p">([</span><span class="n">ll</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">ll</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span><span class="o">.</span><span class="n">values</span><span class="p">()]))</span>
 
         <span class="c1"># modify the logging module strings for printing</span>
         <span class="k">for</span> <span class="n">longLogString</span><span class="p">,</span> <span class="p">(</span><span class="n">logValue</span><span class="p">,</span> <span class="n">shortLogString</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">logLevels</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -643,7 +665,8 @@
                     <span class="k">return</span> <span class="kc">False</span>
 
         <span class="c1"># Handle some special string-mangling we want to do, for multi-line messages</span>
-        <span class="n">record</span><span class="o">.</span><span class="n">msg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">_WHITE_SPACE</span><span class="p">)</span>
+        <span class="n">whiteSpace</span> <span class="o">=</span> <span class="n">_RunLog</span><span class="o">.</span><span class="n">getWhiteSpace</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span><span class="p">)</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">msg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">whiteSpace</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">True</span></div></div>
 
 
