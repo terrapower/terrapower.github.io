@@ -124,6 +124,7 @@
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">from</span> <span class="nn">random</span> <span class="kn">import</span> <span class="n">randint</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 <span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">interpolate</span>
@@ -136,31 +137,6 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.parameters</span> <span class="kn">import</span> <span class="n">ParamLocation</span>
-
-<span class="c1"># to count the blocks that we create and generate a block number</span>
-<span class="n">_assemNum</span> <span class="o">=</span> <span class="mi">0</span>
-
-
-<div class="viewcode-block" id="incrementAssemNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.incrementAssemNum">[docs]</a><span class="k">def</span> <span class="nf">incrementAssemNum</span><span class="p">():</span>
-    <span class="k">global</span> <span class="n">_assemNum</span>  <span class="c1"># tracked on a  module level</span>
-    <span class="n">val</span> <span class="o">=</span> <span class="n">_assemNum</span>  <span class="c1"># return value before incrementing.</span>
-    <span class="n">_assemNum</span> <span class="o">+=</span> <span class="mi">1</span>
-    <span class="k">return</span> <span class="n">val</span></div>
-
-
-<div class="viewcode-block" id="getAssemNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.getAssemNum">[docs]</a><span class="k">def</span> <span class="nf">getAssemNum</span><span class="p">():</span>
-    <span class="k">global</span> <span class="n">_assemNum</span>
-    <span class="k">return</span> <span class="n">_assemNum</span></div>
-
-
-<div class="viewcode-block" id="resetAssemNumCounter"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.resetAssemNumCounter">[docs]</a><span class="k">def</span> <span class="nf">resetAssemNumCounter</span><span class="p">():</span>
-    <span class="n">setAssemNumCounter</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="setAssemNumCounter"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.setAssemNumCounter">[docs]</a><span class="k">def</span> <span class="nf">setAssemNumCounter</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
-    <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Resetting global assembly number to </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
-    <span class="k">global</span> <span class="n">_assemNum</span>
-    <span class="n">_assemNum</span> <span class="o">=</span> <span class="n">val</span></div>
 
 
 <div class="viewcode-block" id="Assembly"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly">[docs]</a><span class="k">class</span> <span class="nc">Assembly</span><span class="p">(</span><span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="p">):</span>
@@ -184,8 +160,7 @@
     <span class="n">SPENT_FUEL_POOL</span> <span class="o">=</span> <span class="s2">&quot;SFP&quot;</span>
     <span class="c1"># For assemblies coming in from the database, waiting to be loaded to their old</span>
     <span class="c1"># position. This is a necessary distinction, since we need to make sure that a bunch</span>
-    <span class="c1"># of fuel management stuff doesn&#39;t treat its re-placement into the core as a new</span>
-    <span class="c1"># move</span>
+    <span class="c1"># of fuel management stuff doesn&#39;t treat its re-placement into the core as a new move</span>
     <span class="n">DATABASE</span> <span class="o">=</span> <span class="s2">&quot;database&quot;</span>
     <span class="n">NOT_IN_CORE</span> <span class="o">=</span> <span class="p">[</span><span class="n">LOAD_QUEUE</span><span class="p">,</span> <span class="n">SPENT_FUEL_POOL</span><span class="p">]</span>
 
@@ -197,11 +172,13 @@
 <span class="sd">            Name of assembly design (e.g. the name from the blueprints input file).</span>
 
 <span class="sd">        assemNum : int, optional</span>
-<span class="sd">            The unique ID number of this assembly. If none is passed, the class-level</span>
-<span class="sd">            value will be taken and then incremented.</span>
+<span class="sd">            The unique ID number of this assembly. If None is provided, we generate a</span>
+<span class="sd">            random int. This makes it clear that it is a placeholder. When an assembly with</span>
+<span class="sd">            a negative ID is placed into a Reactor, it will be given a new, positive ID.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># If no assembly number is provided, generate a random number as a placeholder.</span>
         <span class="k">if</span> <span class="n">assemNum</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">assemNum</span> <span class="o">=</span> <span class="n">incrementAssemNum</span><span class="p">()</span>
+            <span class="n">assemNum</span> <span class="o">=</span> <span class="n">randint</span><span class="p">(</span><span class="o">-</span><span class="mf">9e12</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeNameFromAssemNum</span><span class="p">(</span><span class="n">assemNum</span><span class="p">)</span>
         <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span> <span class="o">=</span> <span class="n">assemNum</span>
@@ -241,18 +218,24 @@
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
 
-<div class="viewcode-block" id="Assembly.makeUnique"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.makeUnique">[docs]</a>    <span class="k">def</span> <span class="nf">makeUnique</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Assembly.renameBlocksAccordingToAssemblyNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.renameBlocksAccordingToAssemblyNum">[docs]</a>    <span class="k">def</span> <span class="nf">renameBlocksAccordingToAssemblyNum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Function to make an assembly unique by getting a new assembly number.</span>
+<span class="sd">        Updates the names of all blocks to comply with the assembly number.</span>
 
-<span class="sd">        This also adjusts the assembly&#39;s blocks IDs. This is necessary when using</span>
-<span class="sd">        ``deepcopy`` to get a unique ``assemNum`` since a deepcopy implies it would</span>
-<span class="sd">        otherwise have been the same object.</span>
+<span class="sd">        Useful after an assembly number/name has been loaded from a snapshot and you</span>
+<span class="sd">        want to update all block names to be consistent.</span>
+
+<span class="sd">        It may be better to store block numbers on each block as params. A database that</span>
+<span class="sd">        can hold strings would be even better.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        You must run armi.reactor.reactors.Reactor.regenAssemblyLists after calling</span>
+<span class="sd">        this.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span> <span class="o">=</span> <span class="n">incrementAssemNum</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeNameFromAssemNum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span><span class="p">)</span>
+        <span class="n">assemNum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNum</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">bi</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-            <span class="n">b</span><span class="o">.</span><span class="n">setName</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">makeName</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span><span class="p">,</span> <span class="n">bi</span><span class="p">))</span></div>
+            <span class="n">b</span><span class="o">.</span><span class="n">setName</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">makeName</span><span class="p">(</span><span class="n">assemNum</span><span class="p">,</span> <span class="n">bi</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="Assembly.makeNameFromAssemNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.makeNameFromAssemNum">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">makeNameFromAssemNum</span><span class="p">(</span><span class="n">assemNum</span><span class="p">):</span>
@@ -261,8 +244,35 @@
 
 <span class="sd">        AssemNums are like serial numbers for assemblies.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;A</span><span class="si">{0:04d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">assemNum</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">name</span></div>
+        <span class="k">return</span> <span class="s2">&quot;A</span><span class="si">{0:04d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">assemNum</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Assembly.renumber"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.renumber">[docs]</a>    <span class="k">def</span> <span class="nf">renumber</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">newNum</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Change the assembly number of this assembly.</span>
+
+<span class="sd">        And handle the downstream impacts of changing the name of this Assembly and all</span>
+<span class="sd">        of the Blocks within this Assembly.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        newNum : int</span>
+<span class="sd">            The new Assembly number.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">newNum</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeNameFromAssemNum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">renameBlocksAccordingToAssemblyNum</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Assembly.makeUnique"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.makeUnique">[docs]</a>    <span class="k">def</span> <span class="nf">makeUnique</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Function to make an assembly unique by getting a new assembly number.</span>
+
+<span class="sd">        This also adjusts the assembly&#39;s blocks IDs. This is necessary when using</span>
+<span class="sd">        ``deepcopy`` to get a unique ``assemNum`` since a deepcopy implies it would</span>
+<span class="sd">        otherwise have been the same object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Default to a random negative assembly number (unique enough)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span> <span class="o">=</span> <span class="n">randint</span><span class="p">(</span><span class="o">-</span><span class="mf">9e12</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">renumber</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Assembly.add"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.add">[docs]</a>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -273,8 +283,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
         <span class="n">obj</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
-        <span class="c1"># assemblies have bounds-based 1-D spatial grids. Adjust it to have the right</span>
-        <span class="c1"># value.</span>
+        <span class="c1"># assemblies have bounds-based 1-D spatial grids. Adjust it to the right value.</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">_bounds</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">_bounds</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)]</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">_bounds</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">obj</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
@@ -1235,25 +1244,6 @@
             <span class="n">b</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">zi</span><span class="p">]</span>
             <span class="c1"># update the name too. NOTE: You must update the history tracker.</span>
             <span class="n">b</span><span class="o">.</span><span class="n">setName</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">makeName</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span><span class="p">,</span> <span class="n">zi</span><span class="p">))</span></div>
-
-<div class="viewcode-block" id="Assembly.renameBlocksAccordingToAssemblyNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.renameBlocksAccordingToAssemblyNum">[docs]</a>    <span class="k">def</span> <span class="nf">renameBlocksAccordingToAssemblyNum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Updates the names of all blocks to comply with the assembly number.</span>
-
-<span class="sd">        Useful after an assembly number/name has been loaded from a snapshot and you</span>
-<span class="sd">        want to update all block names to be consistent.</span>
-
-<span class="sd">        It may be better to store block numbers on each block as params. A database that</span>
-<span class="sd">        can hold strings would be even better.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        You must run armi.reactor.reactors.Reactor.regenAssemblyLists after calling</span>
-<span class="sd">        this.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">assemNum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNum</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">bi</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-            <span class="n">b</span><span class="o">.</span><span class="n">setName</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">makeName</span><span class="p">(</span><span class="n">assemNum</span><span class="p">,</span> <span class="n">bi</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="Assembly.countBlocksWithFlags"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.countBlocksWithFlags">[docs]</a>    <span class="k">def</span> <span class="nf">countBlocksWithFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockTypeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
