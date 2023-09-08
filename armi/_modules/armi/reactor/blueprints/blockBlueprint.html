@@ -120,12 +120,14 @@
 <span class="sd">&quot;&quot;&quot;This module defines the ARMI input for a block definition, and code for constructing an ARMI ``Block``.&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">signature</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Iterator</span>
 
 <span class="kn">import</span> <span class="nn">yamlize</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">getPluginManagerOrFail</span><span class="p">,</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.materials.material</span> <span class="kn">import</span> <span class="n">Material</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">blocks</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.composites</span> <span class="kn">import</span> <span class="n">Composite</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.blueprints</span> <span class="kn">import</span> <span class="n">componentBlueprint</span>
@@ -232,16 +234,7 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Component</span><span class="p">):</span>
                 <span class="c1"># there are other things like composite groups that don&#39;t get</span>
                 <span class="c1"># material modifications -- skip those</span>
-                <span class="n">validMatModOptions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-                <span class="k">for</span> <span class="n">materialParentClass</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__mro__</span><span class="p">:</span>
-                    <span class="c1"># we must loop over parents as well, since applyInputParams</span>
-                    <span class="c1"># could call to Parent.applyInputParams()</span>
-                    <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">materialParentClass</span><span class="p">,</span> <span class="n">Material</span><span class="p">):</span>
-                        <span class="n">validMatModOptions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
-                            <span class="n">signature</span><span class="p">(</span>
-                                <span class="n">materialParentClass</span><span class="o">.</span><span class="n">applyInputParams</span>
-                            <span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
-                        <span class="p">)</span>
+                <span class="n">validMatModOptions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getMaterialModsFromBlockChildren</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">byComponentMatModKeys</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">validMatModOptions</span><span class="p">:</span>
                         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -271,20 +264,9 @@
 
         <span class="c1"># check that the block level mat mods use valid options in the same way</span>
         <span class="c1"># as we did for the by-component mods above</span>
-        <span class="n">validMatModOptions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Component</span><span class="p">):</span>
-                <span class="c1"># there are other things like composite groups that don&#39;t get</span>
-                <span class="c1"># material modifications -- skip those</span>
-                <span class="k">for</span> <span class="n">materialParentClass</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__mro__</span><span class="p">:</span>
-                    <span class="c1"># we must loop over parents as well, since applyInputParams</span>
-                    <span class="c1"># could call to Parent.applyInputParams()</span>
-                    <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">materialParentClass</span><span class="p">,</span> <span class="n">Material</span><span class="p">):</span>
-                        <span class="n">validMatModOptions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
-                            <span class="n">signature</span><span class="p">(</span>
-                                <span class="n">materialParentClass</span><span class="o">.</span><span class="n">applyInputParams</span>
-                            <span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
-                        <span class="p">)</span>
+        <span class="n">validMatModOptions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getBlockwiseMaterialModifierOptions</span><span class="p">(</span>
+            <span class="n">components</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="p">)</span>
 
         <span class="k">if</span> <span class="s2">&quot;byBlock&quot;</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">[</span><span class="s2">&quot;byBlock&quot;</span><span class="p">]:</span>
@@ -345,6 +327,43 @@
             <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">NotImplementedError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">b</span></div>
+
+    <span class="k">def</span> <span class="nf">_getBlockwiseMaterialModifierOptions</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">children</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Composite</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Collect all the material modifiers that exist on a block&quot;&quot;&quot;</span>
+        <span class="n">validMatModOptions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">children</span><span class="p">:</span>
+            <span class="n">perChildModifiers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getMaterialModsFromBlockChildren</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="n">validMatModOptions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">perChildModifiers</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">validMatModOptions</span>
+
+    <span class="k">def</span> <span class="nf">_getMaterialModsFromBlockChildren</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="n">Composite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Collect all the material modifiers from a child of a block&quot;&quot;&quot;</span>
+        <span class="n">perChildModifiers</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">material</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getMaterialsInComposite</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">materialParentClass</span> <span class="ow">in</span> <span class="n">material</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__mro__</span><span class="p">:</span>
+                <span class="c1"># we must loop over parents as well, since applyInputParams</span>
+                <span class="c1"># could call to Parent.applyInputParams()</span>
+                <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">materialParentClass</span><span class="p">,</span> <span class="n">Material</span><span class="p">):</span>
+                    <span class="n">perChildModifiers</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                        <span class="n">signature</span><span class="p">(</span>
+                            <span class="n">materialParentClass</span><span class="o">.</span><span class="n">applyInputParams</span>
+                        <span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                    <span class="p">)</span>
+        <span class="c1"># self is a parameter to class methods, so it gets picked up here</span>
+        <span class="c1"># but that&#39;s obviously not a real material modifier</span>
+        <span class="n">perChildModifiers</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="s2">&quot;self&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">perChildModifiers</span>
+
+    <span class="k">def</span> <span class="nf">_getMaterialsInComposite</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">child</span><span class="p">:</span> <span class="n">Composite</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Material</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Collect all the materials in a composite&quot;&quot;&quot;</span>
+        <span class="c1"># Leaf node, no need to traverse further down</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">Component</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">child</span><span class="o">.</span><span class="n">material</span>
+            <span class="k">return</span>
+        <span class="c1"># Don&#39;t apply modifications to other things that could reside</span>
+        <span class="c1"># in a block e.g., component groups</span>
 
     <span class="k">def</span> <span class="nf">_checkByComponentMaterialInput</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">materialInput</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="n">materialInput</span><span class="p">:</span>
@@ -493,7 +512,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2023, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2023-09-06.
+      <span class="lastupdated">Last updated on 2023-09-08.
       </span></p>
   </div>
 
