@@ -114,6 +114,7 @@
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">MagicMock</span>
 
 <span class="kn">from</span> <span class="nn">six.moves</span> <span class="kn">import</span> <span class="n">cPickle</span>
 
@@ -136,8 +137,9 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.blocks</span> <span class="kn">import</span> <span class="n">HexBlock</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_reactors</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_reactors</span><span class="p">,</span> <span class="n">test_blocks</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">TEST_ROOT</span>
+<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span>
 <span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
 
@@ -190,27 +192,237 @@
 
 
 <div class="viewcode-block" id="TestBlockCollectionAverage"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestBlockCollectionAverage">[docs]</a><span class="k">class</span> <span class="nc">TestBlockCollectionAverage</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="n">fpFactory</span> <span class="o">=</span> <span class="n">test_lumpedFissionProduct</span><span class="o">.</span><span class="n">getDummyLFPFile</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockList</span> <span class="o">=</span> <span class="n">makeBlocks</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">bi</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blockList</span><span class="p">):</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">blockList</span> <span class="o">=</span> <span class="n">makeBlocks</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">bi</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">blockList</span><span class="p">):</span>
             <span class="n">b</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;fuel&quot;</span><span class="p">)</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span> <span class="o">=</span> <span class="n">bi</span> <span class="o">/</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="mi">100</span>
             <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="n">fpFactory</span><span class="o">.</span><span class="n">createLFPsFromFile</span><span class="p">())</span>
+            <span class="c1"># put some trace Fe-56 and Na-23 into the fuel</span>
+            <span class="c1"># zero out all fuel nuclides except U-235 (for mass-weighting of component temperature)</span>
+            <span class="n">fuelComp</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">fuelComp</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">():</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
             <span class="n">b</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="s2">&quot;U235&quot;</span><span class="p">,</span> <span class="n">bi</span><span class="p">)</span>
+            <span class="n">fuelComp</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="s2">&quot;FE56&quot;</span><span class="p">,</span> <span class="mf">1e-15</span><span class="p">)</span>
+            <span class="n">fuelComp</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="s2">&quot;NA23&quot;</span><span class="p">,</span> <span class="mf">1e-15</span><span class="p">)</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">gasReleaseFraction</span> <span class="o">=</span> <span class="n">bi</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">/</span> <span class="mf">8.0</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="mf">600.0</span> <span class="o">+</span> <span class="n">bi</span>
+                <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">WIRE</span><span class="p">]):</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="mf">500.0</span> <span class="o">+</span> <span class="n">bi</span>
+                <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">BOND</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">COOLANT</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INTERCOOLANT</span><span class="p">]):</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="mf">400.0</span> <span class="o">+</span> <span class="n">bi</span>
+
+    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bc</span> <span class="o">=</span> <span class="n">AverageBlockCollection</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">blockList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blockList</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">averageByComponent</span> <span class="o">=</span> <span class="kc">True</span>
+
+<div class="viewcode-block" id="TestBlockCollectionAverage.test_performAverageByComponent"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestBlockCollectionAverage.test_performAverageByComponent">[docs]</a>    <span class="k">def</span> <span class="nf">test_performAverageByComponent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check the averageByComponent attribute</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">_checkBlockSimilarity</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">(</span><span class="n">return_value</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">_performAverageByComponent</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">averageByComponent</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">_performAverageByComponent</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="TestBlockCollectionAverage.test_checkBlockSimilarity"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestBlockCollectionAverage.test_checkBlockSimilarity">[docs]</a>    <span class="k">def</span> <span class="nf">test_checkBlockSimilarity</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check the block similarity test</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">_checkBlockSimilarity</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">test_blocks</span><span class="o">.</span><span class="n">loadTestBlock</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">_checkBlockSimilarity</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="TestBlockCollectionAverage.test_createRepresentativeBlock"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestBlockCollectionAverage.test_createRepresentativeBlock">[docs]</a>    <span class="k">def</span> <span class="nf">test_createRepresentativeBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Test creation of a representative block</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">avgB</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">createRepresentativeBlock</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="n">avgB</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="p">)</span>
-        <span class="c1"># 0 + 1/4 + 2/4 + 3/4 + 4/4 =</span>
-        <span class="c1"># (0 + 1 + 2 + 3 + 4 ) / 5 = 10/5 = 2.0</span>
+        <span class="c1"># (0 + 1 + 2 + 3 + 4) / 5 = 10/5 = 2.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">avgB</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="s2">&quot;U235&quot;</span><span class="p">),</span> <span class="mf">2.0</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">avgB</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">)</span></div></div>
+        <span class="c1"># (0 + 1/4 + 2/4 + 3/4 + 4/4) / 5 * 100.0 = 50.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">avgB</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">)</span>
+
+        <span class="c1"># check that a new block collection of the representative block has right temperatures</span>
+        <span class="c1"># this is required for Doppler coefficient calculations</span>
+        <span class="n">newBc</span> <span class="o">=</span> <span class="n">AverageBlockCollection</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">blockList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
+        <span class="p">)</span>
+        <span class="n">newBc</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">avgB</span><span class="p">)</span>
+        <span class="n">newBc</span><span class="o">.</span><span class="n">calcAvgNuclideTemperatures</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">newBc</span><span class="o">.</span><span class="n">avgNucTemperatures</span><span class="p">[</span><span class="s2">&quot;U235&quot;</span><span class="p">],</span> <span class="mf">603.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">newBc</span><span class="o">.</span><span class="n">avgNucTemperatures</span><span class="p">[</span><span class="s2">&quot;FE56&quot;</span><span class="p">],</span> <span class="mf">502.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">newBc</span><span class="o">.</span><span class="n">avgNucTemperatures</span><span class="p">[</span><span class="s2">&quot;NA23&quot;</span><span class="p">],</span> <span class="mf">402.0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestBlockCollectionAverage.test_createRepresentativeBlockDissimilar"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestBlockCollectionAverage.test_createRepresentativeBlockDissimilar">[docs]</a>    <span class="k">def</span> <span class="nf">test_createRepresentativeBlockDissimilar</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Test creation of a representative block from a collection with dissimilar blocks</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">uniqueBlock</span> <span class="o">=</span> <span class="n">test_blocks</span><span class="o">.</span><span class="n">loadTestBlock</span><span class="p">()</span>
+        <span class="n">uniqueBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span> <span class="o">=</span> <span class="mf">50.0</span>
+        <span class="n">fpFactory</span> <span class="o">=</span> <span class="n">test_lumpedFissionProduct</span><span class="o">.</span><span class="n">getDummyLFPFile</span><span class="p">()</span>
+        <span class="n">uniqueBlock</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="n">fpFactory</span><span class="o">.</span><span class="n">createLFPsFromFile</span><span class="p">())</span>
+        <span class="n">uniqueBlock</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="s2">&quot;U235&quot;</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>
+        <span class="n">uniqueBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">gasReleaseFraction</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">uniqueBlock</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="mf">600.0</span>
+            <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">WIRE</span><span class="p">]):</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="mf">500.0</span>
+            <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">BOND</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">COOLANT</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INTERCOOLANT</span><span class="p">]):</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="mf">400.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">uniqueBlock</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">avgB</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">createRepresentativeBlock</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span>
+                <span class="s2">&quot;Non-matching block in AverageBlockCollection&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">()</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="n">avgB</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="p">)</span>
+        <span class="c1"># (0 + 1 + 2 + 3 + 4 + 2) / 6.0 = 12/6 = 2.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">avgB</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="s2">&quot;U235&quot;</span><span class="p">),</span> <span class="mf">2.0</span><span class="p">)</span>
+        <span class="c1"># (0 + 1/4 + 2/4 + 3/4 + 4/4) / 5 * 100.0 = 50.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">avgB</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">)</span>
+
+        <span class="c1"># U35 has different average temperature because blocks have different U235 content</span>
+        <span class="n">newBc</span> <span class="o">=</span> <span class="n">AverageBlockCollection</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">blockList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
+        <span class="p">)</span>
+        <span class="n">newBc</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">avgB</span><span class="p">)</span>
+        <span class="n">newBc</span><span class="o">.</span><span class="n">calcAvgNuclideTemperatures</span><span class="p">()</span>
+        <span class="c1"># temps expected to be proportional to volume-fraction weighted temperature</span>
+        <span class="c1"># this is a non-physical result, but it demonstrates a problem that exists in the code</span>
+        <span class="c1"># when dissimilar blocks are put together in a BlockCollection</span>
+        <span class="n">structureVolume</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">avgB</span><span class="o">.</span><span class="n">getComponents</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">WIRE</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="n">fuelVolume</span> <span class="o">=</span> <span class="n">avgB</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+        <span class="n">coolantVolume</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">avgB</span><span class="o">.</span><span class="n">getComponents</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">BOND</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">COOLANT</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INTERCOOLANT</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="n">expectedIronTemp</span> <span class="o">=</span> <span class="p">(</span><span class="n">structureVolume</span> <span class="o">*</span> <span class="mf">500.0</span> <span class="o">+</span> <span class="n">fuelVolume</span> <span class="o">*</span> <span class="mf">600.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="n">structureVolume</span> <span class="o">+</span> <span class="n">fuelVolume</span>
+        <span class="p">)</span>
+        <span class="n">expectedSodiumTemp</span> <span class="o">=</span> <span class="p">(</span><span class="n">coolantVolume</span> <span class="o">*</span> <span class="mf">400.0</span> <span class="o">+</span> <span class="n">fuelVolume</span> <span class="o">*</span> <span class="mf">600.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="n">coolantVolume</span> <span class="o">+</span> <span class="n">fuelVolume</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">newBc</span><span class="o">.</span><span class="n">avgNucTemperatures</span><span class="p">[</span><span class="s2">&quot;U235&quot;</span><span class="p">],</span> <span class="mf">600.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">newBc</span><span class="o">.</span><span class="n">avgNucTemperatures</span><span class="p">[</span><span class="s2">&quot;FE56&quot;</span><span class="p">],</span> <span class="n">expectedIronTemp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">newBc</span><span class="o">.</span><span class="n">avgNucTemperatures</span><span class="p">[</span><span class="s2">&quot;NA23&quot;</span><span class="p">],</span> <span class="n">expectedSodiumTemp</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestComponentAveraging"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestComponentAveraging">[docs]</a><span class="k">class</span> <span class="nc">TestComponentAveraging</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="n">fpFactory</span> <span class="o">=</span> <span class="n">test_lumpedFissionProduct</span><span class="o">.</span><span class="n">getDummyLFPFile</span><span class="p">()</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">blockList</span> <span class="o">=</span> <span class="n">makeBlocks</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">bi</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">blockList</span><span class="p">):</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;fuel&quot;</span><span class="p">)</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="n">fpFactory</span><span class="o">.</span><span class="n">createLFPsFromFile</span><span class="p">())</span>
+            <span class="c1"># put some trace Fe-56 and Na-23 into the fuel</span>
+            <span class="c1"># zero out all fuel nuclides except U-235 (for mass-weighting of component temperature)</span>
+            <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">():</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="s2">&quot;U235&quot;</span><span class="p">,</span> <span class="n">bi</span><span class="p">)</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="s2">&quot;FE56&quot;</span><span class="p">,</span> <span class="n">bi</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="s2">&quot;NA23&quot;</span><span class="p">,</span> <span class="n">bi</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="mf">600.0</span> <span class="o">+</span> <span class="n">bi</span>
+                <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">WIRE</span><span class="p">]):</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="mf">500.0</span> <span class="o">+</span> <span class="n">bi</span>
+                <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">([</span><span class="n">Flags</span><span class="o">.</span><span class="n">BOND</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">COOLANT</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">INTERCOOLANT</span><span class="p">]):</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="mf">400.0</span> <span class="o">+</span> <span class="n">bi</span>
+
+    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bc</span> <span class="o">=</span> <span class="n">AverageBlockCollection</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">blockList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
+        <span class="p">)</span>
+        <span class="n">blockCopies</span> <span class="o">=</span> <span class="p">[</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockList</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">blockCopies</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TestComponentAveraging.test_getAverageComponentNumberDensities"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestComponentAveraging.test_getAverageComponentNumberDensities">[docs]</a>    <span class="k">def</span> <span class="nf">test_getAverageComponentNumberDensities</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Test component number density averaging</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># becaue of the way densities are set up, the middle block (index 1 of 0-2) component densities are equivalent to the average</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">compIndex</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getComponents</span><span class="p">()):</span>
+            <span class="n">avgDensities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">_getAverageComponentNumberDensities</span><span class="p">(</span><span class="n">compIndex</span><span class="p">)</span>
+            <span class="n">compDensities</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+                    <span class="n">compDensities</span><span class="p">[</span><span class="n">nuc</span><span class="p">],</span>
+                    <span class="n">avgDensities</span><span class="p">[</span><span class="n">nuc</span><span class="p">],</span>
+                    <span class="n">msg</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">nuc</span><span class="si">}</span><span class="s2"> density </span><span class="si">{</span><span class="n">compDensities</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span><span class="si">}</span><span class="s2"> not equal to </span><span class="si">{</span><span class="n">avgDensities</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">,</span>
+                <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestComponentAveraging.test_getAverageComponentTemperature"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestComponentAveraging.test_getAverageComponentTemperature">[docs]</a>    <span class="k">def</span> <span class="nf">test_getAverageComponentTemperature</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Test mass-weighted component temperature averaging</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">massWeightedIncrease</span> <span class="o">=</span> <span class="mf">5.0</span> <span class="o">/</span> <span class="mf">3.0</span>
+        <span class="n">baseTemps</span> <span class="o">=</span> <span class="p">[</span><span class="mi">600</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">400</span><span class="p">]</span>
+        <span class="n">expectedTemps</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="o">+</span> <span class="n">massWeightedIncrease</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">baseTemps</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">compIndex</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getComponents</span><span class="p">()):</span>
+            <span class="n">avgTemp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">_getAverageComponentTemperature</span><span class="p">(</span><span class="n">compIndex</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+                <span class="n">expectedTemps</span><span class="p">[</span><span class="n">compIndex</span><span class="p">],</span>
+                <span class="n">avgTemp</span><span class="p">,</span>
+                <span class="n">msg</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> avg temperature </span><span class="si">{</span><span class="n">avgTemp</span><span class="si">}</span><span class="s2"> not equal to expected </span><span class="si">{</span><span class="n">expectedTemps</span><span class="p">[</span><span class="n">compIndex</span><span class="p">]</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestComponentAveraging.test_getAverageComponentTemperatureVariedWeights"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestComponentAveraging.test_getAverageComponentTemperatureVariedWeights">[docs]</a>    <span class="k">def</span> <span class="nf">test_getAverageComponentTemperatureVariedWeights</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Test mass-weighted component temperature averaging with variable weights</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># make up a fake weighting with power param</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">weightingParam</span> <span class="o">=</span> <span class="s2">&quot;power&quot;</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="p">):</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="n">i</span>
+        <span class="n">weightedIncrease</span> <span class="o">=</span> <span class="mf">1.8</span>
+        <span class="n">baseTemps</span> <span class="o">=</span> <span class="p">[</span><span class="mi">600</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">400</span><span class="p">]</span>
+        <span class="n">expectedTemps</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="o">+</span> <span class="n">weightedIncrease</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">baseTemps</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">compIndex</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getComponents</span><span class="p">()):</span>
+            <span class="n">avgTemp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">_getAverageComponentTemperature</span><span class="p">(</span><span class="n">compIndex</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+                <span class="n">expectedTemps</span><span class="p">[</span><span class="n">compIndex</span><span class="p">],</span>
+                <span class="n">avgTemp</span><span class="p">,</span>
+                <span class="n">msg</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> avg temperature </span><span class="si">{</span><span class="n">avgTemp</span><span class="si">}</span><span class="s2"> not equal to expected </span><span class="si">{</span><span class="n">expectedTemps</span><span class="p">[</span><span class="n">compIndex</span><span class="p">]</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestComponentAveraging.test_getAverageComponentTemperatureNoMass"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestComponentAveraging.test_getAverageComponentTemperatureNoMass">[docs]</a>    <span class="k">def</span> <span class="nf">test_getAverageComponentTemperatureNoMass</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Test component temperature averaging when the components have no mass</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">():</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+
+        <span class="n">unweightedIncrease</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="n">baseTemps</span> <span class="o">=</span> <span class="p">[</span><span class="mi">600</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">400</span><span class="p">]</span>
+        <span class="n">expectedTemps</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="o">+</span> <span class="n">unweightedIncrease</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">baseTemps</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">compIndex</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getComponents</span><span class="p">()):</span>
+            <span class="n">avgTemp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc</span><span class="o">.</span><span class="n">_getAverageComponentTemperature</span><span class="p">(</span><span class="n">compIndex</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+                <span class="n">expectedTemps</span><span class="p">[</span><span class="n">compIndex</span><span class="p">],</span>
+                <span class="n">avgTemp</span><span class="p">,</span>
+                <span class="n">msg</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> avg temperature </span><span class="si">{</span><span class="n">avgTemp</span><span class="si">}</span><span class="s2"> not equal to expected </span><span class="si">{</span><span class="n">expectedTemps</span><span class="p">[</span><span class="n">compIndex</span><span class="p">]</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">,</span>
+            <span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="TestBlockCollectionComponentAverage"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestBlockCollectionComponentAverage">[docs]</a><span class="k">class</span> <span class="nc">TestBlockCollectionComponentAverage</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -535,10 +747,11 @@
 
 
 <div class="viewcode-block" id="TestBlockCollectionFluxWeightedAverage"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.tests.test_crossSectionManager.html#armi.physics.neutronics.tests.test_crossSectionManager.TestBlockCollectionFluxWeightedAverage">[docs]</a><span class="k">class</span> <span class="nc">TestBlockCollectionFluxWeightedAverage</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="n">fpFactory</span> <span class="o">=</span> <span class="n">test_lumpedFissionProduct</span><span class="o">.</span><span class="n">getDummyLFPFile</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blockList</span> <span class="o">=</span> <span class="n">makeBlocks</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">bi</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blockList</span><span class="p">):</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">blockList</span> <span class="o">=</span> <span class="n">makeBlocks</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">bi</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">blockList</span><span class="p">):</span>
             <span class="n">b</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;fuel&quot;</span><span class="p">)</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span> <span class="o">=</span> <span class="n">bi</span> <span class="o">/</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="mi">100</span>
             <span class="n">b</span><span class="o">.</span><span class="n">setLumpedFissionProducts</span><span class="p">(</span><span class="n">fpFactory</span><span class="o">.</span><span class="n">createLFPsFromFile</span><span class="p">())</span>
@@ -546,6 +759,7 @@
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">gasReleaseFraction</span> <span class="o">=</span> <span class="n">bi</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">/</span> <span class="mf">8.0</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flux</span> <span class="o">=</span> <span class="n">bi</span> <span class="o">+</span> <span class="mi">1</span>
 
+    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bc</span> <span class="o">=</span> <span class="n">FluxWeightedAverageBlockCollection</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">blockList</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
         <span class="p">)</span>
@@ -805,7 +1019,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2023, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2023-10-20.
+      <span class="lastupdated">Last updated on 2023-10-25.
       </span></p>
   </div>
 
