@@ -118,6 +118,7 @@
 <span class="sd">mpiexec.exe -n 2 python -m pytest armi/tests/test_mpiFeatures.py</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">distutils.spawn</span> <span class="kn">import</span> <span class="n">find_executable</span>
+<span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">patch</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
 
@@ -133,6 +134,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.parameters</span> <span class="kn">import</span> <span class="n">parameterDefinitions</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_reactors</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">ARMI_RUN_PATH</span><span class="p">,</span> <span class="n">TEST_ROOT</span>
+<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">pathTools</span>
 <span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
 
@@ -190,12 +192,27 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span> <span class="o">=</span> <span class="n">OperatorMPI</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">old_op</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span>
 
-<div class="viewcode-block" id="MpiOperatorTests.test_basicOperatorMPI"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_mpiFeatures.html#armi.tests.test_mpiFeatures.MpiOperatorTests.test_basicOperatorMPI">[docs]</a>    <span class="nd">@unittest</span><span class="o">.</span><span class="n">skipIf</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">MPI_EXE</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Parallel test only&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">test_basicOperatorMPI</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">operate</span><span class="p">()</span></div>
+<div class="viewcode-block" id="MpiOperatorTests.test_basicOperatorMPI"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_mpiFeatures.html#armi.tests.test_mpiFeatures.MpiOperatorTests.test_basicOperatorMPI">[docs]</a>    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.operators.Operator.operate&quot;</span><span class="p">)</span>
+    <span class="nd">@unittest</span><span class="o">.</span><span class="n">skipIf</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">MPI_EXE</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Parallel test only&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_basicOperatorMPI</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mockOpMpi</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test we can drive a parallel operator.</span>
+
+<span class="sd">        .. test:: Run a parallel operator.</span>
+<span class="sd">            :id: T_ARMI_OPERATOR_MPI0</span>
+<span class="sd">            :tests: R_ARMI_OPERATOR_MPI</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">operate</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;OperatorMPI.operate&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="MpiOperatorTests.test_primaryException"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_mpiFeatures.html#armi.tests.test_mpiFeatures.MpiOperatorTests.test_primaryException">[docs]</a>    <span class="nd">@unittest</span><span class="o">.</span><span class="n">skipIf</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">MPI_EXE</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Parallel test only&quot;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">test_primaryException</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test a custom interface that only fails on the main process.</span>
+
+<span class="sd">        .. test:: Run a parallel operator that fails online on the main process.</span>
+<span class="sd">            :id: T_ARMI_OPERATOR_MPI1</span>
+<span class="sd">            :tests: R_ARMI_OPERATOR_MPI</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">removeAllInterfaces</span><span class="p">()</span>
         <span class="n">failer</span> <span class="o">=</span> <span class="n">FailingInterface1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">addInterface</span><span class="p">(</span><span class="n">failer</span><span class="p">)</span>
@@ -403,7 +420,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2023, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2023-11-28.
+      <span class="lastupdated">Last updated on 2023-11-29.
       </span></p>
   </div>
 

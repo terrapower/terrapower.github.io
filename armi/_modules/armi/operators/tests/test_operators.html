@@ -106,30 +106,32 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;Tests for operators.&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">unittest</span>
 <span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">patch</span>
 <span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">unittest</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping.db.databaseInterface</span> <span class="kn">import</span> <span class="n">DatabaseInterface</span>
 <span class="kn">from</span> <span class="nn">armi.interfaces</span> <span class="kn">import</span> <span class="n">Interface</span><span class="p">,</span> <span class="n">TightCoupler</span>
 <span class="kn">from</span> <span class="nn">armi.operators.operator</span> <span class="kn">import</span> <span class="n">Operator</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_reactors</span>
-<span class="kn">from</span> <span class="nn">armi.settings.caseSettings</span> <span class="kn">import</span> <span class="n">Settings</span>
-<span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.globalFlux.globalFluxInterface</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">GlobalFluxInterfaceUsingExecuters</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
-<span class="kn">from</span> <span class="nn">armi.bookkeeping.db.databaseInterface</span> <span class="kn">import</span> <span class="n">DatabaseInterface</span>
-<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.reactors</span> <span class="kn">import</span> <span class="n">Reactor</span><span class="p">,</span> <span class="n">Core</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_reactors</span>
+<span class="kn">from</span> <span class="nn">armi.settings.caseSettings</span> <span class="kn">import</span> <span class="n">Settings</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CONF_RUN_TYPE</span><span class="p">,</span>
     <span class="n">CONF_TIGHT_COUPLING</span><span class="p">,</span>
     <span class="n">CONF_CYCLES_SKIP_TIGHT_COUPLING_INTERACTION</span><span class="p">,</span>
     <span class="n">CONF_TIGHT_COUPLING_SETTINGS</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
+<span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
 
 
 <div class="viewcode-block" id="InterfaceA"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.InterfaceA">[docs]</a><span class="k">class</span> <span class="nc">InterfaceA</span><span class="p">(</span><span class="n">Interface</span><span class="p">):</span>
@@ -149,11 +151,74 @@
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Third&quot;</span></div>
 
 
-<span class="c1"># TODO: Add a test that shows time evolution of Reactor (R_EVOLVING_STATE)</span>
 <div class="viewcode-block" id="OperatorTests"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorTests">[docs]</a><span class="k">class</span> <span class="nc">OperatorTests</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">test_reactors</span><span class="o">.</span><span class="n">loadTestReactor</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">interfaces</span> <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">enabled</span><span class="p">()]</span>
+
+<div class="viewcode-block" id="OperatorTests.test_operatorData"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorTests.test_operatorData">[docs]</a>    <span class="k">def</span> <span class="nf">test_operatorData</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that the operator has input data, a reactor model.</span>
+
+<span class="sd">        .. test:: The Operator includes input data and the reactor data model.</span>
+<span class="sd">            :id: T_ARMI_OPERATOR_COMM</span>
+<span class="sd">            :tests: R_ARMI_OPERATOR_COMM</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">),</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="OperatorTests.test_orderedInterfaces"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorTests.test_orderedInterfaces">[docs]</a>    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.operators.Operator._interactAll&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_orderedInterfaces</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interactAll</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test the default interfaces are in an ordered list, looped over at each time step.</span>
+
+<span class="sd">        .. test:: An ordered list of interfaces are run at each time step.</span>
+<span class="sd">            :id: T_ARMI_OPERATOR_INTERFACES</span>
+<span class="sd">            :tests: R_ARMI_OPERATOR_INTERFACES</span>
+
+<span class="sd">        .. test:: Interfaces are run at BOC, EOC, and at time points between.</span>
+<span class="sd">            :id: T_ARMI_INTERFACE</span>
+<span class="sd">            :tests: R_ARMI_INTERFACE</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># an ordered list of interfaces</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">interfaces</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">interfaces</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">Interface</span><span class="p">))</span>
+
+        <span class="c1"># make sure we only iterate one time step</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;nCycles&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c1"># mock some stdout logging of what&#39;s happening when</span>
+        <span class="k">def</span> <span class="nf">sideEffect</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">activeInts</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">activeInts</span><span class="p">)</span>
+
+        <span class="n">interactAll</span><span class="o">.</span><span class="n">side_effect</span> <span class="o">=</span> <span class="n">sideEffect</span>
+
+        <span class="c1"># run the operator through one cycle</span>
+        <span class="n">origout</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">()</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">out</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">operate</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">origout</span>
+
+        <span class="c1"># check the outputs</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
+        <span class="c1"># the BOL timestep comes before the EOL</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;BOL&quot;</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;EOL&quot;</span><span class="p">,</span> <span class="n">log</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;BOL&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="c1"># we have some common interfaces listed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;fuelHandler&quot;</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;fissionProducts&quot;</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;history&quot;</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;snapshot&quot;</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+        <span class="c1"># At the first time step, we get one ordered list of interfaces</span>
+        <span class="n">interfaces</span> <span class="o">=</span> <span class="n">log</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;BOL&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;EOL&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">interfaces</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">interfaces</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Interface&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="OperatorTests.test_addInterfaceSubclassCollision"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorTests.test_addInterfaceSubclassCollision">[docs]</a>    <span class="k">def</span> <span class="nf">test_addInterfaceSubclassCollision</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()</span>
@@ -249,6 +314,34 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s2">&quot;snapShot0_2&quot;</span><span class="p">))</span></div></div>
 
 
+<div class="viewcode-block" id="TestCreateOperator"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.TestCreateOperator">[docs]</a><span class="k">class</span> <span class="nc">TestCreateOperator</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestCreateOperator.test_createOperator"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.TestCreateOperator.test_createOperator">[docs]</a>    <span class="k">def</span> <span class="nf">test_createOperator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that an operator can be created from settings.</span>
+
+<span class="sd">        .. test:: Create an operator from settings.</span>
+<span class="sd">            :id: T_ARMI_OPERATOR_SETTINGS</span>
+<span class="sd">            :tests: R_ARMI_OPERATOR_SETTINGS</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()</span>
+        <span class="n">o</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+        <span class="c1"># high-level items</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Operator</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">))</span>
+
+        <span class="c1"># validate some more nitty-gritty operator details come from settings</span>
+        <span class="n">burnStepsSetting</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span><span class="n">burnStepsSetting</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="p">:</span>
+            <span class="n">burnStepsSetting</span> <span class="o">=</span> <span class="p">[</span><span class="n">burnStepsSetting</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">burnSteps</span><span class="p">,</span> <span class="n">burnStepsSetting</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">maxBurnSteps</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">burnStepsSetting</span><span class="p">))</span>
+
+        <span class="n">powerFracsSetting</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;powerFractions&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">powerFracsSetting</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">powerFractions</span><span class="p">,</span> <span class="n">powerFracsSetting</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">powerFractions</span><span class="p">,</span> <span class="p">[[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">]])</span></div></div>
+
+
 <div class="viewcode-block" id="TestTightCoupling"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.TestTightCoupling">[docs]</a><span class="k">class</span> <span class="nc">TestTightCoupling</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()</span>
@@ -256,6 +349,20 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">Reactor</span><span class="p">(</span><span class="s2">&quot;empty&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span> <span class="o">=</span> <span class="n">Core</span><span class="p">(</span><span class="s2">&quot;empty&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TestTightCoupling.test_getStepLengths"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.TestTightCoupling.test_getStepLengths">[docs]</a>    <span class="k">def</span> <span class="nf">test_getStepLengths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test the step lengths are correctly calculated, based on settings.</span>
+
+<span class="sd">        .. test:: Users can control time discretization of the simulation through settings.</span>
+<span class="sd">            :id: T_ARMI_FW_HISTORY0</span>
+<span class="sd">            :tests: R_ARMI_FW_HISTORY</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nCycles&quot;</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;cycleLength&quot;</span><span class="p">],</span> <span class="mf">365.242199</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">],</span> <span class="mi">4</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">stepLengths</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">stepLengths</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="mi">4</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="TestTightCoupling.test_couplingIsActive"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.TestTightCoupling.test_couplingIsActive">[docs]</a>    <span class="k">def</span> <span class="nf">test_couplingIsActive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure that ``cs[CONF_TIGHT_COUPLING]`` controls ``couplingIsActive``.&quot;&quot;&quot;</span>
@@ -278,7 +385,12 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">coupledIteration</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="TestTightCoupling.test_performTightCoupling_notConverged"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.TestTightCoupling.test_performTightCoupling_notConverged">[docs]</a>    <span class="k">def</span> <span class="nf">test_performTightCoupling_notConverged</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure that the appropriate ``runLog.warning`` is addressed in tight coupling reaches max num of iters.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure that the appropriate ``runLog.warning`` is addressed in tight coupling reaches max num of iters.</span>
+
+<span class="sd">        .. test:: The tight coupling logic can fail if there is no convergence.</span>
+<span class="sd">            :id: T_ARMI_OPERATOR_PHYSICS0</span>
+<span class="sd">            :tests: R_ARMI_OPERATOR_PHYSICS</span>
+<span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">class</span> <span class="nc">NoConverge</span><span class="p">(</span><span class="n">TightCoupler</span><span class="p">):</span>
             <span class="k">def</span> <span class="nf">isConverged</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_val</span><span class="p">:</span> <span class="n">TightCoupler</span><span class="o">.</span><span class="n">_SUPPORTED_TYPES</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -438,10 +550,24 @@
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="CyclesSettingsTests.test_getStepLengths"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.CyclesSettingsTests.test_getStepLengths">[docs]</a>    <span class="k">def</span> <span class="nf">test_getStepLengths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that the manually-set, detailed time steps are retrievable.</span>
+
+<span class="sd">        .. test:: Users can manually control time discretization of the simulation.</span>
+<span class="sd">            :id: T_ARMI_FW_HISTORY1</span>
+<span class="sd">            :tests: R_ARMI_FW_HISTORY</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># detailed step lengths can be set manually</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detailedOperator</span><span class="o">.</span><span class="n">stepLengths</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stepLengthsSolution</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">detailedOperator</span><span class="o">.</span><span class="n">_stepLength</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detailedOperator</span><span class="o">.</span><span class="n">stepLengths</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stepLengthsSolution</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">detailedOperator</span><span class="o">.</span><span class="n">_stepLength</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detailedOperator</span><span class="o">.</span><span class="n">stepLengths</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stepLengthsSolution</span><span class="p">)</span></div>
+        <span class="c1"># when doing detailed step information, we don&#39;t get step information from settings</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">detailedOperator</span><span class="o">.</span><span class="n">cs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nCycles&quot;</span><span class="p">],</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;cycleLength&quot;</span><span class="p">]</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;burnSteps&quot;</span><span class="p">]</span></div>
 
 <div class="viewcode-block" id="CyclesSettingsTests.test_getCycleLengths"><a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.CyclesSettingsTests.test_getCycleLengths">[docs]</a>    <span class="k">def</span> <span class="nf">test_getCycleLengths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">detailedOperator</span><span class="o">.</span><span class="n">cycleLengths</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycleLengthsSolution</span><span class="p">)</span>
@@ -502,7 +628,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2023, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2023-11-28.
+      <span class="lastupdated">Last updated on 2023-11-29.
       </span></p>
   </div>
 
