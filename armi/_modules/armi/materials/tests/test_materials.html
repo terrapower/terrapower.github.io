@@ -112,7 +112,8 @@
 
 <span class="kn">from</span> <span class="nn">numpy</span> <span class="kn">import</span> <span class="n">testing</span>
 
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">materials</span><span class="p">,</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span><span class="p">,</span> <span class="n">materials</span><span class="p">,</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi.materials</span> <span class="kn">import</span> <span class="n">_MATERIAL_NAMESPACE_ORDER</span><span class="p">,</span> <span class="n">setMaterialNamespaceOrder</span>
 <span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">blueprints</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
@@ -201,6 +202,10 @@
 <div class="viewcode-block" id="MaterialFindingTests.test_findMaterial"><a class="viewcode-back" href="../../../../.apidocs/armi.materials.tests.test_materials.html#armi.materials.tests.test_materials.MaterialFindingTests.test_findMaterial">[docs]</a>    <span class="k">def</span> <span class="nf">test_findMaterial</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Test resolveMaterialClassByName() function.</span>
 
+<span class="sd">        .. test:: Materials can be grabbed from a list of namespaces.</span>
+<span class="sd">            :id: T_ARMI_MAT_NAMESPACE0</span>
+<span class="sd">            :tests: R_ARMI_MAT_NAMESPACE</span>
+
 <span class="sd">        .. test:: You can find a material by name.</span>
 <span class="sd">            :id: T_ARMI_MAT_NAME</span>
 <span class="sd">            :tests: R_ARMI_MAT_NAME</span>
@@ -230,7 +235,52 @@
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">KeyError</span><span class="p">):</span>
             <span class="n">materials</span><span class="o">.</span><span class="n">resolveMaterialClassByName</span><span class="p">(</span>
                 <span class="s2">&quot;Unobtanium&quot;</span><span class="p">,</span> <span class="n">namespaceOrder</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;armi.materials&quot;</span><span class="p">]</span>
-            <span class="p">)</span></div></div>
+            <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__validateMaterialNamespace</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper method to validate the material namespace a little.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">_MATERIAL_NAMESPACE_ORDER</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">_MATERIAL_NAMESPACE_ORDER</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">nameSpace</span> <span class="ow">in</span> <span class="n">_MATERIAL_NAMESPACE_ORDER</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">nameSpace</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
+
+<div class="viewcode-block" id="MaterialFindingTests.test_namespacing"><a class="viewcode-back" href="../../../../.apidocs/armi.materials.tests.test_materials.html#armi.materials.tests.test_materials.MaterialFindingTests.test_namespacing">[docs]</a>    <span class="nd">@unittest</span><span class="o">.</span><span class="n">skipUnless</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;test only on root node&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_namespacing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test loading materials with different material namespaces, to cover how they work.</span>
+
+<span class="sd">        .. test:: Material can be found in defined packages.</span>
+<span class="sd">            :id: T_ARMI_MAT_NAMESPACE1</span>
+<span class="sd">            :tests: R_ARMI_MAT_NAMESPACE</span>
+
+<span class="sd">        .. test:: Material namespaces register materials with an order of priority.</span>
+<span class="sd">            :id: T_ARMI_MAT_ORDER</span>
+<span class="sd">            :tests: R_ARMI_MAT_ORDER</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># let&#39;s do a quick test of getting a material from the default namespace</span>
+        <span class="n">setMaterialNamespaceOrder</span><span class="p">([</span><span class="s2">&quot;armi.materials&quot;</span><span class="p">])</span>
+        <span class="n">uo2</span> <span class="o">=</span> <span class="n">materials</span><span class="o">.</span><span class="n">resolveMaterialClassByName</span><span class="p">(</span>
+            <span class="s2">&quot;UO2&quot;</span><span class="p">,</span> <span class="n">namespaceOrder</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;armi.materials&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="n">uo2</span><span class="p">()</span><span class="o">.</span><span class="n">density</span><span class="p">(</span><span class="mi">500</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># validate the default namespace in ARMI</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__validateMaterialNamespace</span><span class="p">()</span>
+
+        <span class="c1"># show you can add a material namespace</span>
+        <span class="n">newMats</span> <span class="o">=</span> <span class="s2">&quot;armi.utils.tests.test_densityTools&quot;</span>
+        <span class="n">setMaterialNamespaceOrder</span><span class="p">([</span><span class="s2">&quot;armi.materials&quot;</span><span class="p">,</span> <span class="n">newMats</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__validateMaterialNamespace</span><span class="p">()</span>
+
+        <span class="c1"># show that adding a name material namespace provides access to new materials</span>
+        <span class="n">testMatIgnoreFake</span> <span class="o">=</span> <span class="n">materials</span><span class="o">.</span><span class="n">resolveMaterialClassByName</span><span class="p">(</span>
+            <span class="s2">&quot;TestMaterialIgnoreFake&quot;</span><span class="p">,</span> <span class="n">namespaceOrder</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;armi.materials&quot;</span><span class="p">,</span> <span class="n">newMats</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">600</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">testMatIgnoreFake</span><span class="p">()</span><span class="o">.</span><span class="n">density</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">testMatIgnoreFake</span><span class="p">()</span><span class="o">.</span><span class="n">pseudoDensity</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># for safety, reset the material namespace list and order</span>
+        <span class="n">setMaterialNamespaceOrder</span><span class="p">([</span><span class="s2">&quot;armi.materials&quot;</span><span class="p">])</span></div></div>
 
 
 <div class="viewcode-block" id="Californium_TestCase"><a class="viewcode-back" href="../../../../.apidocs/armi.materials.tests.test_materials.html#armi.materials.tests.test_materials.Californium_TestCase">[docs]</a><span class="k">class</span> <span class="nc">Californium_TestCase</span><span class="p">(</span><span class="n">_Material_Test</span><span class="p">,</span> <span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -2099,7 +2149,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2023, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2023-12-01.
+      <span class="lastupdated">Last updated on 2023-12-04.
       </span></p>
   </div>
 
