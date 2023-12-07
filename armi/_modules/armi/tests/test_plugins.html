@@ -107,15 +107,77 @@
 
 <span class="sd">&quot;&quot;&quot;Provides functionality for testing implementations of plugins.&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
 
 <span class="kn">import</span> <span class="nn">yamlize</span>
 
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">getApp</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">plugins</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">utils</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">NeutronicsPlugin</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.blocks</span> <span class="kn">import</span> <span class="n">Block</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+
+
+<div class="viewcode-block" id="PluginFlags1"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_plugins.html#armi.tests.test_plugins.PluginFlags1">[docs]</a><span class="k">class</span> <span class="nc">PluginFlags1</span><span class="p">(</span><span class="n">plugins</span><span class="o">.</span><span class="n">ArmiPlugin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple Plugin that defines a single, new flag.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="PluginFlags1.defineFlags"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_plugins.html#armi.tests.test_plugins.PluginFlags1.defineFlags">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@plugins</span><span class="o">.</span><span class="n">HOOKIMPL</span>
+    <span class="k">def</span> <span class="nf">defineFlags</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to provide new Flags definitions.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;SUPER_FLAG&quot;</span><span class="p">:</span> <span class="n">utils</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">auto</span><span class="p">()}</span></div></div>
+
+
+<div class="viewcode-block" id="TestPluginRegistration"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_plugins.html#armi.tests.test_plugins.TestPluginRegistration">[docs]</a><span class="k">class</span> <span class="nc">TestPluginRegistration</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Manipulate the standard App. We can&#39;t just configure our own, since the</span>
+<span class="sd">        pytest environment bleeds between tests.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_backupApp</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">getApp</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">tearDown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Restore the App to its original state.&quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">armi</span>
+
+        <span class="n">armi</span><span class="o">.</span><span class="n">_app</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_backupApp</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">APP_NAME</span> <span class="o">=</span> <span class="s2">&quot;armi&quot;</span>
+
+<div class="viewcode-block" id="TestPluginRegistration.test_defineFlags"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_plugins.html#armi.tests.test_plugins.TestPluginRegistration.test_defineFlags">[docs]</a>    <span class="k">def</span> <span class="nf">test_defineFlags</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define a new flag using the plugin defineFlags() method.</span>
+
+<span class="sd">        .. test:: Define a new, unique flag through the plugin pathway.</span>
+<span class="sd">            :id: T_ARMI_FLAG_EXTEND1</span>
+<span class="sd">            :tests: R_ARMI_FLAG_EXTEND</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">getApp</span><span class="p">()</span>
+
+        <span class="c1"># show the new plugin isn&#39;t loaded yet</span>
+        <span class="n">pluginNames</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">app</span><span class="o">.</span><span class="n">pluginManager</span><span class="o">.</span><span class="n">list_name_plugin</span><span class="p">()]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="s2">&quot;PluginFlags1&quot;</span><span class="p">,</span> <span class="n">pluginNames</span><span class="p">)</span>
+
+        <span class="c1"># show the flag doesn&#39;t exist yet</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">AttributeError</span><span class="p">):</span>
+            <span class="n">Flags</span><span class="o">.</span><span class="n">SUPER_FLAG</span>
+
+        <span class="c1"># load the plugin</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">pluginManager</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PluginFlags1</span><span class="p">)</span>
+
+        <span class="c1"># show the new plugin is loaded now</span>
+        <span class="n">pluginNames</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">app</span><span class="o">.</span><span class="n">pluginManager</span><span class="o">.</span><span class="n">list_name_plugin</span><span class="p">()]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;PluginFlags1&quot;</span><span class="p">,</span> <span class="n">pluginNames</span><span class="p">)</span>
+
+        <span class="c1"># force-register new flags from the new plugin</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">_pluginFlagsRegistered</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">registerPluginFlags</span><span class="p">()</span>
+
+        <span class="c1"># show the flag exists now</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">SUPER_FLAG</span><span class="o">.</span><span class="n">_value</span><span class="p">),</span> <span class="nb">int</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="TestPluginBasics"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_plugins.html#armi.tests.test_plugins.TestPluginBasics">[docs]</a><span class="k">class</span> <span class="nc">TestPluginBasics</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
