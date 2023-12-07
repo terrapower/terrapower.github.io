@@ -205,10 +205,17 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">filePath</span> <span class="o">=</span> <span class="s2">&quot;test_runExternalExecutable.py&quot;</span>
         <span class="n">outFile</span> <span class="o">=</span> <span class="s2">&quot;tmp.txt&quot;</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;printExtraStuff&quot;</span>
 
-        <span class="k">class</span> <span class="nc">TestSillyExecuter</span><span class="p">(</span><span class="n">executers</span><span class="o">.</span><span class="n">Executer</span><span class="p">):</span>
+        <span class="k">class</span> <span class="nc">MockExecutionOptions</span><span class="p">(</span><span class="n">executers</span><span class="o">.</span><span class="n">ExecutionOptions</span><span class="p">):</span>
+            <span class="k">pass</span>
+
+        <span class="k">class</span> <span class="nc">MockExecuter</span><span class="p">(</span><span class="n">executers</span><span class="o">.</span><span class="n">Executer</span><span class="p">):</span>
             <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
-                <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">filePath</span><span class="p">,</span> <span class="n">args</span><span class="p">])</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">label</span> <span class="o">==</span> <span class="n">label</span><span class="p">:</span>
+                    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">filePath</span><span class="p">,</span> <span class="s2">&quot;extra stuff&quot;</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">filePath</span><span class="p">,</span> <span class="n">args</span><span class="p">])</span>
 
         <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">():</span>
             <span class="c1"># build a mock external program (a little Python script)</span>
@@ -218,7 +225,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outFile</span><span class="p">))</span>
 
             <span class="c1"># set up an executer for our little test program</span>
-            <span class="n">exe</span> <span class="o">=</span> <span class="n">TestSillyExecuter</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">opts</span> <span class="o">=</span> <span class="n">MockExecutionOptions</span><span class="p">()</span>
+            <span class="n">exe</span> <span class="o">=</span> <span class="n">MockExecuter</span><span class="p">(</span><span class="n">opts</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="n">exe</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
 
             <span class="c1"># make sure the output file exists now</span>
@@ -231,7 +239,13 @@
             <span class="c1"># make sure the output file exists now</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outFile</span><span class="p">))</span>
             <span class="n">newTxt</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">outFile</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="n">testString</span><span class="p">,</span> <span class="n">newTxt</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="n">testString</span><span class="p">,</span> <span class="n">newTxt</span><span class="p">)</span>
+
+            <span class="c1"># now prove the options object can affect the execution</span>
+            <span class="n">exe</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">label</span>
+            <span class="n">exe</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">newerTxt</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">outFile</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;extra stuff&quot;</span><span class="p">,</span> <span class="n">newerTxt</span><span class="p">)</span></div>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">__makeALittleTestProgram</span><span class="p">(</span><span class="n">filePath</span><span class="p">,</span> <span class="n">outFile</span><span class="p">):</span>
