@@ -106,6 +106,7 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;Tests for the Database3 class.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">distutils.spawn</span> <span class="kn">import</span> <span class="n">find_executable</span>
 <span class="kn">import</span> <span class="nn">subprocess</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
 
@@ -121,6 +122,13 @@
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">TEST_ROOT</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">getPreviousTimeNode</span>
 <span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
+
+<span class="c1"># determine if this is a parallel run, and git is installed</span>
+<span class="n">GIT_EXE</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="k">if</span> <span class="n">find_executable</span><span class="p">(</span><span class="s2">&quot;git&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">GIT_EXE</span> <span class="o">=</span> <span class="s2">&quot;git&quot;</span>
+<span class="k">elif</span> <span class="n">find_executable</span><span class="p">(</span><span class="s2">&quot;git.exe&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">GIT_EXE</span> <span class="o">=</span> <span class="s2">&quot;git.exe&quot;</span>
 
 
 <div class="viewcode-block" id="TestDatabase3"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.db.tests.test_database3.html#armi.bookkeeping.db.tests.test_database3.TestDatabase3">[docs]</a><span class="k">class</span> <span class="nc">TestDatabase3</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -647,18 +655,24 @@
                 <span class="p">[(</span><span class="n">c</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)],</span> <span class="s2">&quot;-all-iterations&quot;</span>
             <span class="p">)</span></div>
 
-<div class="viewcode-block" id="TestDatabase3.test_grabLocalCommitHash"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.db.tests.test_database3.html#armi.bookkeeping.db.tests.test_database3.TestDatabase3.test_grabLocalCommitHash">[docs]</a>    <span class="k">def</span> <span class="nf">test_grabLocalCommitHash</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="TestDatabase3.test_grabLocalCommitHash"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.db.tests.test_database3.html#armi.bookkeeping.db.tests.test_database3.TestDatabase3.test_grabLocalCommitHash">[docs]</a>    <span class="nd">@unittest</span><span class="o">.</span><span class="n">skipIf</span><span class="p">(</span><span class="n">GIT_EXE</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;This test needs Git.&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_grabLocalCommitHash</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Test of static method to grab a local commit hash with ARMI version.&quot;&quot;&quot;</span>
         <span class="c1"># 1. test outside a Git repo</span>
         <span class="n">localHash</span> <span class="o">=</span> <span class="n">database3</span><span class="o">.</span><span class="n">Database3</span><span class="o">.</span><span class="n">grabLocalCommitHash</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">localHash</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
 
         <span class="c1"># 2. test inside an empty git repo</span>
-        <span class="n">code</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-            <span class="p">[</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;init&quot;</span><span class="p">,</span> <span class="s2">&quot;.&quot;</span><span class="p">],</span>
-            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
-            <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">returncode</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">code</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;init&quot;</span><span class="p">,</span> <span class="s2">&quot;.&quot;</span><span class="p">],</span>
+                <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+                <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">DEVNULL</span><span class="p">,</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">returncode</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Skipping this test because it is being run outside a git repo.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
         <span class="n">localHash</span> <span class="o">=</span> <span class="n">database3</span><span class="o">.</span><span class="n">Database3</span><span class="o">.</span><span class="n">grabLocalCommitHash</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">localHash</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
@@ -761,7 +775,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2023, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2023-12-08.
+      <span class="lastupdated">Last updated on 2023-12-09.
       </span></p>
   </div>
 
