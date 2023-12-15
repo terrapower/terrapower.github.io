@@ -109,7 +109,6 @@
 <span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
-
 <span class="kn">from</span> <span class="nn">numpy.testing</span> <span class="kn">import</span> <span class="n">assert_allclose</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
@@ -120,7 +119,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.converters</span> <span class="kn">import</span> <span class="n">uniformMesh</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.tests.test_reactors</span> <span class="kn">import</span> <span class="n">loadTestReactor</span><span class="p">,</span> <span class="n">reduceTestReactorRings</span>
-<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">TEST_ROOT</span>
+<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">mockRunLogs</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
 
 
@@ -235,7 +234,14 @@
         <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span>
 
 <div class="viewcode-block" id="TestHexToRZConverter.test_convert"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_geometryConverters.html#armi.reactor.converters.tests.test_geometryConverters.TestHexToRZConverter.test_convert">[docs]</a>    <span class="k">def</span> <span class="nf">test_convert</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test the HexToRZConverter.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test HexToRZConverter.convert().</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Ensure the converted reactor has 1) nuclides and nuclide masses that match the</span>
+<span class="sd">        original reactor, 2) for a given (r,z,theta) location the expected block type exists,</span>
+<span class="sd">        3) the converted reactor has the right (r,z,theta) coordinates, and 4) the converted</span>
+<span class="sd">        reactor blocks all have a single (homogenized) component.</span>
 
 <span class="sd">        .. test:: Convert a 3D hex reactor core to an RZ-Theta core.</span>
 <span class="sd">            :id: T_ARMI_CONV_3DHEX_TO_2DRZ</span>
@@ -380,32 +386,47 @@
 <span class="sd">            :id: T_ARMI_ADD_EDGE_ASSEMS</span>
 <span class="sd">            :tests: R_ARMI_ADD_EDGE_ASSEMS</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">getAssemByRingPos</span><span class="p">(</span><span class="n">ringPos</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()</span> <span class="o">==</span> <span class="n">ringPos</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">a</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">numAssemsOrig</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">())</span>
+        <span class="c1"># assert that there is no assembly in the (3, 4) (ring, position).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">getAssemByRingPos</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)))</span>
+        <span class="c1"># add the assembly</span>
         <span class="n">converter</span> <span class="o">=</span> <span class="n">geometryConverters</span><span class="o">.</span><span class="n">EdgeAssemblyChanger</span><span class="p">()</span>
         <span class="n">converter</span><span class="o">.</span><span class="n">addEdgeAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">)</span>
+        <span class="n">numAssemsWithEdgeAssem</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">())</span>
+        <span class="c1"># assert that there is an assembly in the (3, 4) (ring, position).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNotNone</span><span class="p">(</span><span class="n">getAssemByRingPos</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">numAssemsWithEdgeAssem</span> <span class="o">&gt;</span> <span class="n">numAssemsOrig</span><span class="p">)</span>
+
+        <span class="c1"># try to add the assembly again (you can&#39;t)</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">converter</span><span class="o">.</span><span class="n">addEdgeAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Skipping addition of edge assemblies&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">numAssemsWithEdgeAssem</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">()))</span>
 
         <span class="c1"># must be added after geom transform</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="mf">1.0</span>
-
-        <span class="n">numAssems</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">())</span>
         <span class="n">converter</span><span class="o">.</span><span class="n">scaleParamsRelatedToSymmetry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
-
         <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssembliesOnSymmetryLine</span><span class="p">(</span><span class="n">grids</span><span class="o">.</span><span class="n">BOUNDARY_0_DEGREES</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="nb">all</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">power</span> <span class="o">==</span> <span class="mf">2.0</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">),</span> <span class="s2">&quot;Powers were not scaled&quot;</span><span class="p">)</span>
 
+        <span class="c1"># remove the assembly that was added</span>
         <span class="n">converter</span><span class="o">.</span><span class="n">removeEdgeAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">numAssems</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">()))</span>
-        <span class="n">converter</span><span class="o">.</span><span class="n">addEdgeAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">numAssems</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">()))</span>
-        <span class="c1"># make sure it can be called twice.</span>
-        <span class="n">converter</span><span class="o">.</span><span class="n">addEdgeAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">numAssems</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">()))</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">getAssemByRingPos</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">numAssemsOrig</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">()))</span></div></div>
 
 
 <div class="viewcode-block" id="TestThirdCoreHexToFullCoreChanger"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_geometryConverters.html#armi.reactor.converters.tests.test_geometryConverters.TestThirdCoreHexToFullCoreChanger">[docs]</a><span class="k">class</span> <span class="nc">TestThirdCoreHexToFullCoreChanger</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">)</span>
-        <span class="n">reduceTestReactorRings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">reduceTestReactorRings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
 
         <span class="c1"># initialize the block powers to a uniform power profile, accounting for</span>
         <span class="c1"># the loaded reactor being 1/3 core</span>
@@ -437,6 +458,14 @@
 <span class="sd">            :id: T_ARMI_THIRD_TO_FULL_CORE0</span>
 <span class="sd">            :tests: R_ARMI_THIRD_TO_FULL_CORE</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">getLTAAssems</span><span class="p">():</span>
+            <span class="n">aList</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">getType</span> <span class="o">==</span> <span class="s2">&quot;lta fuel&quot;</span><span class="p">:</span>
+                    <span class="n">aList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">aList</span>
+
         <span class="c1"># Check the initialization of the third core model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">isFullCore</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span>
@@ -446,7 +475,10 @@
             <span class="p">),</span>
         <span class="p">)</span>
         <span class="n">initialNumBlocks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span>
-
+        <span class="n">assems</span> <span class="o">=</span> <span class="n">getLTAAssems</span><span class="p">()</span>
+        <span class="n">expectedLoc</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">assems</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">(),</span> <span class="n">expectedLoc</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getTotalBlockParam</span><span class="p">(</span><span class="s2">&quot;power&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;power&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span> <span class="n">places</span><span class="o">=</span><span class="mi">5</span>
         <span class="p">)</span>
@@ -463,6 +495,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">isFullCore</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()),</span> <span class="n">initialNumBlocks</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">geometry</span><span class="o">.</span><span class="n">DomainType</span><span class="o">.</span><span class="n">FULL_CORE</span><span class="p">)</span>
+        <span class="n">assems</span> <span class="o">=</span> <span class="n">getLTAAssems</span><span class="p">()</span>
+        <span class="n">expectedLoc</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">assems</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">(),</span> <span class="n">expectedLoc</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
 
         <span class="c1"># ensure that block power is handled correctly</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
@@ -486,7 +522,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">isFullCore</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getTotalBlockParam</span><span class="p">(</span><span class="s2">&quot;power&quot;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;power&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span> <span class="n">places</span><span class="o">=</span><span class="mi">5</span>
-        <span class="p">)</span></div>
+        <span class="p">)</span>
+        <span class="n">assems</span> <span class="o">=</span> <span class="n">getLTAAssems</span><span class="p">()</span>
+        <span class="n">expectedLoc</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">assems</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">(),</span> <span class="n">expectedLoc</span><span class="p">[</span><span class="n">i</span><span class="p">])</span></div>
 
 <div class="viewcode-block" id="TestThirdCoreHexToFullCoreChanger.test_initNewFullReactor"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_geometryConverters.html#armi.reactor.converters.tests.test_geometryConverters.TestThirdCoreHexToFullCoreChanger.test_initNewFullReactor">[docs]</a>    <span class="k">def</span> <span class="nf">test_initNewFullReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that initNewReactor will growToFullCore if necessary.&quot;&quot;&quot;</span>
@@ -503,7 +543,13 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">newR</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">geometry</span><span class="o">.</span><span class="n">DomainType</span><span class="o">.</span><span class="n">FULL_CORE</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="TestThirdCoreHexToFullCoreChanger.test_skipGrowToFullCoreWhenAlreadyFullCore"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_geometryConverters.html#armi.reactor.converters.tests.test_geometryConverters.TestThirdCoreHexToFullCoreChanger.test_skipGrowToFullCoreWhenAlreadyFullCore">[docs]</a>    <span class="k">def</span> <span class="nf">test_skipGrowToFullCoreWhenAlreadyFullCore</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that hex core is not modified when third core to full core changer is called on an already full core geometry.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that hex core is not modified when third core to full core changer is called on an already full core geometry.</span>
+
+<span class="sd">        .. test: Convert a one-third core to full core and restore back to one-third core.</span>
+<span class="sd">            :id: T_ARMI_THIRD_TO_FULL_CORE2</span>
+<span class="sd">            :tests: R_ARMI_THIRD_TO_FULL_CORE</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Check the initialization of the third core model and convert to a full core</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">isFullCore</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span>
@@ -512,18 +558,34 @@
                 <span class="n">geometry</span><span class="o">.</span><span class="n">DomainType</span><span class="o">.</span><span class="n">THIRD_CORE</span><span class="p">,</span> <span class="n">geometry</span><span class="o">.</span><span class="n">BoundaryType</span><span class="o">.</span><span class="n">PERIODIC</span>
             <span class="p">),</span>
         <span class="p">)</span>
+        <span class="n">numBlocksThirdCore</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span>
+        <span class="c1"># convert the third core to full core</span>
         <span class="n">changer</span> <span class="o">=</span> <span class="n">geometryConverters</span><span class="o">.</span><span class="n">ThirdCoreHexToFullCoreChanger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
-        <span class="n">changer</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
-        <span class="c1"># Check that the changer does not affect the full core model on converting and restoring</span>
-        <span class="n">initialNumBlocks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">changer</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Expanding to full core geometry&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+        <span class="n">numBlocksFullCore</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">geometry</span><span class="o">.</span><span class="n">DomainType</span><span class="o">.</span><span class="n">FULL_CORE</span><span class="p">)</span>
-        <span class="n">changer</span> <span class="o">=</span> <span class="n">geometryConverters</span><span class="o">.</span><span class="n">ThirdCoreHexToFullCoreChanger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
-        <span class="n">changer</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
+        <span class="c1"># try to convert to full core again (it shouldn&#39;t do anything)</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">changer</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span>
+                <span class="s2">&quot;Detected that full core reactor already exists. Cannot expand.&quot;</span><span class="p">,</span>
+                <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">(),</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">geometry</span><span class="o">.</span><span class="n">DomainType</span><span class="o">.</span><span class="n">FULL_CORE</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">initialNumBlocks</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()))</span>
-        <span class="n">changer</span><span class="o">.</span><span class="n">restorePreviousGeometry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">initialNumBlocks</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">geometry</span><span class="o">.</span><span class="n">DomainType</span><span class="o">.</span><span class="n">FULL_CORE</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">numBlocksFullCore</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()))</span>
+        <span class="c1"># restore back to 1/3 core</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">changer</span><span class="o">.</span><span class="n">restorePreviousGeometry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;revert from full to 1/3 core&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">numBlocksThirdCore</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">symmetry</span><span class="p">,</span>
+            <span class="n">geometry</span><span class="o">.</span><span class="n">SymmetryType</span><span class="p">(</span>
+                <span class="n">geometry</span><span class="o">.</span><span class="n">DomainType</span><span class="o">.</span><span class="n">THIRD_CORE</span><span class="p">,</span> <span class="n">geometry</span><span class="o">.</span><span class="n">BoundaryType</span><span class="o">.</span><span class="n">PERIODIC</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div></div>
 </pre></div>
 
            </div>
@@ -534,7 +596,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2023, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2023-12-14.
+      <span class="lastupdated">Last updated on 2023-12-15.
       </span></p>
   </div>
 
