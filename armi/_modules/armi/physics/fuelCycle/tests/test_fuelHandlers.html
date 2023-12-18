@@ -113,12 +113,14 @@
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">patch</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="kn">from</span> <span class="nn">armi.physics.fuelCycle</span> <span class="kn">import</span> <span class="n">fuelHandlers</span><span class="p">,</span> <span class="n">settings</span>
 <span class="kn">from</span> <span class="nn">armi.physics.fuelCycle.settings</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">CONF_ASSEM_ROTATION_STATIONARY</span><span class="p">,</span>
+    <span class="n">CONF_ASSEMBLY_ROTATION_ALG</span><span class="p">,</span>
     <span class="n">CONF_PLOT_SHUFFLE_ARROWS</span><span class="p">,</span>
     <span class="n">CONF_RUN_LATTICE_BEFORE_SHUFFLING</span><span class="p">,</span>
 <span class="p">)</span>
@@ -129,6 +131,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblies</span><span class="p">,</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">components</span><span class="p">,</span> <span class="n">grids</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_reactors</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.zones</span> <span class="kn">import</span> <span class="n">Zone</span>
 <span class="kn">from</span> <span class="nn">armi.settings</span> <span class="kn">import</span> <span class="n">caseSettings</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">ArmiTestHelper</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
@@ -269,6 +272,53 @@
             <span class="n">param</span><span class="o">=</span><span class="s2">&quot;percentBu&quot;</span><span class="p">,</span> <span class="n">compareTo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">blockLevelMax</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertIs</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestFuelHandler.test_outage"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestFuelHandler.test_outage">[docs]</a>    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.physics.fuelCycle.fuelHandlers.FuelHandler.chooseSwaps&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_outage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mockChooseSwaps</span><span class="p">):</span>
+        <span class="c1"># mock up a fuel handler</span>
+        <span class="n">fh</span> <span class="o">=</span> <span class="n">fuelHandlers</span><span class="o">.</span><span class="n">FuelHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">)</span>
+        <span class="n">mockChooseSwaps</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">())</span>
+
+        <span class="c1"># edge case: cannot perform two outages on the same FuelHandler</span>
+        <span class="n">fh</span><span class="o">.</span><span class="n">moved</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstAssembly</span><span class="p">()]</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">fh</span><span class="o">.</span><span class="n">outage</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+
+        <span class="c1"># edge case: fail if the shuffle file is missing</span>
+        <span class="n">fh</span><span class="o">.</span><span class="n">moved</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span>
+            <span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;explicitRepeatShuffles&quot;</span><span class="p">:</span> <span class="s2">&quot;fakePath&quot;</span><span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
+            <span class="n">fh</span><span class="o">.</span><span class="n">outage</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+
+        <span class="c1"># a successful run</span>
+        <span class="n">fh</span><span class="o">.</span><span class="n">moved</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span>
+            <span class="n">newSettings</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;explicitRepeatShuffles&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;fluxRecon&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="n">CONF_ASSEMBLY_ROTATION_ALG</span><span class="p">:</span> <span class="s2">&quot;simpleAssemblyRotation&quot;</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">fh</span><span class="o">.</span><span class="n">outage</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fh</span><span class="o">.</span><span class="n">moved</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestFuelHandler.test_isAssemblyInAZone"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestFuelHandler.test_isAssemblyInAZone">[docs]</a>    <span class="k">def</span> <span class="nf">test_isAssemblyInAZone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># build a fuel handler</span>
+        <span class="n">fh</span> <span class="o">=</span> <span class="n">fuelHandlers</span><span class="o">.</span><span class="n">FuelHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">)</span>
+
+        <span class="c1"># test the default value if there are no zones</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstAssembly</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">fh</span><span class="o">.</span><span class="n">isAssemblyInAZone</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">a</span><span class="p">))</span>
+
+        <span class="c1"># If our assembly isn&#39;t in one of the supplied zones</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">Zone</span><span class="p">(</span><span class="s2">&quot;test_isAssemblyInAZone&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">fh</span><span class="o">.</span><span class="n">isAssemblyInAZone</span><span class="p">([</span><span class="n">z</span><span class="p">],</span> <span class="n">a</span><span class="p">))</span>
+
+        <span class="c1"># If our assembly IS in one of the supplied zones</span>
+        <span class="n">z</span><span class="o">.</span><span class="n">addLoc</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">getLocation</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">fh</span><span class="o">.</span><span class="n">isAssemblyInAZone</span><span class="p">([</span><span class="n">z</span><span class="p">],</span> <span class="n">a</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="TestFuelHandler.test_width"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestFuelHandler.test_width">[docs]</a>    <span class="k">def</span> <span class="nf">test_width</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Tests the width capability of findAssembly.&quot;&quot;&quot;</span>
@@ -556,7 +606,11 @@
         <span class="n">sfpMove</span> <span class="o">=</span> <span class="n">moves</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">sfpMove</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;SFP&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">sfpMove</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;005-003&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">sfpMove</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;A0073&quot;</span><span class="p">)</span>  <span class="c1"># name of assem in SFP</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">sfpMove</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;A0073&quot;</span><span class="p">)</span>  <span class="c1"># name of assem in SFP</span>
+
+        <span class="c1"># make sure we fail hard if the file doesn&#39;t exist</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
+            <span class="n">fh</span><span class="o">.</span><span class="n">readMoves</span><span class="p">(</span><span class="s2">&quot;totall_fictional_file.txt&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="TestFuelHandler.test_processMoveList"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestFuelHandler.test_processMoveList">[docs]</a>    <span class="k">def</span> <span class="nf">test_processMoveList</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">fh</span> <span class="o">=</span> <span class="n">fuelHandlers</span><span class="o">.</span><span class="n">FuelHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">)</span>
@@ -931,7 +985,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2023, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2023-12-15.
+      <span class="lastupdated">Last updated on 2023-12-18.
       </span></p>
   </div>
 
