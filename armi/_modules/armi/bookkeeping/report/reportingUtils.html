@@ -115,6 +115,7 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">pathlib</span>
 <span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">tabulate</span>
 <span class="kn">import</span> <span class="nn">textwrap</span>
@@ -264,6 +265,7 @@
             <span class="n">processorNames</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span>
             <span class="n">uniqueNames</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">processorNames</span><span class="p">)</span>
             <span class="n">nodeMappingData</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">sysInfo</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
             <span class="k">for</span> <span class="n">uniqueName</span> <span class="ow">in</span> <span class="n">uniqueNames</span><span class="p">:</span>
                 <span class="n">matchingProcs</span> <span class="o">=</span> <span class="p">[</span>
                     <span class="nb">str</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
@@ -274,6 +276,13 @@
                 <span class="n">nodeMappingData</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="p">(</span><span class="n">uniqueName</span><span class="p">,</span> <span class="n">numProcessors</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">matchingProcs</span><span class="p">))</span>
                 <span class="p">)</span>
+                <span class="c1"># If this is on Windows: run sys info on each unique node too</span>
+                <span class="k">if</span> <span class="s2">&quot;win&quot;</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="p">:</span>
+                    <span class="n">sysInfoCmd</span> <span class="o">=</span> <span class="s1">&#39;systeminfo | findstr /B /C:&quot;OS Name&quot; /B /C:&quot;OS Version&quot; /B /C:&quot;Processor&quot; &amp;&amp; systeminfo | findstr /E /C:&quot;Mhz&quot;&#39;</span>
+                    <span class="n">out</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                        <span class="n">sysInfoCmd</span><span class="p">,</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">True</span>
+                    <span class="p">)</span>
+                    <span class="n">sysInfo</span> <span class="o">+=</span> <span class="n">out</span><span class="o">.</span><span class="n">stdout</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">header</span><span class="p">(</span><span class="s2">&quot;=========== Machine Information ===========&quot;</span><span class="p">)</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="n">tabulate</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span>
@@ -282,6 +291,9 @@
                     <span class="n">tablefmt</span><span class="o">=</span><span class="s2">&quot;armi&quot;</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="p">)</span>
+            <span class="k">if</span> <span class="n">sysInfo</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">header</span><span class="p">(</span><span class="s2">&quot;=========== System Information ===========&quot;</span><span class="p">)</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">sysInfo</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_writeReactorCycleInformation</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify that all the operating parameters are defined for the same number of cycles.&quot;&quot;&quot;</span>
