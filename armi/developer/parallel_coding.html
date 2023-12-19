@@ -144,38 +144,40 @@ sync up the settings object (<code class="docutils literal notranslate"><span cl
 send a simple string command to all other processors. This is used all the time to inform the workers what they
 are expected to do next.</p>
 <p>Here is an example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
+
+<span class="n">cmd</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;val</span><span class="si">{</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span><span class="si">}</span><span class="s2">&quot;</span>
+
+<span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
     <span class="c1"># The primary node will send the string &#39;bob&#39; to all others</span>
-    <span class="n">cmd</span> <span class="o">=</span> <span class="s1">&#39;bob&#39;</span>
-    <span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="s2">&quot;bob&quot;</span>
+    <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="k">else</span><span class="p">:</span>
     <span class="c1"># these are the workers. They receive a value and set it to the variable cmd</span>
-    <span class="n">cmd</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Note that the <code class="docutils literal notranslate"><span class="pre">comm</span></code> object is from the <code class="docutils literal notranslate"><span class="pre">mpi4py</span></code> module that deals with the MPI drivers. The value of cmd on
 the worker before and after the <code class="docutils literal notranslate"><span class="pre">bcast</span></code> command are shown in the table.</p>
 <table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"></th>
-<th class="head"></th>
-<th class="head"></th>
-<th class="head"></th>
-<th class="head"></th>
-</tr>
-</thead>
 <tbody>
+<tr class="row-odd"><td></td>
+<td><p>Proc0</p></td>
+<td><p>Proc1</p></td>
+<td><p>Proc2</p></td>
+<td><p>Proc3</p></td>
+</tr>
 <tr class="row-even"><td><p>Before bcast</p></td>
-<td><p>‘bob’</p></td>
-<td><p>4</p></td>
-<td><p>‘sam’</p></td>
-<td><p>3.14</p></td>
+<td><p>“bob”</p></td>
+<td><p>“val1”</p></td>
+<td><p>“val2”</p></td>
+<td><p>“val3”</p></td>
 </tr>
 <tr class="row-odd"><td><p>After bcast</p></td>
-<td><p>‘bob’</p></td>
-<td><p>‘bob’</p></td>
-<td><p>‘bob’</p></td>
-<td><p>‘bob’</p></td>
+<td><p>“bob”</p></td>
+<td><p>“bob”</p></td>
+<td><p>“bob”</p></td>
+<td><p>“bob”</p></td>
 </tr>
 </tbody>
 </table>
@@ -196,51 +198,46 @@ are all sent (multiple sets of transmitions) or you can split the data up into 1
 transmition to each CPU). This is called <em>load balancing</em>.</p>
 <p>ARMI has utilities that can help called <a class="reference internal" href="../.apidocs/armi.utils.iterables.html#armi.utils.iterables.chunk" title="armi.utils.iterables.chunk"><code class="xref py py-func docutils literal notranslate"><span class="pre">armi.utils.iterables.chunk()</span></code></a> and <a class="reference internal" href="../.apidocs/armi.utils.iterables.html#armi.utils.iterables.flatten" title="armi.utils.iterables.flatten"><code class="xref py py-func docutils literal notranslate"><span class="pre">armi.utils.iterables.flatten()</span></code></a>.
 Given an arbitrary list, <code class="docutils literal notranslate"><span class="pre">chunk</span></code> breaks it up into a certain number of chunks and <code class="docutils literal notranslate"><span class="pre">unchunk</span></code> does the
-opposite to reassemble the original list after processing. Check it out:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">iterables</span>
+opposite to reassemble the original list after processing. Let’s look at an example script:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;mpi_example.py&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">random</span>
 
-<span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-    <span class="c1"># primary. Make data and send it.</span>
-    <span class="n">workListLoadBalanced</span> <span class="o">=</span> <span class="n">iterables</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">workList</span><span class="p">,</span> <span class="n">nCpu</span><span class="p">,</span> <span class="n">padWith</span><span class="o">=</span><span class="p">())</span>
-    <span class="c1"># this list looks like:</span>
-    <span class="c1"># [[v1,v2,v3,v4...], [v5,v6,v7,v8,...], ...]</span>
-    <span class="c1"># And there&#39;s one set of values for each processor</span>
-    <span class="n">myValsToAdd</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">workListLoadBalanced</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="c1"># now myValsToAdd is the first entry from the work list, or [v1,v2,v3,v4,...].</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">iterables</span>
+
+<span class="c1"># Generate a list of random number pairs: [[(v1,v2),(v3,v4),...]]</span>
+<span class="n">workList</span> <span class="o">=</span> <span class="p">[(</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">(),</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">())</span> <span class="k">for</span> <span class="n">_i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">)]</span>
+
+<span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="c1"># Primary Process: Split the data and send it to the workers</span>
+    <span class="n">workListLoadBalanced</span> <span class="o">=</span> <span class="n">iterables</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">workList</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span><span class="p">,</span> <span class="n">padWith</span><span class="o">=</span><span class="p">())</span>
+    <span class="n">myValsToAdd</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">workListLoadBalanced</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="k">else</span><span class="p">:</span>
-    <span class="c1"># workers. Receive data. Pass a dummy variable to scatter (None)</span>
-    <span class="n">myValsToAdd</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="c1"># now for the first worker, myValsToAdd==[v5,v6,v7,v8,...]</span>
-    <span class="c1"># and for the second worker, it is [v9,v10,v11,v12,...] and so on.</span>
-    <span class="c1"># Recall that in this example, each vn is a tuple like (randomnum, randomnum)</span>
+    <span class="c1"># Worker Process: Receive data, pass a dummy value to scatter (None)</span>
+    <span class="n">myValsToAdd</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
 
-<span class="c1"># all processors do their bit of the work</span>
+<span class="c1"># All processes do their bit of this work (adding)</span>
 <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="k">for</span> <span class="n">num1</span><span class="p">,</span> <span class="n">num2</span> <span class="ow">in</span> <span class="n">myValsToAdd</span><span class="p">:</span>
     <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">num1</span> <span class="o">+</span> <span class="n">num2</span><span class="p">)</span>
 
-<span class="c1"># now results is a list of results with one entry per myValsToAdd, or</span>
-<span class="c1"># [r1,r2,r3,r4,...]</span>
+<span class="c1"># All processes call gather to send their results back to the root process.</span>
+<span class="c1">#    (The result lists above are simply added to make one list with MPI_SIZE sub-lists.)</span>
+<span class="n">allResultsLoadBalanced</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
-<span class="c1"># all processors call gather to send their results back. it all assembles on the primary processor.</span>
-<span class="n">allResultsLoadBalanced</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="c1"># So we now have a list of lists of results, like this:</span>
-<span class="c1"># [[r1,r2,r3,r4,...], [r5,r6,r7,r8,...], ...]</span>
-
-<span class="c1"># primary processor does stuff with the results, like print them out.</span>
-<span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-    <span class="c1"># first take the individual result lists and reassemble them back into the big list.</span>
-    <span class="c1"># These results correspond exactly to workList from above. All ordering has been preserved.</span>
+<span class="c1"># Primary Process: Flatten the multiple lists (from each process), and sum them.</span>
+<span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="c1"># Flatten the MPI_SIZE number of sub lists into one list</span>
     <span class="n">allResults</span> <span class="o">=</span> <span class="n">iterables</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">allResultsLoadBalanced</span><span class="p">)</span>
-    <span class="c1"># allResults now looks like: [r1,r2,r3,r4,r5,r6,r7,...]</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;The total sum is: </span><span class="si">{0:10.5f}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">allResults</span><span class="p">)))</span>
+    <span class="c1"># Sum the final list, and print the result</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The total sum is: </span><span class="si">{0:10.5f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">allResults</span><span class="p">)))</span>
 </pre></div>
 </div>
-<p>Remember that this code is running on all processors. So it’s just the <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">rank</span> <span class="pre">==</span> <span class="pre">0</span></code> statements that differentiate
-between the primary and the workers. Try writing this program as a script and submitting it to a cluster via the command
-line to see if you really understand what’s going on. You will have to add some MPI imports before you can do that
-(see <code class="xref py py-mod docutils literal notranslate"><span class="pre">twr_shuffle.py</span></code> in the ARMI code for a major hint!).</p>
+<p>Remember that this code is running on all processors. So it’s just the <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">rank</span> <span class="pre">==</span> <span class="pre">0</span></code> statements that differentiate between the primary and the workers. To really understand what this script is doing, try to run it in parallel and see what it prints out:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mpiexec</span> <span class="o">-</span><span class="n">n</span> <span class="mi">4</span> <span class="n">python</span> <span class="n">mpi_example</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
 </section>
 <section id="mpi-communication-within-armi">
 <h2><span class="section-number">5.2. </span>MPI Communication within ARMI<a class="headerlink" href="#mpi-communication-within-armi" title="Permalink to this heading"></a></h2>
@@ -269,12 +266,14 @@ mechanisms that can help you get the data back to the primary reactor.</p>
 <h3><span class="section-number">5.2.1. </span>Example using <code class="docutils literal notranslate"><span class="pre">bcast</span></code><a class="headerlink" href="#example-using-bcast" title="Permalink to this heading"></a></h3>
 <p>Some actions that perform the same task are best distributed through a broadcast. This makes sense for if your are
 parallelizing code that is a function of an individual assembly, or block. In the following example, the interface simply
-creates an <code class="docutils literal notranslate"><span class="pre">Action</span></code> and broadcasts it as appropriate.:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SomeInterface</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
+creates an <code class="docutils literal notranslate"><span class="pre">Action</span></code> and broadcasts it as appropriate:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
+
+<span class="k">class</span> <span class="nc">SomeInterface</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
 
     <span class="k">def</span> <span class="nf">interactEverNode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
         <span class="n">action</span> <span class="o">=</span> <span class="n">BcastAction</span><span class="p">()</span>
-        <span class="n">armi</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
         <span class="n">results</span> <span class="o">=</span> <span class="n">action</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
 
         <span class="c1"># allResults is a list of len(self.r)</span>
@@ -310,7 +309,7 @@ should really contain a <code class="docutils literal notranslate"><span class="
 <section id="example-using-scatter">
 <h3><span class="section-number">5.2.2. </span>Example using <code class="docutils literal notranslate"><span class="pre">scatter</span></code><a class="headerlink" href="#example-using-scatter" title="Permalink to this heading"></a></h3>
 <p>When trying two independent actions at the same time, you can use <code class="docutils literal notranslate"><span class="pre">scatter</span></code> to distribute the work. The following example
-shows how different operations can be performed in parallel.:</p>
+shows how different operations can be performed in parallel:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SomeInterface</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
 
     <span class="k">def</span> <span class="nf">interactEveryNode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
@@ -349,7 +348,7 @@ shows how different operations can be performed in parallel.:</p>
 <section id="a-simplified-approach">
 <h3><span class="section-number">5.2.3. </span>A simplified approach<a class="headerlink" href="#a-simplified-approach" title="Permalink to this heading"></a></h3>
 <p>Transferring state to and from a Reactor can be complicated and add a lot of code. An alternative approachis to ensure
-that the reactor state is synchronized across all nodes, and then use the reactor instead of raw data.:</p>
+that the reactor state is synchronized across all nodes, and then use the reactor instead of raw data:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SomeInterface</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
 
     <span class="k">def</span> <span class="nf">interactEveryNode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
