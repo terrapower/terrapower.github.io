@@ -120,6 +120,7 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
@@ -136,6 +137,8 @@
     <span class="n">CONF_TIGHT_COUPLING</span><span class="p">,</span>
     <span class="n">CONF_TIGHT_COUPLING_MAX_ITERS</span><span class="p">,</span>
     <span class="n">CONF_CYCLES_SKIP_TIGHT_COUPLING_INTERACTION</span><span class="p">,</span>
+    <span class="n">CONF_DEFERRED_INTERFACE_NAMES</span><span class="p">,</span>
+    <span class="n">CONF_DEFERRED_INTERFACES_CYCLE</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">codeTiming</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="p">(</span>
@@ -667,8 +670,7 @@
 
 <div class="viewcode-block" id="Operator.interactAllInit"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllInit">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllInit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Call interactInit on all interfaces in the stack after they are initialized.&quot;&quot;&quot;</span>
-        <span class="n">allInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">[:]</span>  <span class="c1"># copy just in case</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;Init&quot;</span><span class="p">,</span> <span class="n">allInterfaces</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;Init&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterfaces</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="Operator.interactAllBOL"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllBOL">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -676,30 +678,15 @@
 
 <span class="sd">        All enabled or bolForce interfaces will be called excluding interfaces with excludedInterfaceNames.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">ii</span>
-            <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">ii</span><span class="o">.</span><span class="n">enabled</span><span class="p">()</span> <span class="ow">or</span> <span class="n">ii</span><span class="o">.</span><span class="n">bolForce</span><span class="p">())</span> <span class="ow">and</span> <span class="n">ii</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">excludedInterfaceNames</span>
-        <span class="p">]</span>
-        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">ii</span>
-            <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">activeInterfaces</span>
-            <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;deferredInterfaceNames&quot;</span><span class="p">]</span>
-        <span class="p">]</span>
+        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getActiveInterfaces</span><span class="p">(</span><span class="s2">&quot;BOL&quot;</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;BOL&quot;</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Operator.interactAllBOC"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllBOC">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllBOC</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Interact at beginning of cycle of all enabled interfaces.&quot;&quot;&quot;</span>
-        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">enabled</span><span class="p">()]</span>
-        <span class="k">if</span> <span class="n">cycle</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;deferredInterfacesCycle&quot;</span><span class="p">]:</span>
-            <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">ii</span>
-                <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">activeInterfaces</span>
-                <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;deferredInterfaceNames&quot;</span><span class="p">]</span>
-            <span class="p">]</span>
+        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getActiveInterfaces</span><span class="p">(</span><span class="s2">&quot;BOC&quot;</span><span class="p">,</span> <span class="n">cycle</span><span class="o">=</span><span class="n">cycle</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;BOC&quot;</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">,</span> <span class="n">cycle</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Operator.interactAllEveryNode"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllEveryNode">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllEveryNode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">tn</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Operator.interactAllEveryNode"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllEveryNode">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllEveryNode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">tn</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Call the interactEveryNode hook for all enabled interfaces.</span>
 
@@ -714,22 +701,12 @@
 <span class="sd">        excludedInterfaceNames : list, optional</span>
 <span class="sd">            Names of interface names that will not be interacted with.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">excludedInterfaceNames</span> <span class="o">=</span> <span class="n">excludedInterfaceNames</span> <span class="ow">or</span> <span class="p">()</span>
-        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">ii</span>
-            <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span>
-            <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">enabled</span><span class="p">()</span> <span class="ow">and</span> <span class="n">ii</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">excludedInterfaceNames</span>
-        <span class="p">]</span>
+        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getActiveInterfaces</span><span class="p">(</span><span class="s2">&quot;EveryNode&quot;</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;EveryNode&quot;</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">tn</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Operator.interactAllEOC"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllEOC">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllEOC</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Operator.interactAllEOC"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllEOC">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllEOC</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="p">()):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Interact end of cycle for all enabled interfaces.&quot;&quot;&quot;</span>
-        <span class="n">excludedInterfaceNames</span> <span class="o">=</span> <span class="n">excludedInterfaceNames</span> <span class="ow">or</span> <span class="p">()</span>
-        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">ii</span>
-            <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span>
-            <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">enabled</span><span class="p">()</span> <span class="ow">and</span> <span class="n">ii</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">excludedInterfaceNames</span>
-        <span class="p">]</span>
+        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getActiveInterfaces</span><span class="p">(</span><span class="s2">&quot;EOC&quot;</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;EOC&quot;</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">,</span> <span class="n">cycle</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Operator.interactAllEOL"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllEOL">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllEOL</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -741,11 +718,8 @@
 <span class="sd">        If the interfaces are flagged to be reversed at EOL, they are separated from the main stack and appended</span>
 <span class="sd">        at the end in reverse order. This allows, for example, an interface that must run first to also run last.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">enabled</span><span class="p">()]</span>
-        <span class="n">interfacesAtEOL</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">activeInterfaces</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">ii</span><span class="o">.</span><span class="n">reverseAtEOL</span><span class="p">]</span>
-        <span class="n">activeReverseInterfaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">activeInterfaces</span> <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">reverseAtEOL</span><span class="p">]</span>
-        <span class="n">interfacesAtEOL</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">activeReverseInterfaces</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;EOL&quot;</span><span class="p">,</span> <span class="n">interfacesAtEOL</span><span class="p">)</span></div>
+        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getActiveInterfaces</span><span class="p">(</span><span class="s2">&quot;EOL&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;EOL&quot;</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Operator.interactAllCoupled"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllCoupled">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllCoupled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coupledIteration</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -763,8 +737,7 @@
 <span class="sd">            :id: I_ARMI_OPERATOR_PHYSICS1</span>
 <span class="sd">            :implements: R_ARMI_OPERATOR_PHYSICS</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">enabled</span><span class="p">()]</span>
-
+        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getActiveInterfaces</span><span class="p">(</span><span class="s2">&quot;Coupled&quot;</span><span class="p">)</span>
         <span class="c1"># Store the previous iteration values before calling interactAllCoupled</span>
         <span class="c1"># for each interface.</span>
         <span class="k">for</span> <span class="n">interface</span> <span class="ow">in</span> <span class="n">activeInterfaces</span><span class="p">:</span>
@@ -772,7 +745,6 @@
                 <span class="n">interface</span><span class="o">.</span><span class="n">coupler</span><span class="o">.</span><span class="n">storePreviousIterationValue</span><span class="p">(</span>
                     <span class="n">interface</span><span class="o">.</span><span class="n">getTightCouplingValue</span><span class="p">()</span>
                 <span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;Coupled&quot;</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">,</span> <span class="n">coupledIteration</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkTightCouplingConvergence</span><span class="p">(</span><span class="n">activeInterfaces</span><span class="p">)</span></div>
@@ -1027,7 +999,13 @@
         <span class="k">return</span> <span class="n">candidateI</span></div>
 
 <div class="viewcode-block" id="Operator.interfaceIsActive"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interfaceIsActive">[docs]</a>    <span class="k">def</span> <span class="nf">interfaceIsActive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;True if named interface exists and is active.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;True if named interface exists and is enabled.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This logic is significantly simpler that getActiveInterfaces. This logic only</span>
+<span class="sd">        touches the enabled() flag, but doesn&#39;t take into account the case settings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">i</span> <span class="ow">and</span> <span class="n">i</span><span class="o">.</span><span class="n">enabled</span><span class="p">()</span></div>
 
@@ -1044,6 +1022,63 @@
 <span class="sd">        Returns a copy so you can manipulate the list in an interface, like dependencies.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">[:]</span></div>
+
+<div class="viewcode-block" id="Operator.getActiveInterfaces"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.getActiveInterfaces">[docs]</a>    <span class="k">def</span> <span class="nf">getActiveInterfaces</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">interactState</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">excludedInterfaceNames</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+        <span class="n">cycle</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve the interfaces which are active for a given interaction state.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        interactState: str</span>
+<span class="sd">            A string dictating which interaction state the interfaces should be pulled for.</span>
+<span class="sd">        excludedInterfaceNames: Tuple[str]</span>
+<span class="sd">            A tuple of strings dictating which interfaces should be manually skipped.</span>
+<span class="sd">        cycle: int</span>
+<span class="sd">            The given cycle. 0 by default.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        activeInterfaces: List[Interfaces]</span>
+<span class="sd">            The interfaces deemed active for the given interactState.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Validate the inputs</span>
+        <span class="k">if</span> <span class="n">excludedInterfaceNames</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">excludedInterfaceNames</span> <span class="o">=</span> <span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">interactState</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;BOL&quot;</span><span class="p">,</span> <span class="s2">&quot;BOC&quot;</span><span class="p">,</span> <span class="s2">&quot;EveryNode&quot;</span><span class="p">,</span> <span class="s2">&quot;EOC&quot;</span><span class="p">,</span> <span class="s2">&quot;EOL&quot;</span><span class="p">,</span> <span class="s2">&quot;Coupled&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">interactState</span><span class="si">}</span><span class="s2"> is an unknown interaction state!&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Ensure the interface is enabled.</span>
+        <span class="n">enabled</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">enabled</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">interactState</span> <span class="o">==</span> <span class="s2">&quot;BOL&quot;</span><span class="p">:</span>
+            <span class="n">enabled</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">enabled</span><span class="p">()</span> <span class="ow">or</span> <span class="n">i</span><span class="o">.</span><span class="n">bolForce</span><span class="p">()</span>
+
+        <span class="c1"># Ensure the name of the interface isn&#39;t in some exclusion list.</span>
+        <span class="n">nameCheck</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">interactState</span> <span class="o">==</span> <span class="s2">&quot;EveryNode&quot;</span> <span class="ow">or</span> <span class="n">interactState</span> <span class="o">==</span> <span class="s2">&quot;EOC&quot;</span><span class="p">:</span>
+            <span class="n">nameCheck</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">excludedInterfaceNames</span>
+        <span class="k">elif</span> <span class="n">interactState</span> <span class="o">==</span> <span class="s2">&quot;BOC&quot;</span> <span class="ow">and</span> <span class="n">cycle</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_DEFERRED_INTERFACES_CYCLE</span><span class="p">]:</span>
+            <span class="n">nameCheck</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_DEFERRED_INTERFACE_NAMES</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">interactState</span> <span class="o">==</span> <span class="s2">&quot;BOL&quot;</span><span class="p">:</span>
+            <span class="n">nameCheck</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_DEFERRED_INTERFACE_NAMES</span><span class="p">]</span>
+                <span class="ow">and</span> <span class="n">i</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">excludedInterfaceNames</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Finally, find the active interfaces.</span>
+        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="k">if</span> <span class="n">enabled</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="ow">and</span> <span class="n">nameCheck</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span>
+
+        <span class="c1"># Special Case: At EOL we reverse the order of some interfaces.</span>
+        <span class="k">if</span> <span class="n">interactState</span> <span class="o">==</span> <span class="s2">&quot;EOL&quot;</span><span class="p">:</span>
+            <span class="n">actInts</span> <span class="o">=</span> <span class="p">[</span><span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">activeInterfaces</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">ii</span><span class="o">.</span><span class="n">reverseAtEOL</span><span class="p">]</span>
+            <span class="n">actInts</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">reversed</span><span class="p">([</span><span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">activeInterfaces</span> <span class="k">if</span> <span class="n">ii</span><span class="o">.</span><span class="n">reverseAtEOL</span><span class="p">]))</span>
+            <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="n">actInts</span>
+
+        <span class="k">return</span> <span class="n">activeInterfaces</span></div>
 
 <div class="viewcode-block" id="Operator.reattach"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.reattach">[docs]</a>    <span class="k">def</span> <span class="nf">reattach</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add links to globally-shared objects to this operator and all interfaces.</span>
@@ -1279,7 +1314,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2023, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2023-12-18.
+      <span class="lastupdated">Last updated on 2023-12-19.
       </span></p>
   </div>
 
