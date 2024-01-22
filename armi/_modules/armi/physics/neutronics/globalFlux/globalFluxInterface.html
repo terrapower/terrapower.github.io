@@ -215,9 +215,17 @@
 <div class="viewcode-block" id="GlobalFluxInterface.checkEnergyBalance"><a class="viewcode-back" href="../../../../../.apidocs/armi.physics.neutronics.globalFlux.globalFluxInterface.html#armi.physics.neutronics.globalFlux.globalFluxInterface.GlobalFluxInterface.checkEnergyBalance">[docs]</a>    <span class="k">def</span> <span class="nf">checkEnergyBalance</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that there is energy balance between the power generated and the specified power.</span>
 
-<span class="sd">        .. impl:: Validate the energy generate matches user specifications.</span>
+<span class="sd">        .. impl:: Validate the energy generation matches user specifications.</span>
 <span class="sd">            :id: I_ARMI_FLUX_CHECK_POWER</span>
 <span class="sd">            :implements: R_ARMI_FLUX_CHECK_POWER</span>
+
+<span class="sd">            This method checks that the global power computed from flux</span>
+<span class="sd">            evaluation matches the global power specified from the user within a</span>
+<span class="sd">            tolerance; if it does not, a ``ValueError`` is raised. The</span>
+<span class="sd">            global power from the flux solve is computed by summing the</span>
+<span class="sd">            block-wise power in the core. This value is then compared to the</span>
+<span class="sd">            user-specified power and raises an error if relative difference is</span>
+<span class="sd">            above :math:`10^{-5}`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">powerGenerated</span> <span class="o">=</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">calcTotalParam</span><span class="p">(</span>
@@ -340,6 +348,17 @@
 <span class="sd">        .. impl:: Return k-eff or assembly-wise power distribution for coupled interactions.</span>
 <span class="sd">            :id: I_ARMI_FLUX_COUPLING_VALUE</span>
 <span class="sd">            :implements: R_ARMI_FLUX_COUPLING_VALUE</span>
+
+<span class="sd">            This method either returns the k-eff or assembly-wise power</span>
+<span class="sd">            distribution. If the :py:class:`coupler</span>
+<span class="sd">            &lt;armi.interfaces.TightCoupler&gt;` ``parameter`` member is ``&quot;keff&quot;``,</span>
+<span class="sd">            then this method returns the computed k-eff from the global flux</span>
+<span class="sd">            evaluation. If the ``parameter`` value is ``&quot;power&quot;``, then it</span>
+<span class="sd">            returns a list of power distributions in each assembly. The assembly</span>
+<span class="sd">            power distributions are lists of values representing the block</span>
+<span class="sd">            powers that are normalized to unity based on the assembly total</span>
+<span class="sd">            power. If the value is neither ``&quot;keff&quot;`` or ``&quot;power&quot;``, then this</span>
+<span class="sd">            method returns ``None``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">coupler</span><span class="o">.</span><span class="n">parameter</span> <span class="o">==</span> <span class="s2">&quot;keff&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">keff</span>
@@ -440,6 +459,21 @@
 <span class="sd">    .. impl:: Options for neutronics solvers.</span>
 <span class="sd">        :id: I_ARMI_FLUX_OPTIONS</span>
 <span class="sd">        :implements: R_ARMI_FLUX_OPTIONS</span>
+
+<span class="sd">        This class functions as a data structure for setting and retrieving</span>
+<span class="sd">        execution options for performing flux evaluations, these options</span>
+<span class="sd">        involve:</span>
+
+<span class="sd">        * What sort of problem is to be solved, i.e. real/adjoint,</span>
+<span class="sd">          eigenvalue/fixed-source, neutron/gamma, boundary conditions</span>
+<span class="sd">        * Convergence criteria for iterative algorithms</span>
+<span class="sd">        * Geometry type and mesh conversion details</span>
+<span class="sd">        * Specific parameters to be calculated after flux has been evaluated</span>
+
+<span class="sd">        These options can be retrieved by directly accessing class members. The</span>
+<span class="sd">        options are set by specifying a :py:class:`Settings</span>
+<span class="sd">        &lt;armi.settings.caseSettings.Settings&gt;` object and optionally specifying</span>
+<span class="sd">        a :py:class:`Reactor &lt;armi.reactor.reactors.Reactor&gt;` object.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
@@ -616,6 +650,15 @@
 <span class="sd">    .. impl:: Ensure the mesh in the reactor model is appropriate for neutronics solver execution.</span>
 <span class="sd">        :id: I_ARMI_FLUX_GEOM_TRANSFORM</span>
 <span class="sd">        :implements: R_ARMI_FLUX_GEOM_TRANSFORM</span>
+
+<span class="sd">        The primary purpose of this class is perform geometric and mesh</span>
+<span class="sd">        transformations on the reactor model to ensure a flux evaluation can</span>
+<span class="sd">        properly perform. This includes:</span>
+
+<span class="sd">        * Applying a uniform axial mesh for the 3D flux solve</span>
+<span class="sd">        * Expanding symmetrical geometries to full-core if necessary</span>
+<span class="sd">        * Adding/removing edge assemblies if necessary</span>
+<span class="sd">        * Undoing any transformations that might affect downstream calculations</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">GlobalFluxOptions</span><span class="p">,</span> <span class="n">reactor</span><span class="p">):</span>
@@ -1276,10 +1319,6 @@
 <span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the DPA rate incurred by exposure of a certain flux spectrum.</span>
 
-<span class="sd">    .. impl:: Compute DPA rates.</span>
-<span class="sd">        :id: I_ARMI_FLUX_DPA</span>
-<span class="sd">        :implements: R_ARMI_FLUX_DPA</span>
-
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    mgFlux : list</span>
@@ -1293,31 +1332,35 @@
 <span class="sd">    dpaPerSecond : float</span>
 <span class="sd">        The dpa/s in this material due to this flux</span>
 
-<span class="sd">    Notes</span>
-<span class="sd">    -----</span>
-<span class="sd">    Displacements calculated by displacement XS</span>
 
-<span class="sd">    .. math::</span>
+<span class="sd">    .. impl:: Compute DPA rates.</span>
+<span class="sd">        :id: I_ARMI_FLUX_DPA</span>
+<span class="sd">        :implements: R_ARMI_FLUX_DPA</span>
 
-<span class="sd">          \text{Displacement rate} &amp;= \phi N_{\text{HT9}} \sigma  \\</span>
-<span class="sd">          &amp;= (\#/\text{cm}^2/s) \cdot (1/cm^3) \cdot (\text{barn})\\</span>
-<span class="sd">          &amp;= (\#/\text{cm}^5/s) \cdot  \text{(barn)} * 10^{-24} \text{cm}^2/\text{barn} \\</span>
-<span class="sd">          &amp;= \#/\text{cm}^3/s</span>
+<span class="sd">        This method calculates DPA rates using the inputted multigroup flux and DPA cross sections.</span>
+<span class="sd">        Displacements calculated by displacement XS:</span>
 
+<span class="sd">        .. math::</span>
 
-<span class="sd">    ::</span>
-
-<span class="sd">        DPA rate = displacement density rate / (number of atoms/cc)</span>
-<span class="sd">                 = dr [#/cm^3/s] / (nHT9)  [1/cm^3]</span>
-<span class="sd">                 = flux * barn * 1e-24</span>
+<span class="sd">            \text{Displacement rate} &amp;= \phi N_{\text{HT9}} \sigma  \\</span>
+<span class="sd">            &amp;= (\#/\text{cm}^2/s) \cdot (1/cm^3) \cdot (\text{barn})\\</span>
+<span class="sd">            &amp;= (\#/\text{cm}^5/s) \cdot  \text{(barn)} * 10^{-24} \text{cm}^2/\text{barn} \\</span>
+<span class="sd">            &amp;= \#/\text{cm}^3/s</span>
 
 
-<span class="sd">    .. math::</span>
+<span class="sd">        ::</span>
 
-<span class="sd">        \frac{\text{dpa}}{s}  = \frac{\phi N \sigma}{N} = \phi * \sigma</span>
+<span class="sd">            DPA rate = displacement density rate / (number of atoms/cc)</span>
+<span class="sd">                    = dr [#/cm^3/s] / (nHT9)  [1/cm^3]</span>
+<span class="sd">                    = flux * barn * 1e-24</span>
 
-<span class="sd">    the Number density of the structural material cancels out. It&#39;s in the macroscopic</span>
-<span class="sd">    XS and in the original number of atoms.</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \frac{\text{dpa}}{s}  = \frac{\phi N \sigma}{N} = \phi * \sigma</span>
+
+<span class="sd">        the Number density of the structural material cancels out. It&#39;s in the macroscopic</span>
+<span class="sd">        XS and in the original number of atoms.</span>
 
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
@@ -1359,10 +1402,6 @@
 <span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute 1-group reaction rates for this object (usually a block).</span>
 
-<span class="sd">    .. impl:: Return the reaction rates for a given ArmiObject</span>
-<span class="sd">        :id: I_ARMI_FLUX_RX_RATES</span>
-<span class="sd">        :implements: R_ARMI_FLUX_RX_RATES</span>
-
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    obj : Block</span>
@@ -1377,33 +1416,40 @@
 <span class="sd">    lib : XSLibrary</span>
 <span class="sd">        Microscopic cross sections to use in computing the reaction rates.</span>
 
-<span class="sd">    Notes</span>
-<span class="sd">    -----</span>
-<span class="sd">    Values include:</span>
 
-<span class="sd">    * Fission</span>
-<span class="sd">    * nufission</span>
-<span class="sd">    * n2n</span>
-<span class="sd">    * absorption</span>
+<span class="sd">    .. impl:: Return the reaction rates for a given ArmiObject</span>
+<span class="sd">        :id: I_ARMI_FLUX_RX_RATES</span>
+<span class="sd">        :implements: R_ARMI_FLUX_RX_RATES</span>
 
-<span class="sd">    Scatter could be added as well. This function is quite slow so it is</span>
-<span class="sd">    skipped for now as it is uncommonly needed.</span>
+<span class="sd">        This method computes 1-group reaction rates for the inputted</span>
+<span class="sd">        :py:class:`ArmiObject &lt;armi.reactor.composites.ArmiObject&gt;` These</span>
+<span class="sd">        reaction rates include:</span>
 
-<span class="sd">    Reaction rates are:</span>
+<span class="sd">        * fission</span>
+<span class="sd">        * nufission</span>
+<span class="sd">        * n2n</span>
+<span class="sd">        * absorption</span>
 
-<span class="sd">    .. math::</span>
+<span class="sd">        Scatter could be added as well. This function is quite slow so it is</span>
+<span class="sd">        skipped for now as it is uncommonly needed.</span>
 
-<span class="sd">        \Sigma \phi = \sum_{\text{nuclides}} \sum_{\text{energy}} \Sigma \phi</span>
+<span class="sd">        Reaction rates are:</span>
 
-<span class="sd">    The units of :math:`N \sigma \phi` are::</span>
+<span class="sd">        .. math::</span>
 
-<span class="sd">        [#/bn-cm] * [bn] * [#/cm^2/s] = [#/cm^3/s]</span>
+<span class="sd">            \Sigma \phi = \sum_{\text{nuclides}} \sum_{\text{energy}} \Sigma</span>
+<span class="sd">            \phi</span>
 
-<span class="sd">    The group-averaged microscopic cross section is:</span>
+<span class="sd">        The units of :math:`N \sigma \phi` are::</span>
 
-<span class="sd">    .. math::</span>
+<span class="sd">            [#/bn-cm] * [bn] * [#/cm^2/s] = [#/cm^3/s]</span>
 
-<span class="sd">        \sigma_g = \frac{\int_{E g}^{E_{g+1}} \phi(E)  \sigma(E) dE}{\int_{E_g}^{E_{g+1}} \phi(E) dE}</span>
+<span class="sd">        The group-averaged microscopic cross section is:</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \sigma_g = \frac{\int_{E g}^{E_{g+1}} \phi(E)  \sigma(E)</span>
+<span class="sd">            dE}{\int_{E_g}^{E_{g+1}} \phi(E) dE}</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">rate</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">simple</span> <span class="ow">in</span> <span class="n">RX_PARAM_NAMES</span><span class="p">:</span>
