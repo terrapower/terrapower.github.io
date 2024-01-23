@@ -127,15 +127,11 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    This is a set of one group cross sections for use with isotopicDepletion analysis.</span>
 
-<span class="sd">    Really it&#39;s a reaction rate table.</span>
+<span class="sd">    It can also double as a reaction rate table.</span>
 
 <span class="sd">    XStable is indexed by nucNames</span>
 <span class="sd">    (nG), (nF), (n2n), (nA), (nP) and (n3n) are expected</span>
 <span class="sd">    the cross sections are returned in barns</span>
-
-<span class="sd">    .. impl:: Generate cross section table.</span>
-<span class="sd">        :id: I_ARMI_DEPL_TABLES0</span>
-<span class="sd">        :implements: R_ARMI_DEPL_TABLES</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">rateTypes</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;nG&quot;</span><span class="p">,</span> <span class="s2">&quot;nF&quot;</span><span class="p">,</span> <span class="s2">&quot;n2n&quot;</span><span class="p">,</span> <span class="s2">&quot;nA&quot;</span><span class="p">,</span> <span class="s2">&quot;nP&quot;</span><span class="p">,</span> <span class="s2">&quot;n3n&quot;</span><span class="p">)</span>
@@ -224,7 +220,19 @@
         <span class="n">tableFormat</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">{{mcnpId}} </span><span class="si">{nG:.5e}</span><span class="s2"> </span><span class="si">{nF:.5e}</span><span class="s2"> </span><span class="si">{n2n:.5e}</span><span class="s2"> </span><span class="si">{n3n:.5e}</span><span class="s2"> </span><span class="si">{nA:.5e}</span><span class="s2"> </span><span class="si">{nP:.5e}</span><span class="s2">&quot;</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        make a cross section table for external depletion physics code input decks.</span>
+<span class="sd">        Make a cross section table for external depletion physics code input decks.</span>
+
+<span class="sd">        .. impl:: Generate a formatted cross section table.</span>
+<span class="sd">            :id: I_ARMI_DEPL_TABLES1</span>
+<span class="sd">            :implements: R_ARMI_DEPL_TABLES</span>
+
+<span class="sd">            Loops over the reaction rates stored as ``self`` to produce a string with</span>
+<span class="sd">            the cross sections for each nuclide in the block. Cross sections may be</span>
+<span class="sd">            populated by :py:meth:`~armi.physics.neutronics.isotopicDepletion.crossSectionTable.makeReactionRateTable`.</span>
+
+<span class="sd">            The string will have a header with the table&#39;s name formatted according</span>
+<span class="sd">            to ``headerFormat`` followed by rows for each unique nuclide/reaction</span>
+<span class="sd">            combination, where each line is formatted according to ``tableFormat``.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -260,9 +268,34 @@
 
 <span class="sd">    Often useful in support of depletion.</span>
 
-<span class="sd">    .. impl:: Generate cross section table.</span>
-<span class="sd">        :id: I_ARMI_DEPL_TABLES1</span>
+<span class="sd">    .. impl:: Generate a reaction rate table with entries for (nG), (nF), (n2n), (nA), and (nP) reactions.</span>
+<span class="sd">        :id: I_ARMI_DEPL_TABLES0</span>
 <span class="sd">        :implements: R_ARMI_DEPL_TABLES</span>
+
+<span class="sd">        For a given composite object ``obj`` and a list of nuclides ``nuclides``</span>
+<span class="sd">        in that object, call ``obj.getReactionRates()`` for each nuclide with a ``nDensity`` parameter of 1.0.</span>
+<span class="sd">        If ``nuclides`` is not specified, use a list of all nuclides in ``obj``.</span>
+<span class="sd">        This will reach upwards through the parents of ``obj`` to the associated</span>
+<span class="sd">        :py:class:`~armi.reactor.reactors.Core` object and pull the ISOTXS library</span>
+<span class="sd">        that is stored there. If ``obj`` does not belong to a ``Core``, a warning</span>
+<span class="sd">        is printed.</span>
+
+<span class="sd">        For each child of ``obj``, use the ISOTXS library and the xsID for the associated block</span>
+<span class="sd">        to produce a reaction rate dictionary in units of inverse seconds for</span>
+<span class="sd">        the nuclide specified in the original call to ``obj.getReactionRates()``.</span>
+<span class="sd">        Because ``nDensity`` was originally specified as</span>
+<span class="sd">        1.0, this dictionary actually represents the reaction rates per unit volume.</span>
+<span class="sd">        If the nuclide is not in the ISOTXS library, a warning is printed.</span>
+
+<span class="sd">        Combine the reaction rates for all nuclides into a combined dictionary by</span>
+<span class="sd">        summing together reaction rates of the same type on the same isotope from</span>
+<span class="sd">        each of the children of ``obj``.</span>
+
+<span class="sd">        If ``obj`` has a non-zero multi-group flux, sum the group-wise flux into</span>
+<span class="sd">        the total flux and normalize the reaction rates by the total flux, producing</span>
+<span class="sd">        a one-group macroscopic cross section for each reaction type on each</span>
+<span class="sd">        nuclide. Store these values in a</span>
+<span class="sd">        :py:class:`~armi.physics.neutronics.isotopicDepletion.crossSectionTable.CrossSectionTable`.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -278,6 +311,7 @@
 <span class="sd">    See Also</span>
 <span class="sd">    --------</span>
 <span class="sd">    armi.physics.neutronics.isotopicDepletion.isotopicDepletionInterface.CrossSectionTable</span>
+<span class="sd">    armi.reactor.composites.Composite.getReactionRates</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">nuclides</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">nuclides</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
