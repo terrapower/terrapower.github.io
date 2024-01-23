@@ -230,12 +230,22 @@
 
 <div class="viewcode-block" id="ArmiPlugin"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.ArmiPlugin">[docs]</a><span class="k">class</span> <span class="nc">ArmiPlugin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    An ArmiPlugin provides a namespace to collect hook implementations provided by a</span>
-<span class="sd">    single &quot;plugin&quot;. This API is incomplete, unstable, and expected to change.</span>
+<span class="sd">    An ArmiPlugin exposes a collection of hooks that allow users to add a</span>
+<span class="sd">    variety of things to their ARMI application: Interfaces, parameters,</span>
+<span class="sd">    settings, flags, and much more.</span>
 
-<span class="sd">    .. impl:: Plugins have interfaces to add code to the application.</span>
+<span class="sd">    .. impl:: Plugins add code to the application through interfaces.</span>
 <span class="sd">        :id: I_ARMI_PLUGIN</span>
 <span class="sd">        :implements: R_ARMI_PLUGIN</span>
+
+<span class="sd">        Each plugin has the option of implementing the ``exposeInterfaces`` method, and</span>
+<span class="sd">        this will be used as a plugin hook to add one or more Interfaces to the ARMI</span>
+<span class="sd">        Application. Interfaces can wrap external executables with nuclear modeling</span>
+<span class="sd">        codes in them, or directly implement their logic in Python. But because</span>
+<span class="sd">        Interfaces are Python code, they have direct access to read and write from</span>
+<span class="sd">        ARMI&#39;s reactor data model. This Plugin to multiple Interfaces to reactor data</span>
+<span class="sd">        model connection is the primary way that developers add code to an ARMI</span>
+<span class="sd">        application and simulation.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="ArmiPlugin.exposeInterfaces"><a class="viewcode-back" href="../../.apidocs/armi.plugins.html#armi.plugins.ArmiPlugin.exposeInterfaces">[docs]</a>    <span class="nd">@staticmethod</span>
@@ -244,9 +254,14 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Function for exposing interface(s) to other code.</span>
 
-<span class="sd">        .. impl:: Plugins have interfaces to the operator.</span>
+<span class="sd">        .. impl:: Plugins can add interfaces to the operator.</span>
 <span class="sd">            :id: I_ARMI_PLUGIN_INTERFACES</span>
 <span class="sd">            :implements: R_ARMI_PLUGIN_INTERFACES</span>
+
+<span class="sd">            This method takes in a Settings object and returns a list of Interfaces,</span>
+<span class="sd">            the position of each Interface in the Interface stack, and a list of</span>
+<span class="sd">            arguments to pass to the Interface when initializing it later. These</span>
+<span class="sd">            Interfaces can then be used to add code to a simulation.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -272,15 +287,30 @@
 <span class="sd">            :id: I_ARMI_PLUGIN_PARAMS</span>
 <span class="sd">            :implements: R_ARMI_PLUGIN_PARAMS</span>
 
+<span class="sd">            Through this method, plugin developers can create new Parameters. A</span>
+<span class="sd">            parameter can represent any physical property an analyst might want to</span>
+<span class="sd">            track. And they can be added at any level of the reactor data model.</span>
+<span class="sd">            Through this, the developers can extend ARMI and what physical properties</span>
+<span class="sd">            of the reactor they want to calculate, track, and store to the database.</span>
+
 <span class="sd">        .. impl:: Define an arbitrary physical parameter.</span>
 <span class="sd">            :id: I_ARMI_PARAM</span>
 <span class="sd">            :implements: R_ARMI_PARAM</span>
+
+<span class="sd">            Through this method, plugin developers can create new Parameters. A</span>
+<span class="sd">            parameter can represent any physical property an analyst might want to</span>
+<span class="sd">            track. For example, through this method, a plugin developer can add a new</span>
+<span class="sd">            thermodynamic property that adds a thermodynamic parameter to every block</span>
+<span class="sd">            in the reactor. Or they could add a neutronics parameter to every fuel</span>
+<span class="sd">            assembly. A parameter is quite generic. But these parameters will be</span>
+<span class="sd">            tracked in the reactor data model, extend what developers can do with ARMI,</span>
+<span class="sd">            and will be saved to the output database.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        dict</span>
 <span class="sd">            Keys should be subclasses of ArmiObject, values being a</span>
-<span class="sd">            ParameterDefinitionCollection should be added to the key&#39;s perameter</span>
+<span class="sd">            ParameterDefinitionCollection should be added to the key&#39;s parameter</span>
 <span class="sd">            definitions.</span>
 
 <span class="sd">        Example</span>
@@ -335,22 +365,18 @@
     <span class="nd">@HOOKSPEC</span>
     <span class="k">def</span> <span class="nf">defineFlags</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">flags</span><span class="o">.</span><span class="n">auto</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Function to provide new Flags definitions.</span>
-
-<span class="sd">        This allows a plugin to provide novel values for the Flags system.</span>
-<span class="sd">        Implementations should return a dictionary mapping flag names to their desired</span>
-<span class="sd">        numerical values. In most cases, no specific value is needed, in which case</span>
-<span class="sd">        :py:class:`armi.utils.flags.auto` should be used.</span>
-
-<span class="sd">        Flags should be added to the ARMI system with great care; flag values for each</span>
-<span class="sd">        object are stored in a bitfield, so each additional flag increases the width of</span>
-<span class="sd">        the data needed to store them. Also, due to the `what things are` interpretation</span>
-<span class="sd">        of flags (see :py:mod:`armi.reactor.flags`), new flags should probably refer to</span>
-<span class="sd">        novel design elements, rather than novel behaviors.</span>
+<span class="sd">        Add new flags to the reactor data model, and the simulation.</span>
 
 <span class="sd">        .. impl:: Plugins can define new, unique flags to the system.</span>
 <span class="sd">            :id: I_ARMI_FLAG_EXTEND1</span>
 <span class="sd">            :implements: R_ARMI_FLAG_EXTEND</span>
+
+<span class="sd">            This method allows a plugin developers to provide novel values for</span>
+<span class="sd">            the Flags system. This method returns a dictionary mapping flag names</span>
+<span class="sd">            to their desired numerical values. In most cases, no specific value</span>
+<span class="sd">            is needed, one can be automatically generated using</span>
+<span class="sd">            :py:class:`armi.utils.flags.auto`. (For more information, see</span>
+<span class="sd">            :py:mod:`armi.reactor.flags`.)</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -472,20 +498,22 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Define configuration settings for this plugin.</span>
 
-<span class="sd">        This hook allows plugins to provide their own configuration settings, which can</span>
-<span class="sd">        participate in the :py:class:`armi.settings.caseSettings.Settings`. Plugins</span>
-<span class="sd">        may provide entirely new settings to what are already provided by ARMI, as well</span>
-<span class="sd">        as new options or default values for existing settings. For instance, the</span>
-<span class="sd">        framework provides a ``neutronicsKernel`` setting for selecting which global</span>
-<span class="sd">        physics solver to use. Since we wish to enforce that the user specify a valid</span>
-<span class="sd">        kernel, the settings validator will check to make sure that the user&#39;s requested</span>
-<span class="sd">        kernel is among the available options. If a plugin were to provide a new</span>
-<span class="sd">        neutronics kernel (let&#39;s say MCNP), it should also define a new option to tell</span>
-<span class="sd">        the settings system that ``&quot;MCNP&quot;`` is a valid option.</span>
-
 <span class="sd">        .. impl:: Plugins can add settings to the run.</span>
 <span class="sd">            :id: I_ARMI_PLUGIN_SETTINGS</span>
 <span class="sd">            :implements: R_ARMI_PLUGIN_SETTINGS</span>
+
+<span class="sd">            This hook allows plugin developers to provide their own configuration</span>
+<span class="sd">            settings, which can participate in the</span>
+<span class="sd">            :py:class:`armi.settings.caseSettings.Settings`. Plugins may provide</span>
+<span class="sd">            entirely new settings to what are already provided by ARMI, as well as</span>
+<span class="sd">            new options or default values for existing settings. For instance, the</span>
+<span class="sd">            framework provides a ``neutronicsKernel`` setting for selecting which</span>
+<span class="sd">            global physics solver to use. Since we wish to enforce that the user</span>
+<span class="sd">            specify a valid kernel, the settings validator will check to make sure</span>
+<span class="sd">            that the user&#39;s requested kernel is among the available options. If a</span>
+<span class="sd">            plugin were to provide a new neutronics kernel (let&#39;s say MCNP), it</span>
+<span class="sd">            should also define a new option to tell the settings system that</span>
+<span class="sd">            ``&quot;MCNP&quot;`` is a valid option.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>

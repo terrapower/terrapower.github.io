@@ -155,9 +155,10 @@
 
 <div class="viewcode-block" id="Operator"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator">[docs]</a><span class="k">class</span> <span class="nc">Operator</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Orchestrates an ARMI run, building all the pieces, looping through the interfaces, and manipulating the reactor.</span>
+<span class="sd">    Orchestrate an ARMI run, building all the pieces, looping through the interfaces,</span>
+<span class="sd">    and manipulating the reactor.</span>
 
-<span class="sd">    This Standard Operator loops over a user-input number of cycles, each with a</span>
+<span class="sd">    This Operator loops over a user-input number of cycles, each with a</span>
 <span class="sd">    user-input number of subcycles (called time nodes). It calls a series of</span>
 <span class="sd">    interaction hooks on each of the</span>
 <span class="sd">    :py:class:`~armi.interfaces.Interface` in the Interface Stack.</span>
@@ -173,9 +174,29 @@
 <span class="sd">        :id: I_ARMI_OPERATOR_COMM</span>
 <span class="sd">        :implements: R_ARMI_OPERATOR_COMM</span>
 
+<span class="sd">        A major design feature of ARMI is that the Operator orchestrates the</span>
+<span class="sd">        simulation, and as part of that, the Operator has access to the</span>
+<span class="sd">        Reactor data model. In code, this just means the reactor object is</span>
+<span class="sd">        a mandatory attribute of an instance of the Operator. But conceptually,</span>
+<span class="sd">        this means that while the Operator drives the simulation of the</span>
+<span class="sd">        reactor, all code has access to the same copy of the reactor data</span>
+<span class="sd">        model. This is a crucial idea that allows disparate external nuclear</span>
+<span class="sd">        models to interact; they interact with the ARMI reactor data model.</span>
+
 <span class="sd">    .. impl:: An operator is built from user settings.</span>
 <span class="sd">        :id: I_ARMI_OPERATOR_SETTINGS</span>
 <span class="sd">        :implements: R_ARMI_OPERATOR_SETTINGS</span>
+
+<span class="sd">        A major design feature of ARMI is that a run is built from user settings.</span>
+<span class="sd">        In code, this means that a case ``Settings`` object is passed into this</span>
+<span class="sd">        class to intialize an Operator. Conceptually, this means that the</span>
+<span class="sd">        Operator that controls a reactor simulation is defined by user settings.</span>
+<span class="sd">        Because developers can create their own settings, the user can</span>
+<span class="sd">        control an ARMI simulation with arbitrary granularity in this way. In</span>
+<span class="sd">        practice, settings common control things like: how many cycles a</span>
+<span class="sd">        reactor is being modeled for, how many timesteps are to be modeled</span>
+<span class="sd">        per time node, the verbosity of the logging during the run, and</span>
+<span class="sd">        which modeling steps (such as economics) will be run.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
@@ -275,6 +296,16 @@
 <span class="sd">        .. impl:: Calculate step lengths from cycles and burn steps.</span>
 <span class="sd">            :id: I_ARMI_FW_HISTORY</span>
 <span class="sd">            :implements: R_ARMI_FW_HISTORY</span>
+
+<span class="sd">            In all computational modeling of physical systems, it is</span>
+<span class="sd">            necessary to break time into discrete chunks. In reactor</span>
+<span class="sd">            modeling, it is common to first break the time a reactor</span>
+<span class="sd">            is simulated for into the practical cycles the reactor</span>
+<span class="sd">            runs. And then those cycles are broken down into smaller</span>
+<span class="sd">            chunks called burn steps. The final step lengths this</span>
+<span class="sd">            method returns is a two-tiered list, where primary indices</span>
+<span class="sd">            correspond to the cycle and secondary indices correspond to</span>
+<span class="sd">            the length of each intra-cycle step (in days).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stepLengths</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_stepLengths</span> <span class="o">=</span> <span class="n">getStepLengths</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
@@ -715,27 +746,38 @@
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        If the interfaces are flagged to be reversed at EOL, they are separated from the main stack and appended</span>
-<span class="sd">        at the end in reverse order. This allows, for example, an interface that must run first to also run last.</span>
+<span class="sd">        If the interfaces are flagged to be reversed at EOL, they are</span>
+<span class="sd">        separated from the main stack and appended at the end in reverse</span>
+<span class="sd">        order. This allows, for example, an interface that must run</span>
+<span class="sd">        first to also run last.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getActiveInterfaces</span><span class="p">(</span><span class="s2">&quot;EOL&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;EOL&quot;</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Operator.interactAllCoupled"><a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllCoupled">[docs]</a>    <span class="k">def</span> <span class="nf">interactAllCoupled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coupledIteration</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Interact for tight physics coupling over all enabled interfaces.</span>
-
-<span class="sd">        Tight coupling implies operator-split iterations between two or more physics solvers at the same solution</span>
-<span class="sd">        point in time. For example, a flux solution might be computed, then a temperature solution, and then</span>
-<span class="sd">        another flux solution based on updated temperatures (which updated densities, dimensions, and Doppler).</span>
-
-<span class="sd">        This is distinct from loose coupling, which would simply uses the temperature values from the previous timestep</span>
-<span class="sd">        in the current flux solution. It&#39;s also distinct from full coupling where all fields are solved simultaneously.</span>
-<span class="sd">        ARMI supports tight and loose coupling.</span>
+<span class="sd">        Run all interfaces that are involved in tight physics coupling.</span>
 
 <span class="sd">        .. impl:: Physics coupling is driven from Operator.</span>
 <span class="sd">            :id: I_ARMI_OPERATOR_PHYSICS1</span>
 <span class="sd">            :implements: R_ARMI_OPERATOR_PHYSICS</span>
+
+<span class="sd">            This method runs all the interfaces that are defined as part</span>
+<span class="sd">            of the tight physics coupling of the reactor. Then it returns</span>
+<span class="sd">            if the coupling has converged or not.</span>
+
+<span class="sd">            Tight coupling implies the operator has split iterations</span>
+<span class="sd">            between two or more physics solvers at the same solution point</span>
+<span class="sd">            in simulated time. For example, a flux solution might be</span>
+<span class="sd">            computed, then a temperature solution, and then another flux</span>
+<span class="sd">            solution based on updated temperatures (which updates</span>
+<span class="sd">            densities, dimensions, and Doppler).</span>
+
+<span class="sd">            This is distinct from loose coupling, which simply uses</span>
+<span class="sd">            the temperature values from the previous timestep in the</span>
+<span class="sd">            current flux solution. It&#39;s also distinct from full coupling</span>
+<span class="sd">            where all fields are solved simultaneously. ARMI supports</span>
+<span class="sd">            tight and loose coupling.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getActiveInterfaces</span><span class="p">(</span><span class="s2">&quot;Coupled&quot;</span><span class="p">)</span>
         <span class="c1"># Store the previous iteration values before calling interactAllCoupled</span>
@@ -1016,6 +1058,15 @@
 <span class="sd">        .. impl:: An operator will expose an ordered list of interfaces.</span>
 <span class="sd">            :id: I_ARMI_OPERATOR_INTERFACES</span>
 <span class="sd">            :implements: R_ARMI_OPERATOR_INTERFACES</span>
+
+<span class="sd">            This method returns an ordered list of instances of the Interface</span>
+<span class="sd">            class. This list is useful because at any time node in the</span>
+<span class="sd">            reactor simulation, these interfaces will be called in</span>
+<span class="sd">            sequence to perform various types of calculations. It is</span>
+<span class="sd">            important to note that this Operator instance has a list of</span>
+<span class="sd">            Plugins, and each of those Plugins potentially defines</span>
+<span class="sd">            multiple Interfaces. And these Interfaces define their own</span>
+<span class="sd">            order, separate from the ordering of the Plugins.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
