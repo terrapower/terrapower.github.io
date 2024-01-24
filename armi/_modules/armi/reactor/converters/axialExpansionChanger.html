@@ -162,6 +162,22 @@
 <span class="sd">        :id: I_ARMI_INP_COLD_HEIGHT</span>
 <span class="sd">        :implements: R_ARMI_INP_COLD_HEIGHT</span>
 
+<span class="sd">        This method is designed to be used during core construction to axially thermally expand the</span>
+<span class="sd">        assemblies to their &quot;hot&quot; temperatures (as determined by ``Thot`` values in blueprints).</span>
+<span class="sd">        First, The Assembly is prepared for axial expansion via ``setAssembly``. In</span>
+<span class="sd">        ``applyColdHeightMassIncrease``, the number densities on each Component is adjusted to</span>
+<span class="sd">        reflect that Assembly inputs are at cold (i.e., ``Tinput``) temperatures. To expand to</span>
+<span class="sd">        the requested hot temperatures, thermal expansion factors are then computed in</span>
+<span class="sd">        ``computeThermalExpansionFactors``. Finally, the Assembly is axially thermally expanded in</span>
+<span class="sd">        ``axiallyExpandAssembly``.</span>
+
+<span class="sd">        If the setting ``detailedAxialExpansion`` is ``False``, then each Assembly gets its Block mesh</span>
+<span class="sd">        set to match that of the &quot;reference&quot; Assembly (see ``getDefaultReferenceAssem`` and ``setBlockMesh``).</span>
+
+<span class="sd">        Once the Assemblies are axially expanded, the Block BOL heights are updated. To account for the change in</span>
+<span class="sd">        Block volume from axial expansion, ``completeInitialLoading`` is called to update any volume-dependent</span>
+<span class="sd">        Block information.</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    assems: list[:py:class:`Assembly &lt;armi.reactor.assemblies.Assembly&gt;`]</span>
@@ -203,10 +219,6 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Axially expand or contract assemblies or an entire core.</span>
 
-<span class="sd">    .. impl:: Preserve the total height of an ARMI assembly, during expansion.</span>
-<span class="sd">        :id: I_ARMI_ASSEM_HEIGHT_PRES</span>
-<span class="sd">        :implements: R_ARMI_ASSEM_HEIGHT_PRES</span>
-
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    linked : :py:class:`AssemblyAxialLinkage`</span>
@@ -237,11 +249,18 @@
 <div class="viewcode-block" id="AxialExpansionChanger.performPrescribedAxialExpansion"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.AxialExpansionChanger.performPrescribedAxialExpansion">[docs]</a>    <span class="k">def</span> <span class="nf">performPrescribedAxialExpansion</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">componentLst</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">percents</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">setFuel</span><span class="o">=</span><span class="kc">True</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform axial expansion of an assembly given prescribed expansion percentages.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform axial expansion/contraction of an assembly given prescribed expansion percentages.</span>
 
 <span class="sd">        .. impl:: Perform expansion/contraction, given a list of components and expansion coefficients.</span>
 <span class="sd">            :id: I_ARMI_AXIAL_EXP_PRESC</span>
 <span class="sd">            :implements: R_ARMI_AXIAL_EXP_PRESC</span>
+
+<span class="sd">            This method performs component-wise axial expansion for an Assembly given expansion coefficients</span>
+<span class="sd">            and a corresponding list of Components. In ``setAssembly``, the Assembly is prepared</span>
+<span class="sd">            for axial expansion by determining Component-wise axial linkage and checking to see if a dummy Block</span>
+<span class="sd">            is in place (necessary for ensuring conservation properties). The provided expansion factors are</span>
+<span class="sd">            then assigned to their corresponding Components in ``setExpansionFactors``. Finally, the axial</span>
+<span class="sd">            expansion is performed in ``axiallyExpandAssembly``</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -271,11 +290,19 @@
         <span class="n">setFuel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">expandFromTinputToThot</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform thermal expansion for an assembly given an axial temperature grid and field.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform thermal expansion/contraction for an assembly given an axial temperature grid and field.</span>
 
-<span class="sd">        .. impl:: Perform thermal expansion/contraction, given an axial temp distribution over an assembly.</span>
+<span class="sd">        .. impl:: Perform thermal expansion/contraction, given an axial temperature distribution over an assembly.</span>
 <span class="sd">            :id: I_ARMI_AXIAL_EXP_THERM</span>
 <span class="sd">            :implements: R_ARMI_AXIAL_EXP_THERM</span>
+
+<span class="sd">            This method performs component-wise thermal expansion for an assembly given a discrete temperature</span>
+<span class="sd">            distribution over the axial length of the Assembly. In ``setAssembly``, the Assembly is prepared</span>
+<span class="sd">            for axial expansion by determining Component-wise axial linkage and checking to see if a dummy Block</span>
+<span class="sd">            is in place (necessary for ensuring conservation properties). The discrete temperature distribution</span>
+<span class="sd">            is then leveraged to update Component temperatures and compute thermal expansion factors</span>
+<span class="sd">            (via ``updateComponentTempsBy1DTempField`` and ``computeThermalExpansionFactors``, respectively).</span>
+<span class="sd">            Finally, the axial expansion is performed in ``axiallyExpandAssembly``.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -367,7 +394,17 @@
                 <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
 <div class="viewcode-block" id="AxialExpansionChanger.axiallyExpandAssembly"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.AxialExpansionChanger.axiallyExpandAssembly">[docs]</a>    <span class="k">def</span> <span class="nf">axiallyExpandAssembly</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Utilizes assembly linkage to do axial expansion.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Utilizes assembly linkage to do axial expansion.</span>
+
+<span class="sd">        .. impl:: Preserve the total height of an ARMI assembly, during expansion.</span>
+<span class="sd">            :id: I_ARMI_ASSEM_HEIGHT_PRES</span>
+<span class="sd">            :implements: R_ARMI_ASSEM_HEIGHT_PRES</span>
+
+<span class="sd">            The total height of an Assembly is preserved by not changing the ``ztop`` position</span>
+<span class="sd">            of the top-most Block in an Assembly. The ``zbottom`` of the top-most Block is</span>
+<span class="sd">            adjusted to match the Block immediately below it. The ``height`` of the</span>
+<span class="sd">            top-most Block is is then updated to reflect any expansion/contraction.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">mesh</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span>
         <span class="n">numOfBlocks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">countBlocksWithFlags</span><span class="p">()</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
