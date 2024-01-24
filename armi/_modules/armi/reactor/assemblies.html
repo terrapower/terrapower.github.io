@@ -273,6 +273,15 @@
 <span class="sd">        .. impl:: Assemblies are made up of type Block.</span>
 <span class="sd">            :id: I_ARMI_ASSEM_BLOCKS</span>
 <span class="sd">            :implements: R_ARMI_ASSEM_BLOCKS</span>
+
+<span class="sd">            Adds a unique Block to the top of the Assembly. If the Block already</span>
+<span class="sd">            exists in the Assembly, an error is raised in</span>
+<span class="sd">            :py:meth:`armi.reactor.composites.Composite.add`.</span>
+<span class="sd">            The spatialLocator of the Assembly is updated to account for</span>
+<span class="sd">            the new Block. In ``reestablishBlockOrder``, the Assembly spatialGrid</span>
+<span class="sd">            is reinitialized and Block-wise spatialLocator and name objects</span>
+<span class="sd">            are updated. The axial mesh and other Block geometry parameters are</span>
+<span class="sd">            updated in ``calculateZCoords``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
         <span class="n">obj</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
@@ -313,12 +322,12 @@
 <span class="sd">            :id: I_ARMI_ASSEM_POSI0</span>
 <span class="sd">            :implements: R_ARMI_ASSEM_POSI</span>
 
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        This function (and its friends) were created before the advent of both the</span>
-<span class="sd">        grid/spatialLocator system and the ability to represent things like the SFP as</span>
-<span class="sd">        siblings of a Core. In future, this will likely be re-implemented in terms of</span>
-<span class="sd">        just spatialLocator objects.</span>
+<span class="sd">            This method returns a string label indicating the location</span>
+<span class="sd">            of an Assembly. There are three options: 1) the Assembly</span>
+<span class="sd">            is not within a Core object and is interpreted as in the</span>
+<span class="sd">            &quot;load queue&quot;; 2) the Assembly is within the spent fuel pool;</span>
+<span class="sd">            3) the Assembly is within a Core object, so it has a physical</span>
+<span class="sd">            location within the Core.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># just use ring and position, not axial (which is 0)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
@@ -336,6 +345,9 @@
 <span class="sd">        .. impl:: Assembly coordinates are retrievable.</span>
 <span class="sd">            :id: I_ARMI_ASSEM_POSI1</span>
 <span class="sd">            :implements: R_ARMI_ASSEM_POSI</span>
+
+<span class="sd">            In this method, the spatialLocator of an Assembly is leveraged to return</span>
+<span class="sd">            its physical (x,y) coordinates in cm.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">_z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getGlobalCoordinates</span><span class="p">()</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span></div>
@@ -350,6 +362,10 @@
 <span class="sd">        .. impl:: Assembly area is retrievable.</span>
 <span class="sd">            :id: I_ARMI_ASSEM_DIMS0</span>
 <span class="sd">            :implements: R_ARMI_ASSEM_DIMS</span>
+
+<span class="sd">            Returns the area of the first block in the Assembly. If there are no</span>
+<span class="sd">            block in the Assembly, a warning is issued and a default area of 1.0</span>
+<span class="sd">            is returned.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
@@ -365,6 +381,10 @@
 <span class="sd">        .. impl:: Assembly volume is retrievable.</span>
 <span class="sd">            :id: I_ARMI_ASSEM_DIMS1</span>
 <span class="sd">            :implements: R_ARMI_ASSEM_DIMS</span>
+
+<span class="sd">            The volume of the Assembly is calculated as the product of the</span>
+<span class="sd">            area of the first block (via ``getArea``) and the total height</span>
+<span class="sd">            of the assembly (via ``getTotalHeight``).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getTotalHeight</span><span class="p">()</span></div>
 
@@ -569,6 +589,10 @@
 <span class="sd">        .. impl:: Assembly height is retrievable.</span>
 <span class="sd">            :id: I_ARMI_ASSEM_DIMS2</span>
 <span class="sd">            :implements: R_ARMI_ASSEM_DIMS</span>
+
+<span class="sd">            The height of the Assembly is calculated by taking the sum of the</span>
+<span class="sd">            constituent Blocks. If a ``typeSpec`` is provided, the total height</span>
+<span class="sd">            of the blocks containing Flags that match the ``typeSpec`` is returned.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1246,7 +1270,7 @@
 
 <div class="viewcode-block" id="Assembly.reestablishBlockOrder"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.reestablishBlockOrder">[docs]</a>    <span class="k">def</span> <span class="nf">reestablishBlockOrder</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        After children have been mixed up axially, this re-locates each block with the proper axial mesh.</span>
+<span class="sd">        The block ordering has changed, so the spatialGrid and Block-wise spatialLocator and name objects need updating.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -1278,14 +1302,21 @@
 
 <div class="viewcode-block" id="Assembly.getDim"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.getDim">[docs]</a>    <span class="k">def</span> <span class="nf">getDim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">dimName</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Search through blocks in this assembly and find the first component of compName.</span>
-<span class="sd">        Then, look on that component for dimName.</span>
+<span class="sd">        With a preference for fuel blocks, find the first component in the Assembly with</span>
+<span class="sd">        flags that match ``typeSpec`` and return dimension as specified by ``dimName``.</span>
 
 <span class="sd">        Example: getDim(Flags.WIRE, &#39;od&#39;) will return a wire&#39;s OD in cm.</span>
 
 <span class="sd">        .. impl:: Assembly dimensions are retrievable.</span>
 <span class="sd">            :id: I_ARMI_ASSEM_DIMS3</span>
 <span class="sd">            :implements: R_ARMI_ASSEM_DIMS</span>
+
+<span class="sd">            This method searches for the first Component that matches the</span>
+<span class="sd">            given ``typeSpec`` and returns the dimension as specified by</span>
+<span class="sd">            ``dimName``. There is a hard-coded preference for Components</span>
+<span class="sd">            to be within fuel Blocks. If there are no Blocks, then ``None``</span>
+<span class="sd">            is returned. If ``typeSpec`` is not within the first Block, an</span>
+<span class="sd">            error is raised within :py:meth:`armi.reactor.blocksBlock.getDim`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># prefer fuel blocks.</span>
         <span class="n">bList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
