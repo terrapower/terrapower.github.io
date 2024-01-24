@@ -207,6 +207,12 @@
 <span class="sd">        :id: I_ARMI_DB_H51</span>
 <span class="sd">        :implements: R_ARMI_DB_H5</span>
 
+<span class="sd">        This class implements a light wrapper around H5 files, so they can be used to</span>
+<span class="sd">        store ARMI outputs. H5 files are commonly used in scientific applications in</span>
+<span class="sd">        Fortran and C++. As such, they are entirely language agnostic binary files. The</span>
+<span class="sd">        implementation here is that ARMI wraps the ``h5py`` library, and uses its</span>
+<span class="sd">        extensive tooling, instead of re-inventing the wheel.</span>
+
 <span class="sd">    See Also</span>
 <span class="sd">    --------</span>
 <span class="sd">    `doc/user/outputs/database` for more details.</span>
@@ -322,6 +328,13 @@
 <span class="sd">        .. impl:: Add system attributes to the database.</span>
 <span class="sd">            :id: I_ARMI_DB_QA</span>
 <span class="sd">            :implements: R_ARMI_DB_QA</span>
+
+<span class="sd">            This method writes some basic system information to the H5 file. This is</span>
+<span class="sd">            designed as a starting point, so users can see information about the system</span>
+<span class="sd">            their simulations were run on. As ARMI is used on Windows and Linux, the</span>
+<span class="sd">            tooling here has to be platform independent. The two major sources of</span>
+<span class="sd">            information are the ARMI :py:mod:`context &lt;armi.context&gt;` module and the</span>
+<span class="sd">            Python standard library ``platform``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;user&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">USER</span>
         <span class="n">h5db</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span>
@@ -552,9 +565,19 @@
 <span class="sd">            :id: I_ARMI_DB_CS</span>
 <span class="sd">            :implements: R_ARMI_DB_CS</span>
 
+<span class="sd">            A ``Settings`` object is passed into this method, and then the settings are</span>
+<span class="sd">            converted into a YAML string stream. That stream is then written to the H5</span>
+<span class="sd">            file. Optionally, this method can take a pre-build settings string to be</span>
+<span class="sd">            written directly to the file.</span>
+
 <span class="sd">        .. impl:: The reactor blueprints are saved the settings file.</span>
 <span class="sd">            :id: I_ARMI_DB_BP</span>
 <span class="sd">            :implements: R_ARMI_DB_BP</span>
+
+<span class="sd">            A ``Blueprints`` string is optionally passed into this method, and then</span>
+<span class="sd">            written to the H5 file. If it is not passed in, this method will attempt to</span>
+<span class="sd">            find the blueprints input file in the settings, and read the contents of</span>
+<span class="sd">            that file into a stream to be written to the H5 file.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -772,15 +795,24 @@
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a new reactor from (cycle, node).</span>
 
-<span class="sd">        Case settings and blueprints can be provided by the client, or read from the database itself.</span>
-<span class="sd">        Providing these from the client could be useful when performing snapshot runs</span>
-<span class="sd">        or where it is expected to use results from a run using different settings and</span>
-<span class="sd">        continue with new settings (or if blueprints are not on the database).</span>
-<span class="sd">        Geometry is read from the database itself.</span>
+<span class="sd">        Case settings and blueprints can be provided by the client, or read from the</span>
+<span class="sd">        database itself. Providing these from the client could be useful when</span>
+<span class="sd">        performing snapshot runs or where it is expected to use results from a run</span>
+<span class="sd">        using different settings and continue with new settings (or if blueprints are</span>
+<span class="sd">        not on the database). Geometry is read from the database itself.</span>
 
 <span class="sd">        .. impl:: Users can load a reactor from a DB.</span>
 <span class="sd">            :id: I_ARMI_DB_R_LOAD</span>
 <span class="sd">            :implements: R_ARMI_DB_R_LOAD</span>
+
+<span class="sd">            This method creates a ``Reactor`` object by reading the reactor state out</span>
+<span class="sd">            of an ARMI database file. This is done by passing in mandatory arguements</span>
+<span class="sd">            that specify the exact place in time you want to load the reactor from.</span>
+<span class="sd">            (That is, the cycle and node numbers.) Users can either pass the settings</span>
+<span class="sd">            and blueprints directly into this method, or it will attempt to read them</span>
+<span class="sd">            from the database file. The primary work done here is to read the hierarchy</span>
+<span class="sd">            of reactor objects from the data file, then reconstruct them in the correct</span>
+<span class="sd">            order.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -848,6 +880,7 @@
                 <span class="sa">f</span><span class="s2">&quot;Due to the setting </span><span class="si">{</span><span class="n">CONF_SORT_REACTOR</span><span class="si">}</span><span class="s2">, this Reactor is unsorted. &quot;</span>
                 <span class="s2">&quot;But this feature is temporary and will be removed by 2024.&quot;</span>
             <span class="p">)</span>
+
         <span class="k">return</span> <span class="n">root</span></div>
 
     <span class="nd">@staticmethod</span>
