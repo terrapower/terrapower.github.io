@@ -106,8 +106,69 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Defines containers for the reading and writing standard interface files </span>
+<span class="sd">Defines containers for the reading and writing standard interface files</span>
 <span class="sd">for reactor physics codes.</span>
+
+<span class="sd">.. impl:: Generic tool for reading and writing Committee on Computer Code Coordination (CCCC) format files for reactor physics codes</span>
+<span class="sd">    :id: I_ARMI_NUCDATA</span>
+<span class="sd">    :implements: R_ARMI_NUCDATA_ISOTXS,</span>
+<span class="sd">                 R_ARMI_NUCDATA_GAMISO,</span>
+<span class="sd">                 R_ARMI_NUCDATA_GEODST,</span>
+<span class="sd">                 R_ARMI_NUCDATA_DIF3D,</span>
+<span class="sd">                 R_ARMI_NUCDATA_PMATRX,</span>
+<span class="sd">                 R_ARMI_NUCDATA_DLAYXS</span>
+
+<span class="sd">    This module provides a number of base classes that implement general</span>
+<span class="sd">    capabilities for binary and ASCII file I/O. The :py:class:`IORecord` serves</span>
+<span class="sd">    as an abstract base class that instantiates a number of methods that the</span>
+<span class="sd">    binary and ASCII children classes are meant to implement. These methods,</span>
+<span class="sd">    prefixed with ``rw``, are meant to convert literal data types, e.g. float or</span>
+<span class="sd">    int, to either binary or ASCII. This base class does its own conversion for</span>
+<span class="sd">    container data types, e.g. list or matrix, relying on the child</span>
+<span class="sd">    implementation of the literal types that the container possesses. The binary</span>
+<span class="sd">    conversion is implemented in :py:class:`BinaryRecordReader` and</span>
+<span class="sd">    :py:class`BinaryRecordWriter`. The ASCII conversion is implemented in</span>
+<span class="sd">    :py:class:`AsciiRecordReader` and :py:class:`AsciiRecordWriter`.</span>
+
+<span class="sd">    These :py:class`IORecord` classes are used within :py:class:`Stream` objects</span>
+<span class="sd">    for the data conversion. :py:class:`Stream` is a context manager that opens</span>
+<span class="sd">    a file for reading or writing on the ``__enter__`` and closes that file upon</span>
+<span class="sd">    ``__exit__``. :py:class:`Stream` is an abstract base class that is</span>
+<span class="sd">    subclassed for each CCCC file. It is subclassed directly for the CCCC files</span>
+<span class="sd">    that contain XS data:</span>
+
+<span class="sd">      * :py:class:`ISOTXS &lt;armi.nuclearDataIO.cccc.isotxs.IsotxsIO&gt;`,</span>
+<span class="sd">      * :py:mod:`GAMISO &lt;armi.nuclearDataIO.cccc.gamiso&gt;`,</span>
+<span class="sd">      * :py:class:`PMATRX &lt;armi.nuclearDataIO.cccc.pmatrx.PmatrxIO&gt;`.</span>
+<span class="sd">      * :py:class:`DLAYXS &lt;armi.nuclearDataIO.cccc.dlayxs.DlayxsIO&gt;`.</span>
+<span class="sd">      * :py:mod:`COMPXS &lt;armi.nuclearDataIO.cccc.compxs&gt;`.</span>
+
+<span class="sd">    For the CCCC file types that are outputs from a flux solver such as DIF3D</span>
+<span class="sd">    (e.g., GEODST, DIF3D, NHFLUX) the streams are subclassed from</span>
+<span class="sd">    :py:class:`StreamWithDataContainer`, which is a special abstract subclass of</span>
+<span class="sd">    :py:class:`Stream` that implements a common pattern used for these file</span>
+<span class="sd">    types. In a :py:class:`StreamWithDataContainer`, the data is directly read</span>
+<span class="sd">    to or written from a specialized data container.</span>
+
+<span class="sd">    The data container structure for each type of CCCC file is implemented in</span>
+<span class="sd">    the module for that file, as a subclass of :py:class:`DataContainer`. The</span>
+<span class="sd">    subclasses for each CCCC file type define standard attribute names for the</span>
+<span class="sd">    data that will be read from or written to the CCCC file. CCCC file types</span>
+<span class="sd">    that follow this pattern include:</span>
+
+<span class="sd">      * :py:class:`GEODST &lt;armi.nuclearDataIO.cccc.geodst.GeodstData&gt;`</span>
+<span class="sd">      * :py:class:`DIF3D &lt;armi.nuclearDataIO.cccc.dif3d.Dif3dData&gt;`</span>
+<span class="sd">      * :py:class:`NHFLUX &lt;armi.nuclearDataIO.cccc.nhflux.NHFLUX&gt;`</span>
+<span class="sd">        (and multiple sub-classes thereof)</span>
+<span class="sd">      * :py:class:`LABELS &lt;armi.nuclearDataIO.cccc.labels.LabelsData&gt;`</span>
+<span class="sd">      * :py:class:`PWDINT &lt;armi.nuclearDataIO.cccc.pwdint.PwdintData&gt;`</span>
+<span class="sd">      * :py:class:`RTFLUX &lt;armi.nuclearDataIO.cccc.rtflux.RtfluxData&gt;`</span>
+<span class="sd">      * :py:class:`RZFLUX &lt;armi.nuclearDataIO.cccc.rzflux.RzfluxData&gt;`</span>
+<span class="sd">      * :py:class:`RTFLUX &lt;armi.nuclearDataIO.cccc.rtflux.RtfluxData&gt;`</span>
+
+<span class="sd">    The logic to parse or write each specific file format is contained within</span>
+<span class="sd">    the :py:meth:`Stream.readWrite` implementations of the respective</span>
+<span class="sd">    subclasses.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">io</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
@@ -367,7 +428,8 @@
 
 
 <div class="viewcode-block" id="BinaryRecordReader"><a class="viewcode-back" href="../../../../.apidocs/armi.nuclearDataIO.cccc.cccc.html#armi.nuclearDataIO.cccc.cccc.BinaryRecordReader">[docs]</a><span class="k">class</span> <span class="nc">BinaryRecordReader</span><span class="p">(</span><span class="n">IORecord</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Writes a single CCCC record in binary format.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Writes a single CCCC record in binary format.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
@@ -438,7 +500,8 @@
 
 
 <div class="viewcode-block" id="BinaryRecordWriter"><a class="viewcode-back" href="../../../../.apidocs/armi.nuclearDataIO.cccc.cccc.html#armi.nuclearDataIO.cccc.cccc.BinaryRecordWriter">[docs]</a><span class="k">class</span> <span class="nc">BinaryRecordWriter</span><span class="p">(</span><span class="n">IORecord</span><span class="p">):</span>
-<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;a single record from a CCCC file.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reads a single CCCC record in binary format.</span>
 
 <span class="sd">    Reads binary information sequentially.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -499,7 +562,8 @@
 
 
 <div class="viewcode-block" id="AsciiRecordReader"><a class="viewcode-back" href="../../../../.apidocs/armi.nuclearDataIO.cccc.cccc.html#armi.nuclearDataIO.cccc.cccc.AsciiRecordReader">[docs]</a><span class="k">class</span> <span class="nc">AsciiRecordReader</span><span class="p">(</span><span class="n">BinaryRecordReader</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reads a single CCCC record in ASCII format.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reads a single CCCC record in ASCII format.</span>
 
 <span class="sd">    See Also</span>
 <span class="sd">    --------</span>
@@ -534,7 +598,8 @@
 
 
 <div class="viewcode-block" id="AsciiRecordWriter"><a class="viewcode-back" href="../../../../.apidocs/armi.nuclearDataIO.cccc.cccc.html#armi.nuclearDataIO.cccc.cccc.AsciiRecordWriter">[docs]</a><span class="k">class</span> <span class="nc">AsciiRecordWriter</span><span class="p">(</span><span class="n">IORecord</span><span class="p">):</span>
-<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Writes a single CCCC record in ASCII format.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Writes a single CCCC record in ASCII format.</span>
 
 <span class="sd">    Since there is no specific format of an ASCII CCCC record, the format is roughly the same as</span>
 <span class="sd">    the :py:class:`BinaryRecordWriter`, except that the :class:`AsciiRecordReader` puts a space in</span>
