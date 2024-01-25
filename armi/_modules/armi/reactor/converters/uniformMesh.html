@@ -216,15 +216,31 @@
 <span class="sd">            :id: I_ARMI_UMC_NON_UNIFORM</span>
 <span class="sd">            :implements: R_ARMI_UMC_NON_UNIFORM</span>
 
+<span class="sd">            A core-wide mesh is computed via ``_computeAverageAxialMesh`` which</span>
+<span class="sd">            operates by first collecting all the mesh points for every assembly</span>
+<span class="sd">            (``allMeshes``) and then averaging them together using</span>
+<span class="sd">            ``average1DWithinTolerance``. An attempt to preserve fuel and control</span>
+<span class="sd">            material boundaries is accomplished by moving fuel region boundaries</span>
+<span class="sd">            to accomodate control rod boundaries. Note this behavior only occurs</span>
+<span class="sd">            by calling ``_decuspAxialMesh`` which is dependent on ``minimumMeshSize``</span>
+<span class="sd">            being defined (this is controlled by the ``uniformMeshMinimumSize`` setting).</span>
+
 <span class="sd">        .. impl:: Produce a mesh with a size no smaller than a user-specified value.</span>
 <span class="sd">            :id: I_ARMI_UMC_MIN_MESH</span>
 <span class="sd">            :implements: R_ARMI_UMC_MIN_MESH</span>
 
+<span class="sd">            If a minimum mesh size ``minimumMeshSize`` is provided, calls</span>
+<span class="sd">            ``_decuspAxialMesh`` on the core-wide mesh to maintain that minimum size</span>
+<span class="sd">            while still attempting to honor fuel and control material boundaries. Relies</span>
+<span class="sd">            ultimately on ``_filterMesh`` to remove mesh points that violate the minimum</span>
+<span class="sd">            size. Note that ``_filterMesh`` will always respect the minimum mesh size,</span>
+<span class="sd">            even if this means losing a mesh point that represents a fuel or control</span>
+<span class="sd">            material boundary.</span>
+
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        Attempts to reduce the effect of fuel and control rod absorber smearing</span>
-<span class="sd">        (&quot;cusping&quot; effect) by keeping important material boundaries in the</span>
-<span class="sd">        common mesh.</span>
+<span class="sd">        (&quot;cusping&quot; effect) by keeping important material boundaries in the common mesh.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_computeAverageAxialMesh</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">minimumMeshSize</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -526,9 +542,24 @@
 <span class="sd">            :id: I_ARMI_UMC</span>
 <span class="sd">            :implements: R_ARMI_UMC</span>
 
+<span class="sd">            Given a source Reactor, ``r``, as input and when ``_hasNonUniformAssems`` is ``False``,</span>
+<span class="sd">            a new Reactor is created in ``initNewReactor``. This new Reactor contains copies of select</span>
+<span class="sd">            information from the input source Reactor (e.g., Operator, Blueprints, cycle, timeNode, etc).</span>
+<span class="sd">            The uniform mesh to be applied to the new Reactor is calculated in ``_generateUniformMesh``</span>
+<span class="sd">            (see :need:`I_ARMI_UMC_NON_UNIFORM` and :need:`I_ARMI_UMC_MIN_MESH`). New assemblies with this</span>
+<span class="sd">            uniform mesh are created in ``_buildAllUniformAssemblies`` and added to the new Reactor.</span>
+<span class="sd">            Core-level parameters are then mapped from the source Reactor to the new Reactor in</span>
+<span class="sd">            ``_mapStateFromReactorToOther``. Finally, the core-wide axial mesh is updated on the new Reactor</span>
+<span class="sd">            via ``updateAxialMesh``.</span>
+
+
 <span class="sd">        .. impl:: Map select parameters from composites on the original mesh to the new mesh.</span>
 <span class="sd">            :id: I_ARMI_UMC_PARAM_FORWARD</span>
 <span class="sd">            :implements: R_ARMI_UMC_PARAM_FORWARD</span>
+
+<span class="sd">            In ``_mapStateFromReactorToOther``, Core-level parameters are mapped from the source Reactor</span>
+<span class="sd">            to the new Reactor. If requested, block-level parameters can be mapped using an averaging</span>
+<span class="sd">            equation as described in ``setAssemblyStateFromOverlaps``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No reactor provided in </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -648,6 +679,12 @@
 <span class="sd">        .. impl:: Map select parameters from composites on the new mesh to the original mesh.</span>
 <span class="sd">            :id: I_ARMI_UMC_PARAM_BACKWARD</span>
 <span class="sd">            :implements: R_ARMI_UMC_PARAM_BACKWARD</span>
+
+<span class="sd">            To ensure that the parameters on the original Reactor are from the converted Reactor,</span>
+<span class="sd">            the first step is to clear the Reactor-level parameters on the original Reactor</span>
+<span class="sd">            (see ``_clearStateOnReactor``). ``_mapStateFromReactorToOther`` is then called</span>
+<span class="sd">            to map Core-level parameters and, optionally, averaged Block-level parameters</span>
+<span class="sd">            (see :need:`I_ARMI_UMC_PARAM_FORWARD`).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Applying uniform neutronics results from </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="si">}</span><span class="s2">&quot;</span>
