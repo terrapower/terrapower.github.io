@@ -108,70 +108,11 @@
 <span class="sd">&quot;&quot;&quot;Entry point into ARMI for manipulating output databases.&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">pathlib</span>
-<span class="kn">import</span> <span class="nn">re</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.cli.entryPoint</span> <span class="kn">import</span> <span class="n">EntryPoint</span>
 <span class="kn">from</span> <span class="nn">armi.utils.textProcessors</span> <span class="kn">import</span> <span class="n">resolveMarkupInclusions</span>
-
-
-<div class="viewcode-block" id="ConvertDB"><a class="viewcode-back" href="../../../.apidocs/armi.cli.database.html#armi.cli.database.ConvertDB">[docs]</a><span class="k">class</span> <span class="nc">ConvertDB</span><span class="p">(</span><span class="n">EntryPoint</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert databases between different versions.&quot;&quot;&quot;</span>
-
-    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;convert-db&quot;</span>
-    <span class="n">mode</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">Mode</span><span class="o">.</span><span class="n">BATCH</span>
-
-<div class="viewcode-block" id="ConvertDB.addOptions"><a class="viewcode-back" href="../../../.apidocs/armi.cli.database.html#armi.cli.database.ConvertDB.addOptions">[docs]</a>    <span class="k">def</span> <span class="nf">addOptions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;h5db&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Input database path&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-            <span class="s2">&quot;--output-name&quot;</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;output database name&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-            <span class="s2">&quot;--output-version&quot;</span><span class="p">,</span>
-            <span class="n">help</span><span class="o">=</span><span class="p">(</span>
-                <span class="s2">&quot;output database version. &#39;2&#39; or &#39;xtview&#39; for older XTView database; &#39;3&#39; &quot;</span>
-                <span class="s2">&quot;for new format.&quot;</span>
-            <span class="p">),</span>
-            <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-            <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-            <span class="s2">&quot;--nodes&quot;</span><span class="p">,</span>
-            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;An optional list of time nodes to migrate. Should look like &quot;</span>
-            <span class="s2">&quot;`(1,0)(1,1)(1,2)`, etc&quot;</span><span class="p">,</span>
-            <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-            <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="p">)</span></div>
-
-<div class="viewcode-block" id="ConvertDB.parse_args"><a class="viewcode-back" href="../../../.apidocs/armi.cli.database.html#armi.cli.database.ConvertDB.parse_args">[docs]</a>    <span class="k">def</span> <span class="nf">parse_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
-        <span class="n">EntryPoint</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">output_version</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">output_version</span> <span class="o">=</span> <span class="s2">&quot;3&quot;</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">output_version</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;xtview&quot;</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">output_version</span> <span class="o">=</span> <span class="s2">&quot;2&quot;</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">nodes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">cycle</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
-                <span class="k">for</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\((\d+),(\d+)\)&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
-            <span class="p">]</span></div>
-
-<div class="viewcode-block" id="ConvertDB.invoke"><a class="viewcode-back" href="../../../.apidocs/armi.cli.database.html#armi.cli.database.ConvertDB.invoke">[docs]</a>    <span class="k">def</span> <span class="nf">invoke</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="kn">from</span> <span class="nn">armi.bookkeeping.db</span> <span class="kn">import</span> <span class="n">convertDatabase</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">nodes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;Converting the following time nodes: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
-            <span class="p">)</span>
-
-        <span class="n">convertDatabase</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">h5db</span><span class="p">,</span>
-            <span class="n">outputDBName</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">output_name</span><span class="p">,</span>
-            <span class="n">outputVersion</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">output_version</span><span class="p">,</span>
-            <span class="n">nodes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">nodes</span><span class="p">,</span>
-        <span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="ExtractInputs"><a class="viewcode-back" href="../../../.apidocs/armi.cli.database.html#armi.cli.database.ExtractInputs">[docs]</a><span class="k">class</span> <span class="nc">ExtractInputs</span><span class="p">(</span><span class="n">EntryPoint</span><span class="p">):</span>
