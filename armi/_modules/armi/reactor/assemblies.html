@@ -125,6 +125,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">composites</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">armi.materials.material</span> <span class="kn">import</span> <span class="n">Fluid</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.parameters</span> <span class="kn">import</span> <span class="n">ParamLocation</span>
 
 
@@ -766,7 +767,7 @@
 
     <span class="k">def</span> <span class="nf">_shouldMassBeConserved</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">belowFuelColumn</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Determine from a rule set if the mass of a block should be conserved during axial expansion.</span>
+<span class="sd">        Determine from a rule set if the mass of a block component should be conserved during axial expansion.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -782,8 +783,8 @@
 <span class="sd">        conserveMass : boolean</span>
 <span class="sd">            Should the mass be conserved in this block</span>
 
-<span class="sd">        adjustList : list of nuclides</span>
-<span class="sd">            What nuclides should have their mass conserved (if any)</span>
+<span class="sd">        conserveComponents : list of components</span>
+<span class="sd">            What components should have their mass conserved (if any)</span>
 
 <span class="sd">        belowFuelColumn : boolean</span>
 <span class="sd">            Update whether the block is above or below a fuel column</span>
@@ -796,32 +797,31 @@
         <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
             <span class="c1"># fuel block</span>
             <span class="n">conserveMass</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="n">adjustList</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
+            <span class="n">conserveComponents</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
             <span class="c1"># non-fuel block of a fuel assembly.</span>
             <span class="k">if</span> <span class="n">belowFuelColumn</span><span class="p">:</span>
                 <span class="c1"># conserve mass of everything below the fuel so as to not invalidate</span>
                 <span class="c1"># grid-plate dose calcs.</span>
                 <span class="n">conserveMass</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="n">adjustList</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
-                <span class="c1"># conserve mass of everything except coolant.</span>
-                <span class="n">coolant</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">COOLANT</span><span class="p">)</span>
-                <span class="n">coolantList</span> <span class="o">=</span> <span class="n">coolant</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span> <span class="k">if</span> <span class="n">coolant</span> <span class="k">else</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">coolantList</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">adjustList</span><span class="p">:</span>
-                        <span class="n">adjustList</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">nuc</span><span class="p">)</span>
+                <span class="c1"># conserve mass of everything except fluids.</span>
+                <span class="n">conserveComponents</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">comp</span>
+                    <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponents</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comp</span><span class="o">.</span><span class="n">material</span><span class="p">,</span> <span class="n">Fluid</span><span class="p">)</span>
+                <span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># plenum or above block in fuel assembly. don&#39;t conserve mass.</span>
                 <span class="n">conserveMass</span> <span class="o">=</span> <span class="kc">False</span>
-                <span class="n">adjustList</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">conserveComponents</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># non fuel block in non-fuel assem. Don&#39;t conserve mass.</span>
             <span class="n">conserveMass</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="n">adjustList</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">conserveComponents</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="k">return</span> <span class="n">conserveMass</span><span class="p">,</span> <span class="n">adjustList</span>
+        <span class="k">return</span> <span class="n">conserveMass</span><span class="p">,</span> <span class="n">conserveComponents</span>
 
-<div class="viewcode-block" id="Assembly.setBlockMesh"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.setBlockMesh">[docs]</a>    <span class="k">def</span> <span class="nf">setBlockMesh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockMesh</span><span class="p">,</span> <span class="n">conserveMassFlag</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">adjustList</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Assembly.setBlockMesh"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.setBlockMesh">[docs]</a>    <span class="k">def</span> <span class="nf">setBlockMesh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockMesh</span><span class="p">,</span> <span class="n">conserveMassFlag</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Snaps the axial mesh points of this assembly to correspond with the reference mesh.</span>
 
@@ -849,7 +849,14 @@
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        blockMesh : iterable</span>
-<span class="sd">            a list of floats describing the upper mesh points of each block in cm.</span>
+<span class="sd">            A list of floats describing the upper mesh points of each block in cm.</span>
+
+<span class="sd">        conserveMassFlag : bool or str</span>
+<span class="sd">            Option for how to treat mass conservation when the block mesh changes.</span>
+<span class="sd">            Conservation of mass for fuel components is enabled by</span>
+<span class="sd">            conserveMassFlag=&quot;auto&quot;. If not auto, a boolean value should be</span>
+<span class="sd">            passed. The default is False, which does not conserve any masses.</span>
+<span class="sd">            True conserves mass for all components.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -889,15 +896,19 @@
                 <span class="k">return</span>
 
             <span class="k">if</span> <span class="n">conserveMassFlag</span> <span class="o">==</span> <span class="s2">&quot;auto&quot;</span><span class="p">:</span>
-                <span class="n">conserveMass</span><span class="p">,</span> <span class="n">adjustList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shouldMassBeConserved</span><span class="p">(</span>
+                <span class="n">conserveMass</span><span class="p">,</span> <span class="n">conserveComponents</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shouldMassBeConserved</span><span class="p">(</span>
                     <span class="n">belowFuelColumn</span><span class="p">,</span> <span class="n">b</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">conserveMass</span> <span class="o">=</span> <span class="n">conserveMassFlag</span>
+                <span class="n">conserveComponents</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponents</span><span class="p">()</span>
 
-            <span class="n">b</span><span class="o">.</span><span class="n">setHeight</span><span class="p">(</span>
-                <span class="n">newTop</span> <span class="o">-</span> <span class="n">zBottom</span><span class="p">,</span> <span class="n">conserveMass</span><span class="o">=</span><span class="n">conserveMass</span><span class="p">,</span> <span class="n">adjustList</span><span class="o">=</span><span class="n">adjustList</span>
-            <span class="p">)</span>
+            <span class="n">oldBlockHeight</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">setHeight</span><span class="p">(</span><span class="n">newTop</span> <span class="o">-</span> <span class="n">zBottom</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">conserveMass</span><span class="p">:</span>
+                <span class="n">heightRatio</span> <span class="o">=</span> <span class="n">oldBlockHeight</span> <span class="o">/</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">conserveComponents</span><span class="p">:</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">changeNDensByFactor</span><span class="p">(</span><span class="n">heightRatio</span><span class="p">)</span>
             <span class="n">zBottom</span> <span class="o">=</span> <span class="n">newTop</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">calculateZCoords</span><span class="p">()</span></div>
@@ -1456,7 +1467,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-03-19.
+      <span class="lastupdated">Last updated on 2024-04-04.
       </span></p>
   </div>
 
