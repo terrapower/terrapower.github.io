@@ -172,7 +172,7 @@
             <span class="p">(</span><span class="n">Operator_ArmiCodebase</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">ROOT</span><span class="p">),</span>
             <span class="p">(</span><span class="n">Operator_WorkingDirectory</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()),</span>
             <span class="p">(</span><span class="n">Operator_PythonInterperter</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="p">),</span>
-            <span class="p">(</span><span class="n">Operator_MasterMachine</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;COMPUTERNAME&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">)),</span>
+            <span class="p">(</span><span class="n">Operator_MasterMachine</span><span class="p">,</span> <span class="n">getNodeName</span><span class="p">()),</span>
             <span class="p">(</span><span class="n">Operator_NumProcessors</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span><span class="p">),</span>
             <span class="p">(</span><span class="n">Operator_Date</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">START_TIME</span><span class="p">),</span>
         <span class="p">]</span>
@@ -285,16 +285,9 @@
                 <span class="n">nodeMappingData</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                     <span class="p">(</span><span class="n">uniqueName</span><span class="p">,</span> <span class="n">numProcessors</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">matchingProcs</span><span class="p">))</span>
                 <span class="p">)</span>
-                <span class="c1"># If this is on Windows: run sys info on each unique node too</span>
-                <span class="k">if</span> <span class="s2">&quot;win&quot;</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="p">:</span>
-                    <span class="n">sysInfoCmd</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="s1">&#39;systeminfo | findstr /B /C:&quot;OS Name&quot; /B /C:&quot;OS Version&quot; /B &#39;</span>
-                        <span class="s1">&#39;/C:&quot;Processor&quot; &amp;&amp; systeminfo | findstr /E /C:&quot;Mhz&quot;&#39;</span>
-                    <span class="p">)</span>
-                    <span class="n">out</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-                        <span class="n">sysInfoCmd</span><span class="p">,</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">True</span>
-                    <span class="p">)</span>
-                    <span class="n">sysInfo</span> <span class="o">+=</span> <span class="n">out</span><span class="o">.</span><span class="n">stdout</span>
+
+                <span class="n">sysInfo</span> <span class="o">+=</span> <span class="n">getSystemInfo</span><span class="p">()</span>
+
             <span class="n">runLog</span><span class="o">.</span><span class="n">header</span><span class="p">(</span><span class="s2">&quot;=========== Machine Information ===========&quot;</span><span class="p">)</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                 <span class="n">tabulate</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span>
@@ -303,6 +296,7 @@
                     <span class="n">tablefmt</span><span class="o">=</span><span class="s2">&quot;armi&quot;</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="p">)</span>
+
             <span class="k">if</span> <span class="n">sysInfo</span><span class="p">:</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">header</span><span class="p">(</span><span class="s2">&quot;=========== System Information ===========&quot;</span><span class="p">)</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">sysInfo</span><span class="p">)</span>
@@ -333,6 +327,148 @@
     <span class="n">_writeInputFileInformation</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
     <span class="n">_writeMachineInformation</span><span class="p">()</span>
     <span class="n">_writeReactorCycleInformation</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="getNodeName"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.report.reportingUtils.html#armi.bookkeeping.report.reportingUtils.getNodeName">[docs]</a><span class="k">def</span> <span class="nf">getNodeName</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the name of this compute node.</span>
+
+<span class="sd">    First, look in context.py. Then try various Linux tools. Then try Windows commands.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Compute node name.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">hostNames</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAME</span><span class="p">,</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;hostname&quot;</span><span class="p">,</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;uname -n&quot;</span><span class="p">,</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;COMPUTERNAME&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">LOCAL</span><span class="p">),</span>
+    <span class="p">]</span>
+    <span class="k">for</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="n">hostNames</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">nodeName</span> <span class="ow">and</span> <span class="n">nodeName</span> <span class="o">!=</span> <span class="n">context</span><span class="o">.</span><span class="n">LOCAL</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">nodeName</span>
+
+    <span class="k">return</span> <span class="n">context</span><span class="o">.</span><span class="n">LOCAL</span></div>
+
+
+<span class="k">def</span> <span class="nf">_getSystemInfoWindows</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get system information, assuming the system is Windows.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Basic system information: OS name, OS version, basic processor information</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    Example results:</span>
+
+<span class="sd">        OS Name:         Microsoft Windows 10 Enterprise</span>
+<span class="sd">        OS Version:      10.0.19041 N/A Build 19041</span>
+<span class="sd">        Processor(s):    1 Processor(s) Installed.</span>
+<span class="sd">                         [01]: Intel64 Family 6 Model 142 Stepping 12 GenuineIntel ~801 Mhz</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s1">&#39;systeminfo | findstr /B /C:&quot;OS Name&quot; /B /C:&quot;OS Version&quot; /B &#39;</span>
+        <span class="s1">&#39;/C:&quot;Processor&quot; &amp;&amp; systeminfo | findstr /E /C:&quot;Mhz&quot;&#39;</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">stdout</span>
+
+
+<span class="k">def</span> <span class="nf">_getSystemInfoLinux</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get system information, assuming the system is Linux.</span>
+
+<span class="sd">    This method uses multiple, redundant variations on common Linux command utilities to get the</span>
+<span class="sd">    information necessary. While it is not possible to guarantee what programs or files will be</span>
+<span class="sd">    available on &quot;all Linux operating system&quot;, this collection of tools is widely supported and</span>
+<span class="sd">    should provide a reasonably broad-distribution coverage.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Basic system information: OS name, OS version, basic processor information</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    Example results:</span>
+
+<span class="sd">        OS Info:  Ubuntu 22.04.3 LTS</span>
+<span class="sd">        Processor(s):</span>
+<span class="sd">            processor   : 0</span>
+<span class="sd">            vendor_id   : GenuineIntel</span>
+<span class="sd">            cpu family  : 6</span>
+<span class="sd">            model       : 126</span>
+<span class="sd">            model name  : Intel(R) Core(TM) i5-1035G1 CPU @ 1.00GHz</span>
+<span class="sd">            ...</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># get OS name / version</span>
+    <span class="n">linuxOsCommands</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s1">&#39;cat /etc/os-release | grep &quot;^PRETTY_NAME=&quot; | cut -d = -f 2&#39;</span><span class="p">,</span>
+        <span class="s2">&quot;uname -a&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;lsb_release -d | cut -d : -f 2&quot;</span><span class="p">,</span>
+        <span class="s1">&#39;hostnamectl | grep &quot;Operating System&quot; | cut -d : -f 2&#39;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">osInfo</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">cmd</span> <span class="ow">in</span> <span class="n">linuxOsCommands</span><span class="p">:</span>
+        <span class="n">osInfo</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">cmd</span><span class="p">,</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">osInfo</span><span class="p">:</span>
+            <span class="k">break</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">osInfo</span><span class="p">:</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Linux OS information not found.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="c1"># get processor information</span>
+    <span class="n">linuxProcCommands</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;cat /proc/cpuinfo&quot;</span><span class="p">,</span> <span class="s2">&quot;lscpu&quot;</span><span class="p">,</span> <span class="s2">&quot;lshw -class CPU&quot;</span><span class="p">]</span>
+    <span class="n">procInfo</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">cmd</span> <span class="ow">in</span> <span class="n">linuxProcCommands</span><span class="p">:</span>
+        <span class="n">procInfo</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">cmd</span><span class="p">,</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">stdout</span>
+        <span class="k">if</span> <span class="n">procInfo</span><span class="p">:</span>
+            <span class="k">break</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">procInfo</span><span class="p">:</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Linux processor information not found.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="c1"># build output string</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="s2">&quot;OS Info:  &quot;</span>
+    <span class="n">out</span> <span class="o">+=</span> <span class="n">osInfo</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="n">out</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Processor(s):</span><span class="se">\n</span><span class="s2">    &quot;</span>
+    <span class="n">out</span> <span class="o">+=</span> <span class="n">procInfo</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">    &quot;</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<div class="viewcode-block" id="getSystemInfo"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.report.reportingUtils.html#armi.bookkeeping.report.reportingUtils.getSystemInfo">[docs]</a><span class="k">def</span> <span class="nf">getSystemInfo</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get system information, assuming the system is Windows or Linux.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The format of the system information will be different on Windows vs Linux.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Basic system information: OS name, OS version, basic processor information</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get basic system information (on Windows and Linux)</span>
+    <span class="k">if</span> <span class="s2">&quot;win&quot;</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_getSystemInfoWindows</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="s2">&quot;linux&quot;</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_getSystemInfoLinux</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Cannot get system information for </span><span class="si">{</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="si">}</span><span class="s2"> because ARMI only &quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;supports Linux and Windows.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span></div>
 
 
 <div class="viewcode-block" id="getInterfaceStackSummary"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.report.reportingUtils.html#armi.bookkeeping.report.reportingUtils.getInterfaceStackSummary">[docs]</a><span class="k">def</span> <span class="nf">getInterfaceStackSummary</span><span class="p">(</span><span class="n">o</span><span class="p">):</span>
@@ -484,8 +620,7 @@
             <span class="n">line</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">{0:&lt;25.3f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">val</span><span class="p">])</span>
         <span class="n">str_</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{0:12s}{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">line</span><span class="p">))</span>
 
-    <span class="c1"># print blocks in this assembly</span>
-    <span class="c1"># up to 10</span>
+    <span class="c1"># print blocks in this assembly up to 10</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
         <span class="n">line</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="mi">12</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">massSum</span><span class="p">:</span>
@@ -495,6 +630,7 @@
                 <span class="n">line</span> <span class="o">+=</span> <span class="s2">&quot; &quot;</span> <span class="o">*</span> <span class="mi">25</span>
         <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\S&quot;</span><span class="p">,</span> <span class="n">line</span><span class="p">):</span>  <span class="c1"># \S matches any non-whitespace character.</span>
             <span class="n">str_</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">str_</span><span class="p">)</span>
 
 
@@ -519,10 +655,10 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    core:  armi.reactor.reactors.Core</span>
+<span class="sd">    core: armi.reactor.reactors.Core</span>
 <span class="sd">    cs: armi.settings.caseSettings.Settings</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># would io be worth considering for this?</span>
+    <span class="c1"># Would io be worth considering for this?</span>
     <span class="n">cycle</span> <span class="o">=</span> <span class="n">core</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span>
     <span class="n">str_</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Cycle </span><span class="si">{0}</span><span class="s2"> Summary:&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cycle</span><span class="p">))</span>
@@ -540,7 +676,6 @@
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    core  : armi.reactor.reactors.Core</span>
-
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">core</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">()</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">rateCap</span><span class="p">:</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
@@ -736,7 +871,7 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    core:  armi.reactor.reactors.Core</span>
+<span class="sd">    core: armi.reactor.reactors.Core</span>
 <span class="sd">    cs: armi.settings.caseSettings.Settings</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">coreDesignTable</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>

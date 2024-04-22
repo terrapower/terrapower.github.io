@@ -109,12 +109,18 @@
 <span class="sd">&quot;&quot;&quot;Really basic tests of the report Utils.&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">patch</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span><span class="p">,</span> <span class="n">settings</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">report</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.report</span> <span class="kn">import</span> <span class="n">data</span><span class="p">,</span> <span class="n">reportInterface</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.report.reportingUtils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_getSystemInfoLinux</span><span class="p">,</span>
+    <span class="n">_getSystemInfoWindows</span><span class="p">,</span>
+    <span class="n">getNodeName</span><span class="p">,</span>
+    <span class="n">getSystemInfo</span><span class="p">,</span>
     <span class="n">makeBlockDesignReport</span><span class="p">,</span>
     <span class="n">setNeutronBalancesReport</span><span class="p">,</span>
     <span class="n">summarizePinDesign</span><span class="p">,</span>
@@ -127,6 +133,79 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.tests.test_reactors</span> <span class="kn">import</span> <span class="n">loadTestReactor</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
 <span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
+
+
+<span class="k">class</span> <span class="nc">_MockReturnResult</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mocking the subprocess.run() return object.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stdout</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">stdout</span>
+
+
+<div class="viewcode-block" id="TestReportingUtils"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.report.tests.test_report.html#armi.bookkeeping.report.tests.test_report.TestReportingUtils">[docs]</a><span class="k">class</span> <span class="nc">TestReportingUtils</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestReportingUtils.test_getSystemInfoLinux"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.report.tests.test_report.html#armi.bookkeeping.report.tests.test_report.TestReportingUtils.test_getSystemInfoLinux">[docs]</a>    <span class="k">def</span> <span class="nf">test_getSystemInfoLinux</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test _getSystemInfoLinux() on any operating system, by mocking the system calls.&quot;&quot;&quot;</span>
+        <span class="n">osInfo</span> <span class="o">=</span> <span class="s1">&#39;&quot;Ubuntu 22.04.3 LTS&quot;&#39;</span>
+        <span class="n">procInfo</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;processor : 0</span>
+<span class="s2">vendor_id   : GenuineIntel</span>
+<span class="s2">cpu family  : 6</span>
+<span class="s2">model       : 126</span>
+<span class="s2">model name  : Intel(R) Core(TM) i5-1035G1 CPU @ 1.00GHz</span>
+<span class="s2">...</span>
+<span class="s2">&quot;&quot;&quot;</span>
+        <span class="n">correctResult</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;OS Info:  &quot;Ubuntu 22.04.3 LTS&quot;</span>
+<span class="s2">Processor(s):</span>
+<span class="s2">    processor : 0</span>
+<span class="s2">    vendor_id   : GenuineIntel</span>
+<span class="s2">    cpu family  : 6</span>
+<span class="s2">    model       : 126</span>
+<span class="s2">    model name  : Intel(R) Core(TM) i5-1035G1 CPU @ 1.00GHz</span>
+<span class="s2">    ...&quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">__mockSubprocessRun</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">if</span> <span class="s2">&quot;os-release&quot;</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="n">_MockReturnResult</span><span class="p">(</span><span class="n">osInfo</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">_MockReturnResult</span><span class="p">(</span><span class="n">procInfo</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="n">subprocess</span><span class="p">,</span> <span class="s2">&quot;run&quot;</span><span class="p">,</span> <span class="n">side_effect</span><span class="o">=</span><span class="n">__mockSubprocessRun</span><span class="p">):</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">_getSystemInfoLinux</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span> <span class="n">correctResult</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestReportingUtils.test_getSystemInfoWindows"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.report.tests.test_report.html#armi.bookkeeping.report.tests.test_report.TestReportingUtils.test_getSystemInfoWindows">[docs]</a>    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;subprocess.run&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_getSystemInfoWindows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mockSubprocess</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test _getSystemInfoWindows() on any operating system, by mocking the system call.&quot;&quot;&quot;</span>
+        <span class="n">windowsResult</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;OS Name:         Microsoft Windows 10 Enterprise</span>
+<span class="s2">OS Version:      10.0.19041 N/A Build 19041</span>
+<span class="s2">Processor(s):    1 Processor(s) Installed.</span>
+<span class="s2">                 [01]: Intel64 Family 6 Model 142 Stepping 12 GenuineIntel ~801 Mhz&quot;&quot;&quot;</span>
+
+        <span class="n">mockSubprocess</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">_MockReturnResult</span><span class="p">(</span><span class="n">windowsResult</span><span class="p">)</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="n">_getSystemInfoWindows</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">windowsResult</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestReportingUtils.test_getSystemInfo"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.report.tests.test_report.html#armi.bookkeeping.report.tests.test_report.TestReportingUtils.test_getSystemInfo">[docs]</a>    <span class="k">def</span> <span class="nf">test_getSystemInfo</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Basic sanity check of getSystemInfo() running in the wild.</span>
+
+<span class="sd">        This test should pass if it is run on Window or mainstream Linux distros. But we expect this</span>
+<span class="sd">        to fail if the test is run on some other OS.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">getSystemInfo</span><span class="p">()</span>
+        <span class="n">substrings</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;OS &quot;</span><span class="p">,</span> <span class="s2">&quot;Processor(s):&quot;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">sstr</span> <span class="ow">in</span> <span class="n">substrings</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="n">sstr</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">),</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sstr</span><span class="p">)</span> <span class="o">+</span> <span class="mi">5</span> <span class="k">for</span> <span class="n">sstr</span> <span class="ow">in</span> <span class="n">substrings</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="TestReportingUtils.test_getNodeName"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.report.tests.test_report.html#armi.bookkeeping.report.tests.test_report.TestReportingUtils.test_getNodeName">[docs]</a>    <span class="k">def</span> <span class="nf">test_getNodeName</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that the getNodeName() method returns a non-empty string.</span>
+
+<span class="sd">        It is hard to know what string SHOULD be return here, and it would depend on how the OS is</span>
+<span class="sd">        set up on your machine or cluster. But this simple test needs to pass as-is on Windows</span>
+<span class="sd">        and Linux.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">getNodeName</span><span class="p">()),</span> <span class="mi">0</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="TestReport"><a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.report.tests.test_report.html#armi.bookkeeping.report.tests.test_report.TestReport">[docs]</a><span class="k">class</span> <span class="nc">TestReport</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
