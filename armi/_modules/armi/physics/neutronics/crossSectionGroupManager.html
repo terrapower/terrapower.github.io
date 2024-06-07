@@ -151,14 +151,13 @@
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">,</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">LatticePhysicsFrequency</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.const</span> <span class="kn">import</span> <span class="n">CONF_CROSS_SECTION</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.components</span> <span class="kn">import</span> <span class="n">basicShapes</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="kn">import</span> <span class="n">TRACE_NUMBER_DENSITY</span>
-<span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">LatticePhysicsFrequency</span>
 
 <span class="n">ORDER</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">BEFORE</span> <span class="o">+</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">CROSS_SECTIONS</span>
 
@@ -967,11 +966,11 @@
 <span class="sd">            reactor state.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># now that all cs settings are loaded, apply defaults to compound XS settings</span>
-        <span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">CONF_XS_BLOCK_REPRESENTATION</span>
         <span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="p">(</span>
             <span class="n">CONF_DISABLE_BLOCK_TYPE_EXCLUSION_IN_XS_GENERATION</span><span class="p">,</span>
+            <span class="n">CONF_LATTICE_PHYSICS_FREQUENCY</span><span class="p">,</span>
+            <span class="n">CONF_XS_BLOCK_REPRESENTATION</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">CONF_LATTICE_PHYSICS_FREQUENCY</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_CROSS_SECTION</span><span class="p">]</span><span class="o">.</span><span class="n">setDefaults</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_XS_BLOCK_REPRESENTATION</span><span class="p">],</span>
@@ -1326,8 +1325,19 @@
         <span class="k">for</span> <span class="n">newXSID</span> <span class="ow">in</span> <span class="n">modifiedReprBlocks</span><span class="p">:</span>
             <span class="n">oldXSID</span> <span class="o">=</span> <span class="n">origXSIDsFromNew</span><span class="p">[</span><span class="n">newXSID</span><span class="p">]</span>
             <span class="n">oldBlockCollection</span> <span class="o">=</span> <span class="n">blockCollectionByXsGroup</span><span class="p">[</span><span class="n">oldXSID</span><span class="p">]</span>
+
+            <span class="c1"># create a new block collection that inherits all of the properties</span>
+            <span class="c1"># and settings from oldBlockCollection.</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">oldBlockCollection</span><span class="o">.</span><span class="n">_validRepresentativeBlockTypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">validBlockTypes</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">flag</span> <span class="ow">in</span> <span class="n">oldBlockCollection</span><span class="o">.</span><span class="n">_validRepresentativeBlockTypes</span><span class="p">:</span>
+                    <span class="n">validBlockTypes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">flags</span><span class="o">.</span><span class="n">_toString</span><span class="p">(</span><span class="n">Flags</span><span class="p">,</span> <span class="n">flag</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">validBlockTypes</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">newBlockCollection</span> <span class="o">=</span> <span class="n">oldBlockCollection</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span>
-                <span class="n">oldBlockCollection</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
+                <span class="n">oldBlockCollection</span><span class="o">.</span><span class="n">allNuclidesInProblem</span><span class="p">,</span>
+                <span class="n">validBlockTypes</span><span class="o">=</span><span class="n">validBlockTypes</span><span class="p">,</span>
+                <span class="n">averageByComponent</span><span class="o">=</span><span class="n">oldBlockCollection</span><span class="o">.</span><span class="n">averageByComponent</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">newBlockCollectionsByXsGroup</span><span class="p">[</span><span class="n">newXSID</span><span class="p">]</span> <span class="o">=</span> <span class="n">newBlockCollection</span>
         <span class="k">return</span> <span class="n">newBlockCollectionsByXsGroup</span><span class="p">,</span> <span class="n">modifiedReprBlocks</span><span class="p">,</span> <span class="n">origXSIDsFromNew</span></div>
@@ -1385,6 +1395,12 @@
             <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blockList</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()</span> <span class="o">==</span> <span class="n">origXSID</span><span class="p">:</span>
                     <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">xsType</span> <span class="o">=</span> <span class="n">newXSType</span>
+
+            <span class="c1"># copy XS settings to new XS ID</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_CROSS_SECTION</span><span class="p">][</span><span class="n">newXSID</span><span class="p">]</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_CROSS_SECTION</span><span class="p">][</span><span class="n">origXSID</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_CROSS_SECTION</span><span class="p">][</span><span class="n">newXSID</span><span class="p">]</span><span class="o">.</span><span class="n">xsID</span> <span class="o">=</span> <span class="n">newXSID</span>
 
         <span class="k">return</span> <span class="n">modifiedReprBlocks</span><span class="p">,</span> <span class="n">origXSIDsFromNew</span>
 
@@ -1631,7 +1647,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-06-05.
+      <span class="lastupdated">Last updated on 2024-06-07.
       </span></p>
   </div>
 
