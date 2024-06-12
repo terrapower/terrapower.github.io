@@ -184,6 +184,13 @@
         <span class="k">return</span> <span class="kc">False</span></div></div>
 
 
+<div class="viewcode-block" id="MockInterface"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_mpiFeatures.html#armi.tests.test_mpiFeatures.MockInterface">[docs]</a><span class="k">class</span> <span class="nc">MockInterface</span><span class="p">(</span><span class="n">Interface</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;mockInterface&quot;</span>
+
+<div class="viewcode-block" id="MockInterface.interactInit"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_mpiFeatures.html#armi.tests.test_mpiFeatures.MockInterface.interactInit">[docs]</a>    <span class="k">def</span> <span class="nf">interactInit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span></div></div>
+
+
 <div class="viewcode-block" id="MpiOperatorTests"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_mpiFeatures.html#armi.tests.test_mpiFeatures.MpiOperatorTests">[docs]</a><span class="k">class</span> <span class="nc">MpiOperatorTests</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Testing the MPI parallelization operator.&quot;&quot;&quot;</span>
 
@@ -231,7 +238,32 @@
         <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">Exception</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">operate</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">operate</span><span class="p">()</span></div></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">operate</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MpiOperatorTests.test_finalizeInteract"><a class="viewcode-back" href="../../../.apidocs/armi.tests.test_mpiFeatures.html#armi.tests.test_mpiFeatures.MpiOperatorTests.test_finalizeInteract">[docs]</a>    <span class="nd">@unittest</span><span class="o">.</span><span class="n">skipIf</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">MPI_EXE</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Parallel test only&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_finalizeInteract</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test to make sure workers are reset after interface interactions.&quot;&quot;&quot;</span>
+        <span class="c1"># Add a random number of interfaces</span>
+        <span class="n">interface</span> <span class="o">=</span> <span class="n">MockInterface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">addInterface</span><span class="p">(</span><span class="n">interface</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">interactAllInit</span><span class="p">()</span>
+                <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">&quot;quit&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">&quot;finished&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">workerOperate</span><span class="p">()</span>
+
+            <span class="n">logMessage</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;Workers have been reset.&quot;</span>
+                <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span>
+                <span class="k">else</span> <span class="s2">&quot;Workers are being reset.&quot;</span>
+            <span class="p">)</span>
+            <span class="n">numCalls</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">()</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span> <span class="k">if</span> <span class="n">logMessage</span> <span class="ow">in</span> <span class="n">line</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertGreaterEqual</span><span class="p">(</span><span class="n">numCalls</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div></div>
 
 
 <span class="c1"># these two must be defined up here so that they can be pickled</span>
@@ -420,7 +452,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-06-10.
+      <span class="lastupdated">Last updated on 2024-06-12.
       </span></p>
   </div>
 
