@@ -105,11 +105,13 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;Tests for generic global flux interface.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
 <span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">patch</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span>
 
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
 <span class="kn">from</span> <span class="nn">armi.nuclearDataIO.cccc</span> <span class="kn">import</span> <span class="n">isotxs</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.globalFlux</span> <span class="kn">import</span> <span class="n">globalFluxInterface</span>
@@ -123,6 +125,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_blocks</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_reactors</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">ISOAA_PATH</span>
+<span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
 
 
 <div class="viewcode-block" id="MockReactorParams"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.globalFlux.tests.test_globalFluxInterface.html#armi.physics.neutronics.globalFlux.tests.test_globalFluxInterface.MockReactorParams">[docs]</a><span class="k">class</span> <span class="nc">MockReactorParams</span><span class="p">:</span>
@@ -303,7 +306,7 @@
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="bp">cls</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()</span>
-        <span class="n">_o</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">test_reactors</span><span class="o">.</span><span class="n">loadTestReactor</span><span class="p">()</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">test_reactors</span><span class="o">.</span><span class="n">loadTestReactor</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">keff</span> <span class="o">=</span> <span class="mf">1.0</span>
@@ -455,7 +458,7 @@
         <span class="c1"># Test DoseResultsMapper. Pass in full list of blocks to apply() in order</span>
         <span class="c1"># to exercise blockList option (does not change behavior, since this is what</span>
         <span class="c1"># apply() does anyway)</span>
-        <span class="n">opts</span> <span class="o">=</span> <span class="n">globalFluxInterface</span><span class="o">.</span><span class="n">GlobalFluxOptions</span><span class="p">(</span><span class="s2">&quot;test&quot;</span><span class="p">)</span>
+        <span class="n">opts</span> <span class="o">=</span> <span class="n">globalFluxInterface</span><span class="o">.</span><span class="n">GlobalFluxOptions</span><span class="p">(</span><span class="s2">&quot;test_mapper&quot;</span><span class="p">)</span>
         <span class="n">opts</span><span class="o">.</span><span class="n">fromUserSettings</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
         <span class="n">dosemapper</span> <span class="o">=</span> <span class="n">globalFluxInterface</span><span class="o">.</span><span class="n">DoseResultsMapper</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
         <span class="n">dosemapper</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">blockList</span><span class="o">=</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span>
@@ -465,6 +468,70 @@
 
         <span class="n">mapper</span><span class="o">.</span><span class="n">clearFlux</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mgFlux</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestGlobalFluxResultMapper.test_updateCycleDoseParams"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.globalFlux.tests.test_globalFluxInterface.html#armi.physics.neutronics.globalFlux.tests.test_globalFluxInterface.TestGlobalFluxResultMapper.test_updateCycleDoseParams">[docs]</a>    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.reactor.composites.ArmiObject.getMaxParam&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_updateCycleDoseParams</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mockGetMaxParam</span><span class="p">):</span>
+        <span class="c1"># set up situation</span>
+        <span class="n">mockGetMaxParam</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="mf">1.23</span>
+        <span class="n">o</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">test_reactors</span><span class="o">.</span><span class="n">loadTestReactor</span><span class="p">()</span>
+        <span class="n">applyDummyFlux</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span> <span class="o">=</span> <span class="n">isotxs</span><span class="o">.</span><span class="n">readBinary</span><span class="p">(</span><span class="n">ISOAA_PATH</span><span class="p">)</span>
+        <span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycleLength</span> <span class="o">=</span> <span class="mi">365</span>
+        <span class="n">opts</span> <span class="o">=</span> <span class="n">globalFluxInterface</span><span class="o">.</span><span class="n">GlobalFluxOptions</span><span class="p">(</span><span class="s2">&quot;test_updateCycleDoseParams&quot;</span><span class="p">)</span>
+        <span class="n">opts</span><span class="o">.</span><span class="n">fromUserSettings</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+        <span class="n">opts</span><span class="o">.</span><span class="n">aclpDoseLimit</span> <span class="o">=</span> <span class="mi">100</span>
+
+        <span class="c1"># build the mapper</span>
+        <span class="n">mapper</span> <span class="o">=</span> <span class="n">globalFluxInterface</span><span class="o">.</span><span class="n">DoseResultsMapper</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+        <span class="n">mapper</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">r</span>
+
+        <span class="c1"># test the starting position</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">mapper</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">elevationOfACLP3Cycles</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">mapper</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">elevationOfACLP7Cycles</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">mapper</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">dpaFullWidthHalfMax</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># test the logs, as this case won&#39;t change the param values</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">startLog</span><span class="p">(</span><span class="s2">&quot;test_updateCycleDoseParams&quot;</span><span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+            <span class="n">mapper</span><span class="o">.</span><span class="n">updateCycleDoseParams</span><span class="p">()</span>
+            <span class="n">stdOut</span> <span class="o">=</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">()</span>
+            <span class="n">somethingStrange</span> <span class="o">=</span> <span class="s2">&quot;Something strange with detailedDpaThisCycle&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="n">somethingStrange</span><span class="p">,</span> <span class="n">stdOut</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">stdOut</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">somethingStrange</span><span class="p">),</span> <span class="mi">3</span><span class="p">)</span>
+
+        <span class="c1"># test the ending position</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">mapper</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">elevationOfACLP3Cycles</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">mapper</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">elevationOfACLP7Cycles</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">mapper</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">dpaFullWidthHalfMax</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestGlobalFluxResultMapper.test_updateLoadpadDose"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.globalFlux.tests.test_globalFluxInterface.html#armi.physics.neutronics.globalFlux.tests.test_globalFluxInterface.TestGlobalFluxResultMapper.test_updateLoadpadDose">[docs]</a>    <span class="k">def</span> <span class="nf">test_updateLoadpadDose</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># init test reactor</span>
+        <span class="n">o</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">test_reactors</span><span class="o">.</span><span class="n">loadTestReactor</span><span class="p">()</span>
+
+        <span class="c1"># init options</span>
+        <span class="n">opts</span> <span class="o">=</span> <span class="n">globalFluxInterface</span><span class="o">.</span><span class="n">GlobalFluxOptions</span><span class="p">(</span><span class="s2">&quot;test_updateLoadpadDose&quot;</span><span class="p">)</span>
+        <span class="n">opts</span><span class="o">.</span><span class="n">fromUserSettings</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+        <span class="n">opts</span><span class="o">.</span><span class="n">aclpDoseLimit</span> <span class="o">=</span> <span class="mi">100</span>
+        <span class="n">opts</span><span class="o">.</span><span class="n">loadPadElevation</span> <span class="o">=</span> <span class="mi">12</span>
+        <span class="n">opts</span><span class="o">.</span><span class="n">loadPadLength</span> <span class="o">=</span> <span class="mi">24</span>
+
+        <span class="c1"># init mapper</span>
+        <span class="n">mapper</span> <span class="o">=</span> <span class="n">globalFluxInterface</span><span class="o">.</span><span class="n">DoseResultsMapper</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+        <span class="n">mapper</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">r</span>
+
+        <span class="c1"># test logging from updateLoadpadDose</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">startLog</span><span class="p">(</span><span class="s2">&quot;test_updateLoadpadDose&quot;</span><span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+            <span class="n">mapper</span><span class="o">.</span><span class="n">updateLoadpadDose</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Above-core load&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;The peak ACLP dose&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;The max avg&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="TestGlobalFluxResultMapper.test_getDpaXs"><a class="viewcode-back" href="../../../../../../.apidocs/armi.physics.neutronics.globalFlux.tests.test_globalFluxInterface.html#armi.physics.neutronics.globalFlux.tests.test_globalFluxInterface.TestGlobalFluxResultMapper.test_getDpaXs">[docs]</a>    <span class="k">def</span> <span class="nf">test_getDpaXs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()</span>
@@ -548,7 +615,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-06-15.
+      <span class="lastupdated">Last updated on 2024-06-17.
       </span></p>
   </div>
 
