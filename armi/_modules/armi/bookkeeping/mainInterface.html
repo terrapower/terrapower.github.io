@@ -121,6 +121,8 @@
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">utils</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.db.database3</span> <span class="kn">import</span> <span class="n">Database3</span>
+<span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_COPY_FILES_FROM</span>
+<span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_COPY_FILES_TO</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">pathTools</span>
 <span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">InputError</span>
 
@@ -139,9 +141,8 @@
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    Interacts early so that the database is accessible as soon as possible in the run.</span>
-<span class="sd">    The database interfaces interacts near the end of the interface stack, but the main</span>
-<span class="sd">    interface interacts first.</span>
+<span class="sd">    Interacts early so that the database is accessible as soon as possible in the run. The database</span>
+<span class="sd">    interfaces runs near the end of the interface stack, but the main interface interacts first.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;main&quot;</span>
@@ -157,10 +158,9 @@
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        This happens here rather than on the database interface, as the database</span>
-<span class="sd">        interacts near the end of the stack. Some interactBOL methods may be</span>
-<span class="sd">        dependent on having data in the database, such as calls to history tracker</span>
-<span class="sd">        during a restart run.</span>
+<span class="sd">        This happens here rather than on the database interface, as the database interacts near the</span>
+<span class="sd">        end of the stack. Some interactBOL methods may be dependent on having data in the database,</span>
+<span class="sd">        such as calls to history tracker during a restart run.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">dbi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;database&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">dbi</span><span class="o">.</span><span class="n">enabled</span><span class="p">():</span>
@@ -173,30 +173,49 @@
             <span class="c1"># load case before going forward with normal cycle</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;MainInterface loading from DB&quot;</span><span class="p">)</span>
 
-            <span class="c1"># Load the database from the point just before start cycle and start node</span>
-            <span class="c1"># as the run will continue at the begining of start cycle and start node,</span>
-            <span class="c1"># and the database contains the values from the run at the end of the</span>
-            <span class="c1"># interface stack, which are what the start start cycle and start node</span>
-            <span class="c1"># should begin with.</span>
+            <span class="c1"># Load the database from the point just before start cycle and start node as the run</span>
+            <span class="c1"># will continue at the begining of start cycle and start node, and the database contains</span>
+            <span class="c1"># the values from the run at the end of the interface stack, which are what the start</span>
+            <span class="c1"># start cycle and start node should begin with.</span>
 
-            <span class="c1"># NOTE: this should be the responsibility of the database, but cannot</span>
-            <span class="c1"># because the Database is last in the stack and the MainInterface is</span>
-            <span class="c1"># first</span>
+            <span class="c1"># NOTE: this should be the responsibility of the database, but cannot because the</span>
+            <span class="c1"># database is last in the stack and the MainInterface is first</span>
             <span class="n">dbi</span><span class="o">.</span><span class="n">prepRestartRun</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startCycle&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startNode&quot;</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">_moveFiles</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># check for orificed flow bounds files. These will often be named based on the</span>
-        <span class="c1"># case that this one is dependent upon, but not always. For example, testSassys</span>
-        <span class="c1"># is dependent on the safety case but requires physics bounds files.  now copy</span>
-        <span class="c1"># the files over</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        At the start of each run, arbitrary lists of user-defined files can be copied around.</span>
+
+<span class="sd">        This logic is controlled by the settings ``copyFilesFrom`` &amp; ``copyFilesTo``.</span>
+
+<span class="sd">        ``copyFilesFrom`` :</span>
+
+<span class="sd">        - List of files to copy (cannot be directories).</span>
+<span class="sd">        - Can be of length zero (that just means no files will be copied).</span>
+<span class="sd">        - The file names listed can use the ``*`` glob syntax, to reference multiple files.</span>
+
+
+<span class="sd">        ``copyFilesTo`` :</span>
+
+<span class="sd">        - List of directories to copy the files into.</span>
+<span class="sd">        - Can be of length zero; all files will be copied to the local dir.</span>
+<span class="sd">        - Can be of length one; all files will be copied to that dir.</span>
+<span class="sd">        - The only other valid length for this list _must_ be the same length as the &quot;from&quot; list.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        If a provided &quot;from&quot; file is missing, this method will silently pass over that. It will only</span>
+<span class="sd">        check if the length of the &quot;from&quot; and &quot;to&quot; lists are valid in the end.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># handle a lot of asterisks and missing files</span>
         <span class="n">copyFilesFrom</span> <span class="o">=</span> <span class="p">[</span>
             <span class="n">filePath</span>
-            <span class="k">for</span> <span class="n">possiblePat</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;copyFilesFrom&quot;</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">filePath</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">possiblePat</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">possiblePath</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_COPY_FILES_FROM</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">filePath</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">possiblePath</span><span class="p">)</span>
         <span class="p">]</span>
-        <span class="n">copyFilesTo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;copyFilesTo&quot;</span><span class="p">]</span>
+        <span class="n">copyFilesTo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_COPY_FILES_TO</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">copyFilesTo</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">copyFilesFrom</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
             <span class="c1"># if any files to copy, then use the first as the default, i.e. len() == 1,</span>
@@ -205,15 +224,17 @@
             <span class="k">for</span> <span class="n">filename</span><span class="p">,</span> <span class="n">dest</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">zip_longest</span><span class="p">(</span>
                 <span class="n">copyFilesFrom</span><span class="p">,</span> <span class="n">copyFilesTo</span><span class="p">,</span> <span class="n">fillvalue</span><span class="o">=</span><span class="n">default</span>
             <span class="p">):</span>
-                <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span><span class="s2">&quot;copyFilesFrom&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">dest</span><span class="p">)</span>
+                <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span><span class="n">CONF_COPY_FILES_FROM</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">dest</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                <span class="s2">&quot;cs[&#39;copyFilesTo&#39;] must either be length 1, 0, or have the same number of entries as &quot;</span>
-                <span class="s2">&quot;cs[&#39;copyFilesFrom&#39;]. Actual values:</span><span class="se">\n</span><span class="s2">&quot;</span>
-                <span class="s2">&quot;    copyFilesTo   : </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span>
-                <span class="s2">&quot;    copyFilesFrom : </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">copyFilesTo</span><span class="p">,</span> <span class="n">copyFilesFrom</span><span class="p">)</span>
+                <span class="sa">f</span><span class="s2">&quot;cs[&#39;</span><span class="si">{</span><span class="n">CONF_COPY_FILES_TO</span><span class="si">}</span><span class="s2">&#39;] must either be length 0, 1, or have the same number &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;of entries as cs[&#39;</span><span class="si">{</span><span class="n">CONF_COPY_FILES_FROM</span><span class="si">}</span><span class="s2">&#39;]. Actual values:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="n">CONF_COPY_FILES_TO</span><span class="si">}</span><span class="s2">   : </span><span class="si">{</span><span class="n">copyFilesTo</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="n">CONF_COPY_FILES_FROM</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="n">copyFilesFrom</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
-            <span class="k">raise</span> <span class="n">InputError</span><span class="p">(</span><span class="s2">&quot;Failed to process copyFilesTo/copyFilesFrom&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">InputError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Failed to process </span><span class="si">{</span><span class="n">CONF_COPY_FILES_FROM</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">CONF_COPY_FILES_TO</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
 
 <div class="viewcode-block" id="MainInterface.interactBOC"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.mainInterface.html#armi.bookkeeping.mainInterface.MainInterface.interactBOC">[docs]</a>    <span class="k">def</span> <span class="nf">interactBOC</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Typically the first interface to interact beginning of cycle.&quot;&quot;&quot;</span>
