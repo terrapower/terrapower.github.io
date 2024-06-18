@@ -106,11 +106,14 @@
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;Test for run cli entry point.&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">shutil</span> <span class="kn">import</span> <span class="n">copyfile</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
 
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.__main__</span> <span class="kn">import</span> <span class="n">main</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping.db.databaseInterface</span> <span class="kn">import</span> <span class="n">DatabaseInterface</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.visualization.entryPoint</span> <span class="kn">import</span> <span class="n">VisFileEntryPoint</span>
 <span class="kn">from</span> <span class="nn">armi.cli.checkInputs</span> <span class="kn">import</span> <span class="n">CheckInputEntryPoint</span><span class="p">,</span> <span class="n">ExpandBlueprints</span>
 <span class="kn">from</span> <span class="nn">armi.cli.clone</span> <span class="kn">import</span> <span class="n">CloneArmiRunCommandBatch</span><span class="p">,</span> <span class="n">CloneSuiteCommand</span>
@@ -123,6 +126,7 @@
 <span class="kn">from</span> <span class="nn">armi.cli.run</span> <span class="kn">import</span> <span class="n">RunEntryPoint</span>
 <span class="kn">from</span> <span class="nn">armi.cli.runSuite</span> <span class="kn">import</span> <span class="n">RunSuiteCommand</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.diffIsotxs</span> <span class="kn">import</span> <span class="n">CompareIsotxsLibraries</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.tests.test_reactors</span> <span class="kn">import</span> <span class="n">loadTestReactor</span><span class="p">,</span> <span class="n">reduceTestReactorRings</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span><span class="p">,</span> <span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">ARMI_RUN_PATH</span>
 <span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
 <span class="kn">from</span> <span class="nn">armi.utils.dynamicImporter</span> <span class="kn">import</span> <span class="n">getEntireFamilyTree</span>
@@ -183,6 +187,8 @@
         <span class="n">ci</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="n">ARMI_RUN_PATH</span><span class="p">])</span>
 
         <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">startLog</span><span class="p">(</span><span class="s2">&quot;test_checkInputEntryPointInvoke&quot;</span><span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
 
             <span class="n">ci</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span>
@@ -264,24 +270,30 @@
 
 <div class="viewcode-block" id="TestCompareCases"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestCompareCases">[docs]</a><span class="k">class</span> <span class="nc">TestCompareCases</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
 <div class="viewcode-block" id="TestCompareCases.test_compareCasesBasics"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestCompareCases.test_compareCasesBasics">[docs]</a>    <span class="k">def</span> <span class="nf">test_compareCasesBasics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">cc</span> <span class="o">=</span> <span class="n">CompareCases</span><span class="p">()</span>
-        <span class="n">cc</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
-        <span class="n">cc</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake1.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;/path/to/fake2.h5&quot;</span><span class="p">])</span>
+        <span class="k">with</span> <span class="n">TemporaryDirectoryChanger</span><span class="p">():</span>
+            <span class="n">cc</span> <span class="o">=</span> <span class="n">CompareCases</span><span class="p">()</span>
+            <span class="n">cc</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
+            <span class="n">cc</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake1.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;/path/to/fake2.h5&quot;</span><span class="p">])</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">cc</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;compare&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">cc</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">timestepCompare</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">cc</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span></div></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">cc</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;compare&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">cc</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">timestepCompare</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">cc</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+                <span class="c1"># The &quot;fake&quot; files do exist, so this should fail.</span>
+                <span class="n">cc</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span></div></div>
 
 
 <div class="viewcode-block" id="TestCompareSuites"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestCompareSuites">[docs]</a><span class="k">class</span> <span class="nc">TestCompareSuites</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
 <div class="viewcode-block" id="TestCompareSuites.test_compareSuitesBasics"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestCompareSuites.test_compareSuitesBasics">[docs]</a>    <span class="k">def</span> <span class="nf">test_compareSuitesBasics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">cs</span> <span class="o">=</span> <span class="n">CompareSuites</span><span class="p">()</span>
-        <span class="n">cs</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
-        <span class="n">cs</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake1.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;/path/to/fake2.h5&quot;</span><span class="p">])</span>
+        <span class="k">with</span> <span class="n">TemporaryDirectoryChanger</span><span class="p">():</span>
+            <span class="n">cs</span> <span class="o">=</span> <span class="n">CompareSuites</span><span class="p">()</span>
+            <span class="n">cs</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
+            <span class="n">cs</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake1.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;/path/to/fake2.h5&quot;</span><span class="p">])</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;compare-suites&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">reference</span><span class="p">,</span> <span class="s2">&quot;/path/to/fake1.h5&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span></div></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;compare-suites&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">reference</span><span class="p">,</span> <span class="s2">&quot;/path/to/fake1.h5&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="TestExpandBlueprints"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestExpandBlueprints">[docs]</a><span class="k">class</span> <span class="nc">TestExpandBlueprints</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -295,6 +307,8 @@
 
         <span class="c1"># Since the file is fake, invoke() should exit early.</span>
         <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">startLog</span><span class="p">(</span><span class="s2">&quot;test_expandBlueprintsBasics&quot;</span><span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
             <span class="n">ebp</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;does not exist&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span></div></div>
@@ -302,18 +316,32 @@
 
 <div class="viewcode-block" id="TestExtractInputs"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestExtractInputs">[docs]</a><span class="k">class</span> <span class="nc">TestExtractInputs</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
 <div class="viewcode-block" id="TestExtractInputs.test_extractInputsBasics"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestExtractInputs.test_extractInputsBasics">[docs]</a>    <span class="k">def</span> <span class="nf">test_extractInputsBasics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">ei</span> <span class="o">=</span> <span class="n">ExtractInputs</span><span class="p">()</span>
-        <span class="n">ei</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
-        <span class="n">ei</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake&quot;</span><span class="p">])</span>
+        <span class="k">with</span> <span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">newDir</span><span class="p">:</span>
+            <span class="c1"># build test DB</span>
+            <span class="n">o</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">)</span>
+            <span class="n">dbi</span> <span class="o">=</span> <span class="n">DatabaseInterface</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+            <span class="n">dbPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span><span class="si">}</span><span class="s2">.h5&quot;</span><span class="p">)</span>
+            <span class="n">dbi</span><span class="o">.</span><span class="n">initDB</span><span class="p">(</span><span class="n">fName</span><span class="o">=</span><span class="n">dbPath</span><span class="p">)</span>
+            <span class="n">db</span> <span class="o">=</span> <span class="n">dbi</span><span class="o">.</span><span class="n">database</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">writeToDB</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">ei</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;extract-inputs&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">ei</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">output_base</span><span class="p">,</span> <span class="s2">&quot;/path/to/fake&quot;</span><span class="p">)</span>
+            <span class="c1"># init the CLI</span>
+            <span class="n">ei</span> <span class="o">=</span> <span class="n">ExtractInputs</span><span class="p">()</span>
+            <span class="n">ei</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
+            <span class="n">ei</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="n">dbPath</span><span class="p">])</span>
 
-        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">):</span>
-                <span class="c1"># The &quot;fake&quot; file doesn&#39;t exist, so this should fail.</span>
-                <span class="n">ei</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span></div></div>
+            <span class="c1"># test the CLI initialization</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">ei</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;extract-inputs&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">ei</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">output_base</span><span class="p">,</span> <span class="n">dbPath</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">])</span>
+
+            <span class="c1"># run the CLI on a test DB, verify it worked via logging</span>
+            <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">startLog</span><span class="p">(</span><span class="s2">&quot;test_extractInputsBasics&quot;</span><span class="p">)</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+                <span class="n">ei</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Writing settings to&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Writing blueprints to&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span></div></div>
 
 
 <div class="viewcode-block" id="TestInjectInputs"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestInjectInputs">[docs]</a><span class="k">class</span> <span class="nc">TestInjectInputs</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -331,6 +359,8 @@
         <span class="n">ii</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake.h5&quot;</span><span class="p">])</span>
 
         <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">startLog</span><span class="p">(</span><span class="s2">&quot;test_injectInputsInvokeIgnore&quot;</span><span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
             <span class="n">ii</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;No settings&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span></div>
@@ -345,11 +375,9 @@
             <span class="n">ii</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;--blueprints&quot;</span><span class="p">,</span> <span class="n">bp</span><span class="p">])</span>
 
             <span class="c1"># invoke and check log</span>
-            <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
-                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">):</span>
-                    <span class="c1"># The &quot;fake.h5&quot; doesn&#39;t exist, so this should fail.</span>
-                    <span class="n">ii</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span></div></div>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">):</span>
+                <span class="c1"># The &quot;fake.h5&quot; doesn&#39;t exist, so this should fail.</span>
+                <span class="n">ii</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span></div></div>
 
 
 <div class="viewcode-block" id="TestMigrateInputs"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestMigrateInputs">[docs]</a><span class="k">class</span> <span class="nc">TestMigrateInputs</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -404,11 +432,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">rep</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;report&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">rep</span><span class="o">.</span><span class="n">settingsArgument</span><span class="p">,</span> <span class="s2">&quot;optional&quot;</span><span class="p">)</span>
 
-        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
-                <span class="c1"># The &quot;fake.h5&quot; doesn&#39;t exist, so this should fail.</span>
-                <span class="n">rep</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span></div></div>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="c1"># The &quot;fake.h5&quot; doesn&#39;t exist, so this should fail.</span>
+            <span class="n">rep</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span></div></div>
 
 
 <div class="viewcode-block" id="TestCompareIsotxsLibsEntryPoint"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestCompareIsotxsLibsEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">TestCompareIsotxsLibsEntryPoint</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -420,7 +446,11 @@
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">com</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;diff-isotxs&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">com</span><span class="o">.</span><span class="n">settingsArgument</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">com</span><span class="o">.</span><span class="n">settingsArgument</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">):</span>
+            <span class="c1"># The provided files don&#39;t exist, so this should fail.</span>
+            <span class="n">com</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span></div></div>
 
 
 <div class="viewcode-block" id="TestRunEntryPoint"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestRunEntryPoint">[docs]</a><span class="k">class</span> <span class="nc">TestRunEntryPoint</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -456,20 +486,62 @@
 <div class="viewcode-block" id="TestRunSuiteCommand.test_runSuiteCommandBasics"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestRunSuiteCommand.test_runSuiteCommandBasics">[docs]</a>    <span class="k">def</span> <span class="nf">test_runSuiteCommandBasics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">rs</span> <span class="o">=</span> <span class="n">RunSuiteCommand</span><span class="p">()</span>
         <span class="n">rs</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
-        <span class="n">rs</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake.yaml&quot;</span><span class="p">])</span>
+        <span class="n">rs</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake.yaml&quot;</span><span class="p">,</span> <span class="s2">&quot;-l&quot;</span><span class="p">])</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;run-suite&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">settingsArgument</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">settingsArgument</span><span class="p">)</span>
+
+        <span class="c1"># test the invoke method</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">startLog</span><span class="p">(</span><span class="s2">&quot;test_runSuiteCommandBasics&quot;</span><span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="n">rs</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Finding potential settings files&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Checking for valid settings&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Primary Log Verbosity&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span></div></div>
 
 
 <div class="viewcode-block" id="TestVisFileEntryPointCommand"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestVisFileEntryPointCommand">[docs]</a><span class="k">class</span> <span class="nc">TestVisFileEntryPointCommand</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
 <div class="viewcode-block" id="TestVisFileEntryPointCommand.test_visFileEntryPointBasics"><a class="viewcode-back" href="../../../../.apidocs/armi.cli.tests.test_runEntryPoint.html#armi.cli.tests.test_runEntryPoint.TestVisFileEntryPointCommand.test_visFileEntryPointBasics">[docs]</a>    <span class="k">def</span> <span class="nf">test_visFileEntryPointBasics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">vf</span> <span class="o">=</span> <span class="n">VisFileEntryPoint</span><span class="p">()</span>
-        <span class="n">vf</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
-        <span class="n">vf</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="s2">&quot;/path/to/fake.h5&quot;</span><span class="p">])</span>
+        <span class="k">with</span> <span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">newDir</span><span class="p">:</span>
+            <span class="c1"># build test DB</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">(</span>
+                <span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">customSettings</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;reloadDBName&quot;</span><span class="p">:</span> <span class="s2">&quot;reloadingDB.h5&quot;</span><span class="p">}</span>
+            <span class="p">)</span>
+            <span class="n">reduceTestReactorRings</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">maxNumRings</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dbi</span> <span class="o">=</span> <span class="n">DatabaseInterface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+            <span class="n">dbPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newDir</span><span class="o">.</span><span class="n">destination</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span><span class="si">}</span><span class="s2">.h5&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dbi</span><span class="o">.</span><span class="n">initDB</span><span class="p">(</span><span class="n">fName</span><span class="o">=</span><span class="n">dbPath</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dbi</span><span class="o">.</span><span class="n">database</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">writeToDB</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">vf</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;vis-file&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">vf</span><span class="o">.</span><span class="n">settingsArgument</span><span class="p">)</span></div></div>
+            <span class="c1"># create Viz entry point</span>
+            <span class="n">vf</span> <span class="o">=</span> <span class="n">VisFileEntryPoint</span><span class="p">()</span>
+            <span class="n">vf</span><span class="o">.</span><span class="n">addOptions</span><span class="p">()</span>
+            <span class="n">vf</span><span class="o">.</span><span class="n">parse_args</span><span class="p">([</span><span class="n">dbPath</span><span class="p">])</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">vf</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;vis-file&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">vf</span><span class="o">.</span><span class="n">settingsArgument</span><span class="p">)</span>
+
+            <span class="c1"># test the invoke method</span>
+            <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">startLog</span><span class="p">(</span><span class="s2">&quot;test_visFileEntryPointBasics&quot;</span><span class="p">)</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">LOG</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+
+                <span class="n">vf</span><span class="o">.</span><span class="n">invoke</span><span class="p">()</span>
+
+                <span class="n">desired</span> <span class="o">=</span> <span class="s2">&quot;Creating visualization file for cycle 0, time node 0...&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="n">desired</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+
+            <span class="c1"># test the parse method (using the same DB to save time)</span>
+            <span class="n">vf</span> <span class="o">=</span> <span class="n">VisFileEntryPoint</span><span class="p">()</span>
+            <span class="n">vf</span><span class="o">.</span><span class="n">parse</span><span class="p">([</span><span class="n">dbPath</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">vf</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">vf</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">min_node</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">vf</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">max_node</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">vf</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">output_name</span><span class="p">,</span> <span class="s2">&quot;test_visFileEntryPointBasics&quot;</span><span class="p">)</span></div></div>
 </pre></div>
 
            </div>
@@ -480,7 +552,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-06-17.
+      <span class="lastupdated">Last updated on 2024-06-18.
       </span></p>
   </div>
 
