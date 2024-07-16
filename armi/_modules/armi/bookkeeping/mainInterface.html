@@ -149,12 +149,12 @@
 
 <div class="viewcode-block" id="MainInterface.interactBOL"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.mainInterface.html#armi.bookkeeping.mainInterface.MainInterface.interactBOL">[docs]</a>    <span class="k">def</span> <span class="nf">interactBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="n">interactBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_activateDB</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_activateDBPrepRestart</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_moveFiles</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_activateDB</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_activateDBPrepRestart</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Instantiate the database state.</span>
+<span class="sd">        Instantiate the database state, and add previous time nodes for restart run.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -171,16 +171,29 @@
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;runType&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">operators</span><span class="o">.</span><span class="n">RunTypes</span><span class="o">.</span><span class="n">SNAPSHOTS</span>
         <span class="p">):</span>
             <span class="c1"># load case before going forward with normal cycle</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;MainInterface loading from DB&quot;</span><span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;MainInterface loading DB history for restart.&quot;</span><span class="p">)</span>
 
             <span class="c1"># Load the database from the point just before start cycle and start node as the run</span>
-            <span class="c1"># will continue at the begining of start cycle and start node, and the database contains</span>
+            <span class="c1"># will continue at the beginning of start cycle and start node, and the database contains</span>
             <span class="c1"># the values from the run at the end of the interface stack, which are what the start</span>
             <span class="c1"># start cycle and start node should begin with.</span>
 
             <span class="c1"># NOTE: this should be the responsibility of the database, but cannot because the</span>
             <span class="c1"># database is last in the stack and the MainInterface is first</span>
             <span class="n">dbi</span><span class="o">.</span><span class="n">prepRestartRun</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startNode&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># DB interface loaded the previous time step (last time node of previous cycle), but</span>
+                <span class="c1"># this is BEFORE the EOC interactions have happened.</span>
+                <span class="c1"># so here we explicitly call the EOC interactions now and then proceed with normal</span>
+                <span class="c1"># BOL interactions for the cycle we are starting</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
+                    <span class="s2">&quot;MainInterface calling `o.interactAllEOC` due to &quot;</span>
+                    <span class="s2">&quot;loading the last time node of the previous cycle.&quot;</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">interactAllEOC</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span><span class="p">)</span>
+
+            <span class="c1"># advance time time since we loaded the previous time step</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startCycle&quot;</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startNode&quot;</span><span class="p">]</span>
 
@@ -337,7 +350,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-07-15.
+      <span class="lastupdated">Last updated on 2024-07-16.
       </span></p>
   </div>
 
