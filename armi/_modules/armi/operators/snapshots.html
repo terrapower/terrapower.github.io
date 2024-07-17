@@ -155,8 +155,8 @@
 
         <span class="c1"># update the snapshot requests if the user chose to load from a specific cycle/node</span>
         <span class="n">dbi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;database&quot;</span><span class="p">)</span>
-
-        <span class="n">lastTimeStep</span> <span class="o">=</span> <span class="n">snapshots</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># database is excluded since SS writes by itself</span>
+        <span class="n">excludeDB</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;database&quot;</span><span class="p">,)</span>
         <span class="k">for</span> <span class="n">ssCycle</span><span class="p">,</span> <span class="n">ssNode</span> <span class="ow">in</span> <span class="n">snapshots</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
                 <span class="s2">&quot;Beginning snapshot (</span><span class="si">{0:02d}</span><span class="s2">, </span><span class="si">{1:02d}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ssCycle</span><span class="p">,</span> <span class="n">ssNode</span><span class="p">)</span>
@@ -172,18 +172,17 @@
             <span class="k">if</span> <span class="n">halt</span><span class="p">:</span>
                 <span class="k">break</span>
 
-            <span class="c1"># database is excluded since it writes at EOC</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interactAllEveryNode</span><span class="p">(</span>
-                <span class="n">ssCycle</span><span class="p">,</span> <span class="n">ssNode</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;database&quot;</span><span class="p">,)</span>
-            <span class="p">)</span>
+            <span class="c1"># database is excluded since it writes after coupled</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interactAllEveryNode</span><span class="p">(</span><span class="n">ssCycle</span><span class="p">,</span> <span class="n">ssNode</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="n">excludeDB</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_performTightCoupling</span><span class="p">(</span><span class="n">ssCycle</span><span class="p">,</span> <span class="n">ssNode</span><span class="p">,</span> <span class="n">writeDB</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="c1"># tight coupling is done, now write to DB</span>
+            <span class="n">dbi</span><span class="o">.</span><span class="n">writeDBEveryNode</span><span class="p">()</span>
 
-            <span class="c1"># database is excluded at last snapshot since it writes at EOL</span>
-            <span class="n">exclude</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;database&quot;</span><span class="p">,)</span> <span class="k">if</span> <span class="p">(</span><span class="n">ssCycle</span><span class="p">,</span> <span class="n">ssNode</span><span class="p">)</span> <span class="o">==</span> <span class="n">lastTimeStep</span> <span class="k">else</span> <span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interactAllEOC</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="n">exclude</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interactAllEOC</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span><span class="p">)</span>
 
         <span class="c1"># run things that happen at EOL, like reports, plotters, etc.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">interactAllEOL</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interactAllEOL</span><span class="p">(</span><span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="n">excludeDB</span><span class="p">)</span>
+        <span class="n">dbi</span><span class="o">.</span><span class="n">closeDB</span><span class="p">()</span>  <span class="c1"># dump the database to file</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Done with ARMI snapshots case.&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="OperatorSnapshots.setStateToDefault"><a class="viewcode-back" href="../../../.apidocs/armi.operators.snapshots.html#armi.operators.snapshots.OperatorSnapshots.setStateToDefault">[docs]</a>    <span class="nd">@staticmethod</span>
@@ -213,7 +212,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-07-16.
+      <span class="lastupdated">Last updated on 2024-07-17.
       </span></p>
   </div>
 
