@@ -92,7 +92,10 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#releasing-a-new-version-of-armi">10.4. Releasing a New Version of ARMI</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#module-level-logging">10.5. Module-Level Logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#logging-with-runlog">10.5. Logging with runLog</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-level-logging">10.5.1. Module-Level Logging</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -317,31 +320,98 @@ archive the new documentation.</p></li>
 <li><p>Tell everyone!</p></li>
 </ol>
 </section>
-<section id="module-level-logging">
-<h2><span class="section-number">10.5. </span>Module-Level Logging<a class="headerlink" href="#module-level-logging" title="Permalink to this heading"></a></h2>
-<p>In most of the modules in <code class="docutils literal notranslate"><span class="pre">armi</span></code>, you will see logging using the <code class="docutils literal notranslate"><span class="pre">runLog</span></code> module.
-This is a custom, global logging object provided by the import:</p>
+<section id="logging-with-runlog">
+<h2><span class="section-number">10.5. </span>Logging with runLog<a class="headerlink" href="#logging-with-runlog" title="Permalink to this heading"></a></h2>
+<p>ARMI provides a logging tool, <code class="docutils literal notranslate"><span class="pre">runLog</span></code>, to be used in place of <code class="docutils literal notranslate"><span class="pre">print</span></code> for all logging during a
+simulation. It is very easy to use:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+
+<span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;This will only be seen if you run in debug mode.&quot;</span><span class="p">)</span>
+<span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Default log level.&quot;</span><span class="p">)</span>
+<span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;The run will die, or the results are invalid.&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>If you want a logger specific to a single module, say to provide debug logging for only
-one module, that functionality is provided by what might look like a bare Python logging
-import, but is actually calling the same underlying <code class="docutils literal notranslate"><span class="pre">armi</span></code> logging tooling:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Calling <code class="docutils literal notranslate"><span class="pre">runLog.error()</span></code> is not the same as calling Python’s <code class="docutils literal notranslate"><span class="pre">raise</span> <span class="pre">error</span></code>; a log statement
+does not kill a run, or raise an error, it just puts some text in the log.</p>
+</div>
+<p>When an ARMI simulation is run, it will be run at a particular log level. All log messages that are
+at or above that log level will be seen during the simulation and in the final log files. To control
+the log level of an ARMI run, you use the setting <code class="docutils literal notranslate"><span class="pre">verbosity</span></code> in your settings file. You will
+probably be running ARMI in a parallel mode, and if you want the child processes to have a different
+log level than the main process, you can set <code class="docutils literal notranslate"><span class="pre">branchVerbosity</span></code> to the desired verbosity of all the
+child processes.</p>
+<p>For reference, here are the log levels that ARMI supports:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 60%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Level</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>When to Use</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>debug</p></td>
+<td><p>10</p></td>
+<td><p>This will only be seen if the simulation is run in debug mode.</p></td>
+</tr>
+<tr class="row-odd"><td><p>extra</p></td>
+<td><p>15</p></td>
+<td><p>More detailed than will normally be seen in a usual simulation.</p></td>
+</tr>
+<tr class="row-even"><td><p>info</p></td>
+<td><p>20</p></td>
+<td><p>Use only for things that important enough to be visible during every normal simulation.</p></td>
+</tr>
+<tr class="row-odd"><td><p>important</p></td>
+<td><p>25</p></td>
+<td><p>More important than the default log level, but not a problem or issue.</p></td>
+</tr>
+<tr class="row-even"><td><p>prompt</p></td>
+<td><p>27</p></td>
+<td><p>RESERVED for the ARMI CLI.</p></td>
+</tr>
+<tr class="row-odd"><td><p>warning</p></td>
+<td><p>30</p></td>
+<td><p>Use ONLY for issues that may or may not invalidate the simulation results.</p></td>
+</tr>
+<tr class="row-even"><td><p>error</p></td>
+<td><p>40</p></td>
+<td><p>Use ONLY for problems that halt the program or invalidate the simulation results.</p></td>
+</tr>
+<tr class="row-odd"><td><p>header</p></td>
+<td><p>100</p></td>
+<td><p>Use ONLY to define major sections in the log files.</p></td>
+</tr>
+</tbody>
+</table>
+<section id="module-level-logging">
+<h3><span class="section-number">10.5.1. </span>Module-Level Logging<a class="headerlink" href="#module-level-logging" title="Permalink to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">runLog</span></code> tool also allows for you to log one module differently from the rest of the code
+base. For instance, you could set the log level to “debug” in just one Python file, to help testing
+during development.</p>
+<p>That functionality is provided by what might look like a bare Python logging import, but is actually calling the same underlying <code class="docutils literal notranslate"><span class="pre">armi</span></code> logging tooling:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">logging</span>
 <span class="n">runLog</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>In either case, you can then log using the same, easy interface:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;information here&#39;</span><span class="p">)</span>
-<span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;extra error info here&#39;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Normal stuff.&#39;</span><span class="p">)</span>
+<span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Oh no!&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Finally, you can change the logging level in either above scenario by doing:</p>
+<p>Finally, you can change the logging level in the above scenario by doing:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runLog</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
 <span class="c1"># or</span>
 <span class="n">runLog</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="s1">&#39;debug&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
+</section>
 </section>
 </section>
 
