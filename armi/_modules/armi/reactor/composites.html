@@ -144,6 +144,7 @@
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">tabulate</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span>
 <span class="kn">from</span> <span class="nn">armi.utils.densityTools</span> <span class="kn">import</span> <span class="n">calculateNumberDensity</span>
+<span class="kn">from</span> <span class="nn">armi.utils.flags</span> <span class="kn">import</span> <span class="n">auto</span>
 
 
 <div class="viewcode-block" id="FlagSerializer"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.FlagSerializer">[docs]</a><span class="k">class</span> <span class="nc">FlagSerializer</span><span class="p">(</span><span class="n">parameters</span><span class="o">.</span><span class="n">Serializer</span><span class="p">):</span>
@@ -161,7 +162,7 @@
 <div class="viewcode-block" id="FlagSerializer.pack"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.composites.html#armi.reactor.composites.FlagSerializer.pack">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">pack</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Flags are represented as a 2-D numpy array of uint8 (single-byte, unsigned</span>
+<span class="sd">        Flags are represented as a 2D numpy array of uint8 (single-byte, unsigned</span>
 <span class="sd">        integers), where each row contains the bytes representing a single Flags</span>
 <span class="sd">        instance. We also store the list of field names so that we can verify that the</span>
 <span class="sd">        reader and the writer can agree on the meaning of each bit.</span>
@@ -196,7 +197,6 @@
 <span class="sd">        ----------</span>
 <span class="sd">        inp : int</span>
 <span class="sd">            input bitfield</span>
-
 <span class="sd">        mapping : dict</span>
 <span class="sd">            dictionary mapping from old bit position -&gt; new bit position</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -261,11 +261,14 @@
         <span class="c1"># Make sure that all of the old flags still exist</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">flagSetIn</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">flagSetNow</span><span class="p">):</span>
             <span class="n">missingFlags</span> <span class="o">=</span> <span class="n">flagSetIn</span> <span class="o">-</span> <span class="n">flagSetNow</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;The set of flags in the database includes unknown flags. &quot;</span>
-                <span class="s2">&quot;Make sure you are using the correct ARMI app. Missing flags:</span><span class="se">\n</span><span class="s2">&quot;</span>
-                <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">missingFlags</span><span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;The set of flags in the database includes unknown flags. For convenience, we will &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;add these to the system: </span><span class="si">{</span><span class="n">missingFlags</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
+            <span class="n">flagCls</span><span class="o">.</span><span class="n">extend</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">auto</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">missingFlags</span><span class="p">})</span>
+
+        <span class="n">flagOrderNow</span> <span class="o">=</span> <span class="n">flagCls</span><span class="o">.</span><span class="n">sortedFields</span><span class="p">()</span>
+        <span class="n">flagSetNow</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">flagOrderNow</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">j</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">flagOrderPassed</span><span class="p">,</span> <span class="n">flagOrderNow</span><span class="p">)):</span>
             <span class="n">out</span> <span class="o">=</span> <span class="p">[</span><span class="n">flagCls</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">tobytes</span><span class="p">())</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
@@ -3385,7 +3388,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-08-28.
+      <span class="lastupdated">Last updated on 2024-08-29.
       </span></p>
   </div>
 
