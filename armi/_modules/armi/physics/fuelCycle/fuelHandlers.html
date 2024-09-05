@@ -147,19 +147,9 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operator</span><span class="p">):</span>
-        <span class="c1"># we need access to the operator to find the core, get settings, grab</span>
-        <span class="c1"># other interfaces, etc.</span>
+        <span class="c1"># we need access to the operator to find the core, get settings, grab other interfaces, etc.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span> <span class="o">=</span> <span class="n">operator</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">moved</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_handleBackwardsCompatibility</span><span class="p">()</span>
-
-    <span class="k">def</span> <span class="nf">_handleBackwardsCompatibility</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># prepSearch used to be part of the API but is deprecated. This will</span>
-        <span class="c1"># trigger a warning if it&#39;s implemented.</span>
-        <span class="c1"># We have to do this hack until we phase out old inputs.</span>
-        <span class="c1"># This basically asks: &quot;Did the custom subclass override prepSearch?&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepSearch</span><span class="o">.</span><span class="vm">__func__</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">FuelHandler</span><span class="o">.</span><span class="n">prepSearch</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">prepSearch</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">cycle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -300,30 +290,28 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Aux function to run before XS generation (do moderation, etc).&quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
-<div class="viewcode-block" id="FuelHandler.prepSearch"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.prepSearch">[docs]</a>    <span class="k">def</span> <span class="nf">prepSearch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Optional method that can be implemented in preparation of shuffling.</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_compareAssem</span><span class="p">(</span><span class="n">candidate</span><span class="p">,</span> <span class="n">current</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check whether the candidate assembly should replace the current ideal assembly.</span>
 
-<span class="sd">        Often used to prepare the scope of a shuffling branch search.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        This was used historically to keep a long-lived fuel handler in sync</span>
-<span class="sd">        with the reactor and can now technically be removed from the API, but</span>
-<span class="sd">        many historical fuel management inputs still expect it to be called</span>
-<span class="sd">        by the framework, so here it remains. New developments should</span>
-<span class="sd">        avoid using it. Most code using it has been refactored to just use</span>
-<span class="sd">        a ``_prepSearch`` private method.</span>
-
-<span class="sd">        It now should not be used and will trigger a DeprecationWarning</span>
-<span class="sd">        in the constructor. It&#39;s still here because old user-input code</span>
-<span class="sd">        calls the parent&#39;s prepSearch, which is this.</span>
+<span class="sd">        Given a candidate tuple (diff1, a1) and current tuple (diff2, a2), decide whether the</span>
+<span class="sd">        candidate is better than the current ideal. This first compares the diff1 and diff2 values.</span>
+<span class="sd">        If diff1 is sufficiently less than diff2, a1 wins, returning True. Otherwise, False. If</span>
+<span class="sd">        diff1 and diff2 are sufficiently close, the assembly with the lesser assemNum wins. This</span>
+<span class="sd">        should result in a more stable comparison than on floating-point comparisons alone.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="s2">&quot;`FuelHandler.prepSearch` is being deprecated from the framework. Please &quot;</span>
-            <span class="s2">&quot;change your fuel management input to call this method directly.&quot;</span><span class="p">,</span>
-            <span class="ne">DeprecationWarning</span><span class="p">,</span>
-        <span class="p">)</span></div>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">candidate</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">current</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">candidate</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span> <span class="o">&lt;</span> <span class="n">current</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">candidate</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">current</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_getParamMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">blockLevelMax</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get parameter with Block-level maximum.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">blockLevelMax</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">getChildParamValues</span><span class="p">(</span><span class="n">paramName</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
 
 <div class="viewcode-block" id="FuelHandler.findAssembly"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.findAssembly">[docs]</a>    <span class="k">def</span> <span class="nf">findAssembly</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -388,24 +376,20 @@
 
 <span class="sd">        maxParam : float or list, optional</span>
 <span class="sd">            a parameter to compare to maxVal for setting upper bounds of acceptable assemblies.</span>
-<span class="sd">            If list,</span>
-<span class="sd">            must correspond to parameters in maxVal in order.</span>
+<span class="sd">            If list, must correspond to parameters in maxVal in order.</span>
 
 <span class="sd">        minVal : float or list, optional</span>
 <span class="sd">            a value or a (parameter, multiplier) tuple for setting lower bounds</span>
 
-<span class="sd">            For instance, if minParam = &#39;timeToLimit&#39; and minVal=10, only assemblies with</span>
-<span class="sd">            timeToLimit higher than 10 will be returned.  (Of course, there is also maxParam and</span>
-<span class="sd">            maxVal)</span>
+<span class="sd">            For instance, if minParam=&#39;timeToLimit&#39; and minVal=10, only assemblies with timeToLimit</span>
+<span class="sd">            higher than 10 will be returned. (Of course, there is also maxParam and maxVal)</span>
 
 <span class="sd">        maxVal : float or list, optional</span>
 <span class="sd">            a value or a (parameter, multiplier) tuple for setting upper bounds</span>
 
 <span class="sd">        mandatoryLocations : list, optional</span>
-<span class="sd">            a list of string-representations of locations in the core for limiting the search to</span>
-<span class="sd">            several places</span>
-
-<span class="sd">            Any locations also included in `excludedLocations` will be excluded.</span>
+<span class="sd">            A list of string-representations of locations in the core for limiting the search to</span>
+<span class="sd">            several places. Any locations also included in `excludedLocations` will be excluded.</span>
 
 <span class="sd">        excludedLocations : list, optional</span>
 <span class="sd">            a list of string-representations of locations in the core that will be excluded from</span>
@@ -442,20 +426,19 @@
 <span class="sd">            default: false.</span>
 
 <span class="sd">        findFromSfp : bool, optional</span>
-<span class="sd">            if true, will look in the spent-fuel pool instead of in the core.</span>
+<span class="sd">            If true, will look in the spent-fuel pool instead of in the core.</span>
 
 <span class="sd">        maxNumAssems : int, optional</span>
 <span class="sd">            The maximum number of assemblies to return. Only relevant if findMany==True</span>
 
 <span class="sd">        circularRingFlag : bool, optional</span>
-<span class="sd">            A flag to toggle on using rings that are based on distance from the center of the</span>
-<span class="sd">            reactor</span>
+<span class="sd">            Toggle using rings that are based on distance from the center of the reactor</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        The call signature on this method may have gotten slightly out of hand as</span>
-<span class="sd">        valuable capabilities were added in fuel management studies. For additional expansion,</span>
-<span class="sd">        it may be worth reconsidering the design of these query operations ;).</span>
+<span class="sd">        The call signature on this method may have gotten slightly out of hand as valuable</span>
+<span class="sd">        capabilities were added in fuel management studies. For additional expansion, it may be</span>
+<span class="sd">        worth reconsidering the design of these query operations.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -474,29 +457,8 @@
 <span class="sd">                                     typeSpec=Flags.FEED | Flags.FUEL)</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="k">def</span> <span class="nf">compareAssem</span><span class="p">(</span><span class="n">candidate</span><span class="p">,</span> <span class="n">current</span><span class="p">):</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Check whether the candidate assembly should replace the current ideal</span>
-<span class="sd">            assembly.</span>
-
-<span class="sd">            Given a candidate tuple (diff1, a1) and current tuple (diff2, a2), decide</span>
-<span class="sd">            whether the candidate is better than the current ideal. This first compares</span>
-<span class="sd">            the diff1 and diff2 values. If diff1 is sufficiently less than diff2, a1</span>
-<span class="sd">            wins, returning True. Otherwise, False. If diff1 and diff2 are sufficiently</span>
-<span class="sd">            close, the assembly with the lesser assemNum wins. This should result in a</span>
-<span class="sd">            more stable comparison than on floating-point comparisons alone.</span>
-<span class="sd">            &quot;&quot;&quot;</span>
-            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">candidate</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">current</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">candidate</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span> <span class="o">&lt;</span> <span class="n">current</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">assemNum</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">candidate</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">current</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-        <span class="k">def</span> <span class="nf">getParamWithBlockLevelMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">paramName</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">blockLevelMax</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">getChildParamValues</span><span class="p">(</span><span class="n">paramName</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
-            <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
-
-        <span class="n">assemList</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># list for storing multiple results if findMany is true.</span>
+        <span class="c1"># list for storing multiple results if findMany is true.</span>
+        <span class="n">assemList</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="c1"># process input arguments</span>
         <span class="k">if</span> <span class="n">targetRing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -545,7 +507,7 @@
             <span class="n">compVal</span> <span class="o">=</span> <span class="n">compareTo</span> <span class="o">*</span> <span class="n">mult</span>
         <span class="k">elif</span> <span class="n">param</span><span class="p">:</span>
             <span class="c1"># assume compareTo is an assembly</span>
-            <span class="n">compVal</span> <span class="o">=</span> <span class="n">getParamWithBlockLevelMax</span><span class="p">(</span><span class="n">compareTo</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span> <span class="o">*</span> <span class="n">mult</span>
+            <span class="n">compVal</span> <span class="o">=</span> <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_getParamMax</span><span class="p">(</span><span class="n">compareTo</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">blockLevelMax</span><span class="p">)</span> <span class="o">*</span> <span class="n">mult</span>
 
         <span class="k">if</span> <span class="n">coords</span><span class="p">:</span>
             <span class="c1"># find the assembly closest to xt,yt if coords are given without considering params.</span>
@@ -594,12 +556,16 @@
                         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">minVal</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
                             <span class="c1"># tuple turned in. it&#39;s a multiplier and a param</span>
                             <span class="n">realMinVal</span> <span class="o">=</span> <span class="p">(</span>
-                                <span class="n">getParamWithBlockLevelMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">minVal</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">minVal</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                                <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_getParamMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">minVal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">blockLevelMax</span><span class="p">)</span>
+                                <span class="o">*</span> <span class="n">minVal</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
                             <span class="p">)</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="n">realMinVal</span> <span class="o">=</span> <span class="n">minVal</span>
 
-                        <span class="k">if</span> <span class="n">getParamWithBlockLevelMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">minParam</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">realMinVal</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="p">(</span>
+                            <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_getParamMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">minParam</span><span class="p">,</span> <span class="n">blockLevelMax</span><span class="p">)</span>
+                            <span class="o">&lt;</span> <span class="n">realMinVal</span>
+                        <span class="p">):</span>
                             <span class="c1"># this assembly does not meet the minVal specifications. Skip it.</span>
                             <span class="n">innocent</span> <span class="o">=</span> <span class="kc">False</span>
                             <span class="k">break</span>  <span class="c1"># for speed (not a big deal here)</span>
@@ -614,12 +580,16 @@
                         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">maxVal</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
                             <span class="c1"># tuple turned in. it&#39;s a multiplier and a param</span>
                             <span class="n">realMaxVal</span> <span class="o">=</span> <span class="p">(</span>
-                                <span class="n">getParamWithBlockLevelMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">maxVal</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">maxVal</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                                <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_getParamMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">maxVal</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">blockLevelMax</span><span class="p">)</span>
+                                <span class="o">*</span> <span class="n">maxVal</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
                             <span class="p">)</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="n">realMaxVal</span> <span class="o">=</span> <span class="n">maxVal</span>
 
-                        <span class="k">if</span> <span class="n">getParamWithBlockLevelMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">maxParam</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">realMaxVal</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="p">(</span>
+                            <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_getParamMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">maxParam</span><span class="p">,</span> <span class="n">blockLevelMax</span><span class="p">)</span>
+                            <span class="o">&gt;</span> <span class="n">realMaxVal</span>
+                        <span class="p">):</span>
                             <span class="c1"># this assembly has a maxParam that&#39;s higher than maxVal and therefore</span>
                             <span class="c1"># doesn&#39;t qualify. skip it.</span>
                             <span class="n">innocent</span> <span class="o">=</span> <span class="kc">False</span>
@@ -644,23 +614,25 @@
 
                 <span class="c1"># Now find the assembly with the param closest to the target val.</span>
                 <span class="k">if</span> <span class="n">param</span><span class="p">:</span>
-                    <span class="n">diff</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">getParamWithBlockLevelMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span> <span class="o">-</span> <span class="n">compVal</span><span class="p">)</span>
+                    <span class="n">diff</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span>
+                        <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_getParamMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">blockLevelMax</span><span class="p">)</span> <span class="o">-</span> <span class="n">compVal</span>
+                    <span class="p">)</span>
 
                     <span class="k">if</span> <span class="p">(</span>
                         <span class="n">forceSide</span> <span class="o">==</span> <span class="mi">1</span>
-                        <span class="ow">and</span> <span class="n">getParamWithBlockLevelMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">compVal</span>
-                        <span class="ow">and</span> <span class="n">compareAssem</span><span class="p">((</span><span class="n">diff</span><span class="p">,</span> <span class="n">a</span><span class="p">),</span> <span class="n">minDiff</span><span class="p">)</span>
+                        <span class="ow">and</span> <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_getParamMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">blockLevelMax</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">compVal</span>
+                        <span class="ow">and</span> <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_compareAssem</span><span class="p">((</span><span class="n">diff</span><span class="p">,</span> <span class="n">a</span><span class="p">),</span> <span class="n">minDiff</span><span class="p">)</span>
                     <span class="p">):</span>
                         <span class="c1"># forceSide=1, so that means look in rings further out</span>
                         <span class="n">minDiff</span> <span class="o">=</span> <span class="p">(</span><span class="n">diff</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
                     <span class="k">elif</span> <span class="p">(</span>
                         <span class="n">forceSide</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span>
-                        <span class="ow">and</span> <span class="n">getParamWithBlockLevelMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">param</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">compVal</span>
-                        <span class="ow">and</span> <span class="n">compareAssem</span><span class="p">((</span><span class="n">diff</span><span class="p">,</span> <span class="n">a</span><span class="p">),</span> <span class="n">minDiff</span><span class="p">)</span>
+                        <span class="ow">and</span> <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_getParamMax</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">blockLevelMax</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">compVal</span>
+                        <span class="ow">and</span> <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_compareAssem</span><span class="p">((</span><span class="n">diff</span><span class="p">,</span> <span class="n">a</span><span class="p">),</span> <span class="n">minDiff</span><span class="p">)</span>
                     <span class="p">):</span>
                         <span class="c1"># forceSide=-1, so that means look in rings closer in from the targetRing</span>
                         <span class="n">minDiff</span> <span class="o">=</span> <span class="p">(</span><span class="n">diff</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
-                    <span class="k">elif</span> <span class="n">compareAssem</span><span class="p">((</span><span class="n">diff</span><span class="p">,</span> <span class="n">a</span><span class="p">),</span> <span class="n">minDiff</span><span class="p">):</span>
+                    <span class="k">elif</span> <span class="n">FuelHandler</span><span class="o">.</span><span class="n">_compareAssem</span><span class="p">((</span><span class="n">diff</span><span class="p">,</span> <span class="n">a</span><span class="p">),</span> <span class="n">minDiff</span><span class="p">):</span>
                         <span class="c1"># no preference of which side, just take the one with the closest param.</span>
                         <span class="n">minDiff</span> <span class="o">=</span> <span class="p">(</span><span class="n">diff</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
