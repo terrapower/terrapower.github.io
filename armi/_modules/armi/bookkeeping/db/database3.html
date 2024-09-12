@@ -127,6 +127,7 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">gc</span>
 <span class="kn">import</span> <span class="nn">io</span>
 <span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">os</span>
@@ -777,7 +778,17 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Copying DB to shared working directory.&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
-        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fullPath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fileName</span><span class="p">)</span></div>
+
+        <span class="c1"># Close the h5 file so it can be copied</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fullPath</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fileName</span><span class="p">)</span>
+
+        <span class="c1"># Garbage collect so we don&#39;t have multiple databases hanging around in memory</span>
+        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+
+        <span class="c1"># Reload the file in append mode and continue on our merry way</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fullPath</span><span class="p">,</span> <span class="s2">&quot;r+&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Database3.load"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.Database3.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
