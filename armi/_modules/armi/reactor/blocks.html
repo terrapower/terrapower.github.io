@@ -138,6 +138,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.parameters</span> <span class="kn">import</span> <span class="n">ParamLocation</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">densityTools</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">hexagon</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">iterables</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span>
 <span class="kn">from</span> <span class="nn">armi.utils.plotting</span> <span class="kn">import</span> <span class="n">plotBlockFlux</span>
 <span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="kn">import</span> <span class="n">TRACE_NUMBER_DENSITY</span>
@@ -2105,8 +2106,7 @@
 <span class="sd">        Python list of length 6 in order to be eligible for rotation; all parameters that</span>
 <span class="sd">        do not meet these two criteria are not rotated.</span>
 
-<span class="sd">        The pin indexing, as stored on the pinLocation parameter, is also updated via</span>
-<span class="sd">        :py:meth:`rotatePins &lt;armi.reactor.blocks.HexBlock.rotatePins&gt;`.</span>
+<span class="sd">        The pin indexing, as stored on the ``pinLocation`` parameter, is also updated.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -2115,63 +2115,62 @@
 <span class="sd">            in 60-degree increments (i.e., PI/6, PI/3, PI, 2 * PI/3, 5 * PI/6,</span>
 <span class="sd">            and 2 * PI)</span>
 
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        :py:meth:`rotatePins &lt;armi.reactor.blocks.HexBlock.rotatePins&gt;`</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">rotNum</span> <span class="o">=</span> <span class="nb">round</span><span class="p">((</span><span class="n">rad</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mi">60</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">rotatePins</span><span class="p">(</span><span class="n">rotNum</span><span class="p">)</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">CORNERS</span><span class="p">)</span><span class="o">.</span><span class="n">names</span>
-        <span class="n">params</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">EDGES</span><span class="p">)</span><span class="o">.</span><span class="n">names</span>
-        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">],</span> <span class="nb">list</span><span class="p">):</span>
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">])</span> <span class="o">==</span> <span class="mi">6</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">][</span><span class="o">-</span><span class="n">rotNum</span><span class="p">:]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">][:</span><span class="o">-</span><span class="n">rotNum</span><span class="p">]</span>
-                <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">==</span> <span class="p">[]:</span>
-                    <span class="c1"># List hasn&#39;t been defined yet, no warning needed.</span>
-                    <span class="k">pass</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="s2">&quot;No rotation method defined for spatial parameters that aren&#39;t &quot;</span>
-                        <span class="s2">&quot;defined once per hex edge/corner. No rotation performed &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;on </span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="p">)</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">])</span> <span class="o">==</span> <span class="mi">6</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
-                        <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">][</span><span class="o">-</span><span class="n">rotNum</span><span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">][:</span><span class="o">-</span><span class="n">rotNum</span><span class="p">])</span>
-                    <span class="p">)</span>
-                <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_rotatePins</span><span class="p">(</span><span class="n">rotNum</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_rotateBoundaryParameters</span><span class="p">(</span><span class="n">rotNum</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_rotateDisplacement</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_rotateBoundaryParameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Rotate any parameters defined on the corners or edge of bounding hexagon.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        rotNum : int</span>
+<span class="sd">            Rotation number between zero and five, inclusive, specifying how many</span>
+<span class="sd">            rotations have taken place.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">CORNERS</span><span class="p">)</span><span class="o">.</span><span class="n">names</span>
+        <span class="n">names</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">EDGES</span><span class="p">)</span><span class="o">.</span><span class="n">names</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+            <span class="n">original</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">original</span><span class="p">)</span> <span class="o">==</span> <span class="mi">6</span><span class="p">:</span>
+                    <span class="c1"># Rotate by making the -rotNum item be first</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">iterables</span><span class="o">.</span><span class="n">pivot</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="o">-</span><span class="n">rotNum</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">original</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="c1"># Hasn&#39;t been defined yet, no warning needed.</span>
                     <span class="k">pass</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
                         <span class="s2">&quot;No rotation method defined for spatial parameters that aren&#39;t &quot;</span>
                         <span class="s2">&quot;defined once per hex edge/corner. No rotation performed &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;on </span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;on </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
                     <span class="p">)</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">original</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
                 <span class="c1"># this is a scalar and there shouldn&#39;t be any rotation.</span>
                 <span class="k">pass</span>
-            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">elif</span> <span class="n">original</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="c1"># param is not set yet. no rotations as well.</span>
                 <span class="k">pass</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;b.rotate() method received unexpected data type for </span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> on block </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
-                    <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;expected list, np.ndarray, int, or float. received </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;b.rotate() method received unexpected data type for </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> on block </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;expected list, np.ndarray, int, or float. received </span><span class="si">{</span><span class="n">original</span><span class="si">}</span><span class="s2">&quot;</span>
                 <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_rotateDisplacement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rad</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
         <span class="c1"># This specifically uses the .get() functionality to avoid an error if this</span>
         <span class="c1"># parameter does not exist.</span>
         <span class="n">dispx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;displacementX&quot;</span><span class="p">)</span>
         <span class="n">dispy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;displacementY&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">dispx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">dispy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">displacementX</span> <span class="o">=</span> <span class="n">dispx</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span> <span class="o">-</span> <span class="n">dispy</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">displacementY</span> <span class="o">=</span> <span class="n">dispx</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">dispy</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">displacementY</span> <span class="o">=</span> <span class="n">dispx</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">dispy</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span>
 
-<div class="viewcode-block" id="HexBlock.rotatePins"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.rotatePins">[docs]</a>    <span class="k">def</span> <span class="nf">rotatePins</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">,</span> <span class="n">justCompute</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_rotatePins</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">,</span> <span class="n">justCompute</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Rotate the pins of a block, which means rotating the indexing of pins. Note that this does</span>
 <span class="sd">        not rotate all block quantities, just the pins.</span>
@@ -2246,17 +2245,7 @@
                 <span class="c1"># Rotation to reference orientation. Pin locations are pin IDs.</span>
                 <span class="k">pass</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># Determine the pin ring. Rotation does not change the pin ring!</span>
-                <span class="n">ring</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
-                    <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="mf">3.0</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">9.0</span> <span class="o">-</span> <span class="mf">12.0</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">pinNum</span><span class="p">)))</span> <span class="o">/</span> <span class="mf">6.0</span><span class="p">)</span>
-                <span class="p">)</span>
-
-                <span class="c1"># Rotate the pin position (within the ring, which does not change)</span>
-                <span class="n">tot_pins</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">ring</span> <span class="o">*</span> <span class="p">(</span><span class="n">ring</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-                <span class="n">newPinLocation</span> <span class="o">=</span> <span class="n">pinNum</span> <span class="o">+</span> <span class="p">(</span><span class="n">ring</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">rotNum</span>
-                <span class="k">if</span> <span class="n">newPinLocation</span> <span class="o">&gt;</span> <span class="n">tot_pins</span><span class="p">:</span>
-                    <span class="n">newPinLocation</span> <span class="o">-=</span> <span class="p">(</span><span class="n">ring</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">6</span>
-
+                <span class="n">newPinLocation</span> <span class="o">=</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">getIndexOfRotatedCell</span><span class="p">(</span><span class="n">pinNum</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">)</span>
                 <span class="c1"># Assign &quot;before&quot; and &quot;after&quot; pin indices to the index lookup</span>
                 <span class="n">rotateIndexLookup</span><span class="p">[</span><span class="n">pinNum</span><span class="p">]</span> <span class="o">=</span> <span class="n">newPinLocation</span>
 
@@ -2269,7 +2258,7 @@
                 <span class="n">rotateIndexLookup</span><span class="p">[</span><span class="n">pinNum</span><span class="p">]</span> <span class="k">for</span> <span class="n">pinNum</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">numPins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
             <span class="p">]</span>
 
-        <span class="k">return</span> <span class="n">rotateIndexLookup</span></div>
+        <span class="k">return</span> <span class="n">rotateIndexLookup</span>
 
 <div class="viewcode-block" id="HexBlock.verifyBlockDims"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.verifyBlockDims">[docs]</a>    <span class="k">def</span> <span class="nf">verifyBlockDims</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform some checks on this type of block before it is assembled.&quot;&quot;&quot;</span>
