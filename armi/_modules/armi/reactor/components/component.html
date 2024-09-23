@@ -320,6 +320,8 @@
 
     <span class="n">pDefs</span> <span class="o">=</span> <span class="n">componentParameters</span><span class="o">.</span><span class="n">getComponentParameterDefinitions</span><span class="p">()</span>
 
+    <span class="n">material</span><span class="p">:</span> <span class="n">materials</span><span class="o">.</span><span class="n">Material</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">name</span><span class="p">,</span>
@@ -1354,13 +1356,17 @@
 
         <span class="k">return</span> <span class="n">pinFluxes</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNum</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Component.density"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.components.component.html#armi.reactor.components.component.Component.density">[docs]</a>    <span class="k">def</span> <span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Component.density"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.components.component.html#armi.reactor.components.component.Component.density">[docs]</a>    <span class="k">def</span> <span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the mass density of the object in g/cc.&quot;&quot;&quot;</span>
         <span class="n">density</span> <span class="o">=</span> <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">density</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">density</span><span class="p">:</span>
-            <span class="c1"># possible that there are no nuclides in this component yet. In that case, defer to Material.</span>
-            <span class="n">density</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">density</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">density</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="p">,</span> <span class="n">void</span><span class="o">.</span><span class="n">Void</span><span class="p">):</span>
+            <span class="c1"># possible that there are no nuclides in this component yet. In that case,</span>
+            <span class="c1"># defer to Material. Material.density is wrapped to warn if it&#39;s attached</span>
+            <span class="c1"># to a parent. Avoid that by calling the inner function directly</span>
+            <span class="n">density</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">density</span><span class="o">.</span><span class="n">__wrapped__</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="p">,</span> <span class="n">Tc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">temperatureInC</span>
+            <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">density</span></div>
 
@@ -1401,7 +1407,22 @@
 
 <div class="viewcode-block" id="Component.getFuelMass"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.components.component.html#armi.reactor.components.component.Component.getFuelMass">[docs]</a>    <span class="k">def</span> <span class="nf">getFuelMass</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the mass in grams if this is a fueled component.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getMass</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">flags</span><span class="o">.</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getMass</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">flags</span><span class="o">.</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span></div>
+
+<div class="viewcode-block" id="Component.finalizeLoadingFromDB"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.components.component.html#armi.reactor.components.component.Component.finalizeLoadingFromDB">[docs]</a>    <span class="k">def</span> <span class="nf">finalizeLoadingFromDB</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply any final actions after creating the component from database.</span>
+
+<span class="sd">        This should **only** be called internally by the database loader. Otherwise</span>
+<span class="sd">        some properties could be doubly applied.</span>
+
+<span class="sd">        This exists because the theoretical density is initially defined as a material</span>
+<span class="sd">        modification, and then stored as a Material attribute. When reading from blueprints,</span>
+<span class="sd">        the blueprint loader sets the theoretical density parameter from the Material</span>
+<span class="sd">        attribute. Component parameters are also set when reading from the database.</span>
+<span class="sd">        But, we need to set the Material attribute so routines that fetch a material&#39;s</span>
+<span class="sd">        density property account for the theoretical density.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">adjustTD</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="ShapedComponent"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.components.component.html#armi.reactor.components.component.ShapedComponent">[docs]</a><span class="k">class</span> <span class="nc">ShapedComponent</span><span class="p">(</span><span class="n">Component</span><span class="p">):</span>
@@ -1418,7 +1439,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-09-19.
+      <span class="lastupdated">Last updated on 2024-09-23.
       </span></p>
   </div>
 

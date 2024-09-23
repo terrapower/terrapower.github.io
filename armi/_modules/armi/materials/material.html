@@ -110,6 +110,8 @@
 
 <span class="sd">Most temperatures may be specified in either K or C and the functions will convert for you.</span>
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
 
 <span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">fsolve</span>
@@ -123,6 +125,33 @@
 
 <span class="c1"># globals</span>
 <span class="n">FAIL_ON_RANGE</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<div class="viewcode-block" id="parentAwareDensityRedirect"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.parentAwareDensityRedirect">[docs]</a><span class="k">def</span> <span class="nf">parentAwareDensityRedirect</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap Material.density to warn people about potential problems.</span>
+
+<span class="sd">    If a Material is linked to a Component, ``Material.density`` may produce</span>
+<span class="sd">    different results from ``Component.density``. The component&#39;s density</span>
+<span class="sd">    is considered the source of truth because it incorporates changes in volume,</span>
+<span class="sd">    composition, and temperature in concert with the state of the reactor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">inner</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="s2">&quot;Material&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">stack</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">extract_stack</span><span class="p">()</span>
+            <span class="c1"># last entry is here, second to last is what called this</span>
+            <span class="n">caller</span> <span class="o">=</span> <span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Found call to Material.density in </span><span class="si">{</span><span class="n">caller</span><span class="o">.</span><span class="n">filename</span><span class="si">}</span><span class="s2"> at line </span><span class="si">{</span><span class="n">caller</span><span class="o">.</span><span class="n">lineno</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">. Calls to Material.density when attached to a component have the potential to induce &quot;</span>
+                <span class="s2">&quot;subtle differences as Component.density and Material.density can diverge.&quot;</span><span class="p">,</span>
+                <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">inner</span></div>
 
 
 <div class="viewcode-block" id="Material"><a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material">[docs]</a><span class="k">class</span> <span class="nc">Material</span><span class="p">:</span>
@@ -167,6 +196,11 @@
 <span class="sd">    Specific material classes may have many more attributes specific to the implementation</span>
 <span class="sd">    for that material.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Apply the density decorator to every subclass</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">density</span><span class="p">,</span> <span class="s2">&quot;__wrapped__&quot;</span><span class="p">):</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">density</span> <span class="o">=</span> <span class="n">parentAwareDensityRedirect</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">density</span><span class="p">)</span>
 
     <span class="n">DATA_SOURCE</span> <span class="o">=</span> <span class="s2">&quot;ARMI&quot;</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Indication of where the material is loaded from (may be plugin name)&quot;&quot;&quot;</span>
@@ -1033,7 +1067,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-09-19.
+      <span class="lastupdated">Last updated on 2024-09-23.
       </span></p>
   </div>
 
