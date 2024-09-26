@@ -108,7 +108,7 @@
 
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">pickle</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Set</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Callable</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -461,7 +461,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hist</span>
 
-    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;ParameterCollection&quot;</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">):</span>
             <span class="k">return</span> <span class="kc">False</span>
 
@@ -476,7 +476,8 @@
 
         <span class="k">return</span> <span class="kc">True</span>
 
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Iterate over names of assigned parameters define on this collection.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">(</span>
             <span class="n">pd</span><span class="o">.</span><span class="n">name</span>
             <span class="k">for</span> <span class="n">pd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">paramDefs</span>
@@ -593,7 +594,33 @@
             <span class="k">elif</span> <span class="n">retainedValue</span> <span class="o">!=</span> <span class="n">currentValue</span><span class="p">:</span>
                 <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">fieldName</span><span class="p">,</span> <span class="n">currentValue</span><span class="p">)</span>
                 <span class="n">pd</span><span class="o">.</span><span class="n">assigned</span> <span class="o">=</span> <span class="n">SINCE_ANYTHING</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">assigned</span> <span class="o">=</span> <span class="n">SINCE_ANYTHING</span></div></div>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assigned</span> <span class="o">=</span> <span class="n">SINCE_ANYTHING</span></div>
+
+<div class="viewcode-block" id="ParameterCollection.where"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.parameters.parameterCollections.html#armi.reactor.parameters.parameterCollections.ParameterCollection.where">[docs]</a>    <span class="k">def</span> <span class="nf">where</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">parameterDefinitions</span><span class="o">.</span><span class="n">Parameter</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">parameterDefinitions</span><span class="o">.</span><span class="n">Parameter</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Produce an iterator over parameters that meet some criteria.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        f : callable function f(parameter) -&gt; bool</span>
+<span class="sd">            Function to check if a parameter should be fetched during the iteration.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        iterator of :class:`armi.reactor.parameters.Parameter`</span>
+<span class="sd">            Iterator, **not** list or tuple, that produces each parameter that</span>
+<span class="sd">            meets ``f(parameter) == True``.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; block = r.core[0][0]</span>
+<span class="sd">        &gt;&gt;&gt; pdef = block.p.paramDefs</span>
+<span class="sd">        &gt;&gt;&gt; for param in pdef.where(lambda pd: pd.atLocation(ParamLocation.EDGES)):</span>
+<span class="sd">        ...     print(param.name, block.p[param.name])</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">filter</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">paramDefs</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="collectPluginParameters"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.parameters.parameterCollections.html#armi.reactor.parameters.parameterCollections.collectPluginParameters">[docs]</a><span class="k">def</span> <span class="nf">collectPluginParameters</span><span class="p">(</span><span class="n">pm</span><span class="p">):</span>
