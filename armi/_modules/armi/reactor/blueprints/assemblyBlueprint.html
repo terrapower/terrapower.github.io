@@ -119,10 +119,10 @@
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">getPluginManagerOrFail</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">assemblies</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.blueprints</span> <span class="kn">import</span> <span class="n">blockBlueprint</span>
-<span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">grids</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_INPUT_HEIGHTS_HOT</span>
 
 
@@ -341,8 +341,7 @@
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        bool</span>
-<span class="sd">            Result of the check</span>
+<span class="sd">        bool: Result of the check</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">value</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span> <span class="ow">and</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
 
@@ -374,29 +373,35 @@
         <span class="n">b</span><span class="o">.</span><span class="n">setB10VolParam</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_INPUT_HEIGHTS_HOT</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">b</span>
 
-    <span class="k">def</span> <span class="nf">_checkParamConsistency</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_checkParamConsistency</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that the number of block params specified is equal to the number of blocks specified.&quot;&quot;&quot;</span>
+        <span class="c1"># general things to check</span>
         <span class="n">paramsToCheck</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;mesh points&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">axialMeshPoints</span><span class="p">,</span>
             <span class="s2">&quot;heights&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">,</span>
             <span class="s2">&quot;xs types&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">xsTypes</span><span class="p">,</span>
         <span class="p">}</span>
 
-        <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">materialModifications</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">materialModifications</span><span class="o">.</span><span class="n">byComponent</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
-        <span class="p">):</span>
-            <span class="k">for</span> <span class="n">modName</span><span class="p">,</span> <span class="n">modList</span> <span class="ow">in</span> <span class="n">mod</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">paramName</span> <span class="o">=</span> <span class="s2">&quot;material modifications for </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">modName</span><span class="p">)</span>
+        <span class="c1"># check by-block mat mods</span>
+        <span class="k">for</span> <span class="n">modName</span><span class="p">,</span> <span class="n">modList</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">materialModifications</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">paramName</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;mat mod for </span><span class="si">{</span><span class="n">modName</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">paramsToCheck</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">modList</span>
+
+        <span class="c1"># check by-component mat mods</span>
+        <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">materialModifications</span><span class="o">.</span><span class="n">byComponent</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">modName</span><span class="p">,</span> <span class="n">modList</span> <span class="ow">in</span> <span class="n">comp</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">paramName</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;material modifications for </span><span class="si">{</span><span class="n">modName</span><span class="si">}</span><span class="s2">&quot;</span>
                 <span class="n">paramsToCheck</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">modList</span>
 
+        <span class="c1"># perform the check</span>
         <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">blockVals</span> <span class="ow">in</span> <span class="n">paramsToCheck</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">blockVals</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Assembly </span><span class="si">{}</span><span class="s2"> had </span><span class="si">{}</span><span class="s2"> blocks, but </span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">. These numbers should be equal. &quot;</span>
-                    <span class="s2">&quot;Check input for errors.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">blockVals</span><span class="p">),</span> <span class="n">paramName</span>
-                    <span class="p">)</span>
-                <span class="p">)</span></div>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Assembly </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> had </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span><span class="si">}</span><span class="s2"> block(s), but </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">blockVals</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">paramName</span><span class="si">}</span><span class="s2">&#39;. These numbers should be equal. Check input for errors.&quot;</span>
+                <span class="p">)</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div>
 
 
 <span class="k">for</span> <span class="n">paramDef</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">forType</span><span class="p">(</span><span class="n">assemblies</span><span class="o">.</span><span class="n">Assembly</span><span class="p">)</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span>
@@ -439,7 +444,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-10-04.
+      <span class="lastupdated">Last updated on 2024-10-05.
       </span></p>
   </div>
 
