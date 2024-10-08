@@ -123,6 +123,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">reportPlotting</span>
+<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">units</span>
 
 <span class="n">ORDER</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">BEFORE</span> <span class="o">+</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">BOOKKEEPING</span>
 
@@ -260,14 +261,69 @@
                 <span class="n">report_</span><span class="o">.</span><span class="n">writeHTML</span><span class="p">()</span></div>
 
     <span class="c1"># --------------------------------------------</span>
-    <span class="c1">#        Misc Summaries</span>
+    <span class="c1">#        Ex-Core Summaries</span>
     <span class="c1"># --------------------------------------------</span>
 <div class="viewcode-block" id="ReportInterface.writeRunSummary"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.report.reportInterface.html#armi.bookkeeping.report.reportInterface.ReportInterface.writeRunSummary">[docs]</a>    <span class="k">def</span> <span class="nf">writeRunSummary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Make a summary of the run.&quot;&quot;&quot;</span>
         <span class="c1"># spent fuel pool report</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">sfp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">report</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">count</span><span class="p">()</span></div></div>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">excore</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sfp&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reportSFP</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">excore</span><span class="p">[</span><span class="s2">&quot;sfp&quot;</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">countAssembliesSFP</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">excore</span><span class="p">[</span><span class="s2">&quot;sfp&quot;</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="ReportInterface.reportSFP"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.report.reportInterface.html#armi.bookkeeping.report.reportInterface.ReportInterface.reportSFP">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">reportSFP</span><span class="p">(</span><span class="n">sfp</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A high-level summary of the Spent Fuel Pool.&quot;&quot;&quot;</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="s2">&quot;SpentFuelPool Report&quot;</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">title</span><span class="p">))</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">title</span><span class="p">))</span>
+        <span class="n">totFis</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">sfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">():</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">{assembly:15s}</span><span class="s2"> discharged at t=</span><span class="si">{dTime:10f}</span><span class="s2"> after </span><span class="si">{residence:10f}</span><span class="s2"> yrs. It entered at cycle: </span><span class="si">{cycle}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;It has </span><span class="si">{fiss:10f}</span><span class="s2"> kg (x </span><span class="si">{mult}</span><span class="s2">) fissile and peak BU=</span><span class="si">{bu:.2f}</span><span class="s2"> %.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">assembly</span><span class="o">=</span><span class="n">a</span><span class="p">,</span>
+                    <span class="n">dTime</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">dischargeTime</span><span class="p">,</span>
+                    <span class="n">residence</span><span class="o">=</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">dischargeTime</span> <span class="o">-</span> <span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">chargeTime</span><span class="p">),</span>
+                    <span class="n">cycle</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">chargeCycle</span><span class="p">,</span>
+                    <span class="n">fiss</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">getFissileMass</span><span class="p">(),</span>
+                    <span class="n">bu</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">getMaxParam</span><span class="p">(</span><span class="s2">&quot;percentBu&quot;</span><span class="p">),</span>
+                    <span class="n">mult</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">multiplicity</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">totFis</span> <span class="o">+=</span> <span class="n">a</span><span class="o">.</span><span class="n">getFissileMass</span><span class="p">()</span> <span class="o">*</span> <span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">multiplicity</span> <span class="o">/</span> <span class="mi">1000</span>  <span class="c1"># convert to kg</span>
+
+        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
+            <span class="s2">&quot;Total SFP fissile inventory of </span><span class="si">{0}</span><span class="s2"> is </span><span class="si">{1:.4E}</span><span class="s2"> MT&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">sfp</span><span class="p">,</span> <span class="n">totFis</span> <span class="o">/</span> <span class="mf">1000.0</span>
+            <span class="p">)</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ReportInterface.countAssembliesSFP"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.report.reportInterface.html#armi.bookkeeping.report.reportInterface.ReportInterface.countAssembliesSFP">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">countAssembliesSFP</span><span class="p">(</span><span class="n">sfp</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Report on the count of assemblies in the SFP at each timestep.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">():</span>
+            <span class="k">return</span>
+
+        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Count:&quot;</span><span class="p">)</span>
+        <span class="n">totCount</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">thisTimeCount</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">sfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">lastTime</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">getAge</span><span class="p">()</span> <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">DAYS_PER_YEAR</span> <span class="o">+</span> <span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">chargeTime</span>
+
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">sfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">():</span>
+            <span class="n">thisTime</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">getAge</span><span class="p">()</span> <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">DAYS_PER_YEAR</span> <span class="o">+</span> <span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">chargeTime</span>
+
+            <span class="k">if</span> <span class="n">thisTime</span> <span class="o">!=</span> <span class="n">lastTime</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
+                    <span class="s2">&quot;Number of assemblies moved at t=</span><span class="si">{0:6.2f}</span><span class="s2">: </span><span class="si">{1:04d}</span><span class="s2">. Cumulative: </span><span class="si">{2:04d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">lastTime</span><span class="p">,</span> <span class="n">thisTimeCount</span><span class="p">,</span> <span class="n">totCount</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">lastTime</span> <span class="o">=</span> <span class="n">thisTime</span>
+                <span class="n">thisTimeCount</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">totCount</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># noqa: SIM113</span>
+            <span class="n">thisTimeCount</span> <span class="o">+=</span> <span class="mi">1</span></div></div>
 </pre></div>
 
            </div>
@@ -278,7 +334,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-10-05.
+      <span class="lastupdated">Last updated on 2024-10-08.
       </span></p>
   </div>
 

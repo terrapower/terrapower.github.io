@@ -131,22 +131,23 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">reactorParameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">zones</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.assemblyLists</span> <span class="kn">import</span> <span class="n">SpentFuelPool</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.excoreStructure</span> <span class="kn">import</span> <span class="n">ExcoreCollection</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.excoreStructure</span> <span class="kn">import</span> <span class="n">ExcoreStructure</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.systemLayoutInput</span> <span class="kn">import</span> <span class="n">SystemLayoutInput</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CONF_MATERIAL_NAMESPACE_ORDER</span><span class="p">,</span>
-    <span class="n">CONF_FRESH_FEED_TYPE</span><span class="p">,</span>
-    <span class="n">CONF_SORT_REACTOR</span><span class="p">,</span>
-    <span class="n">CONF_GEOM_FILE</span><span class="p">,</span>
-    <span class="n">CONF_NON_UNIFORM_ASSEM_FLAGS</span><span class="p">,</span>
-    <span class="n">CONF_STATIONARY_BLOCK_FLAGS</span><span class="p">,</span>
-    <span class="n">CONF_ZONE_DEFINITIONS</span><span class="p">,</span>
-    <span class="n">CONF_TRACK_ASSEMS</span><span class="p">,</span>
-    <span class="n">CONF_CIRCULAR_RING_PITCH</span><span class="p">,</span>
     <span class="n">CONF_AUTOMATIC_VARIABLE_MESH</span><span class="p">,</span>
-    <span class="n">CONF_MIN_MESH_SIZE_RATIO</span><span class="p">,</span>
+    <span class="n">CONF_CIRCULAR_RING_PITCH</span><span class="p">,</span>
     <span class="n">CONF_DETAILED_AXIAL_EXPANSION</span><span class="p">,</span>
+    <span class="n">CONF_FRESH_FEED_TYPE</span><span class="p">,</span>
+    <span class="n">CONF_GEOM_FILE</span><span class="p">,</span>
+    <span class="n">CONF_MATERIAL_NAMESPACE_ORDER</span><span class="p">,</span>
+    <span class="n">CONF_MIN_MESH_SIZE_RATIO</span><span class="p">,</span>
+    <span class="n">CONF_NON_UNIFORM_ASSEM_FLAGS</span><span class="p">,</span>
+    <span class="n">CONF_SORT_REACTOR</span><span class="p">,</span>
+    <span class="n">CONF_STATIONARY_BLOCK_FLAGS</span><span class="p">,</span>
+    <span class="n">CONF_TRACK_ASSEMS</span><span class="p">,</span>
+    <span class="n">CONF_ZONE_DEFINITIONS</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">createFormattedStrWithDelimiter</span><span class="p">,</span> <span class="n">units</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">directoryChangers</span>
@@ -192,7 +193,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sfp</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">excore</span> <span class="o">=</span> <span class="n">ExcoreCollection</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">blueprints</span> <span class="o">=</span> <span class="n">blueprints</span>
 
     <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -220,12 +221,17 @@
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cores</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;Only 1 core may be specified at this time. Please adjust input. &quot;</span>
-                    <span class="s2">&quot;Cores found: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cores</span><span class="p">)</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cores</span><span class="p">)</span><span class="si">}</span><span class="s2"> cores found.&quot;</span>
                 <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">core</span> <span class="o">=</span> <span class="n">cores</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">SpentFuelPool</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">sfp</span> <span class="o">=</span> <span class="n">container</span></div>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">ExcoreStructure</span><span class="p">):</span>
+            <span class="n">nomen</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">nomen</span> <span class="o">==</span> <span class="s2">&quot;spentfuelpool&quot;</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Changing the name of the Spent Fuel Pool to &#39;sfp&#39;.&quot;</span><span class="p">)</span>
+                <span class="c1"># special case</span>
+                <span class="n">nomen</span> <span class="o">=</span> <span class="s2">&quot;sfp&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">excore</span><span class="p">[</span><span class="n">nomen</span><span class="p">]</span> <span class="o">=</span> <span class="n">container</span></div>
 
 <div class="viewcode-block" id="Reactor.incrementAssemNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Reactor.incrementAssemNum">[docs]</a>    <span class="k">def</span> <span class="nf">incrementAssemNum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -263,8 +269,9 @@
         <span class="n">ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">normalizeNames</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span> <span class="o">=</span> <span class="n">ind</span>
 
-        <span class="n">ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">normalizeNames</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span> <span class="o">=</span> <span class="n">ind</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">excore</span><span class="o">.</span><span class="n">sfp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">excore</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">normalizeNames</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span> <span class="o">=</span> <span class="n">ind</span>
 
         <span class="k">return</span> <span class="n">ind</span></div></div>
 
@@ -303,6 +310,7 @@
     <span class="k">if</span> <span class="n">cs</span><span class="p">[</span><span class="n">CONF_GEOM_FILE</span><span class="p">]:</span>
         <span class="n">blueprints</span><span class="o">.</span><span class="n">migrate</span><span class="p">(</span><span class="n">bp</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
 
+    <span class="c1"># For now, ARMI will create a default Spent Fuel Pool and add it to every reactor.</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">structure</span><span class="o">.</span><span class="n">typ</span> <span class="o">==</span> <span class="s2">&quot;sfp&quot;</span> <span class="k">for</span> <span class="n">structure</span> <span class="ow">in</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
         <span class="n">bp</span><span class="o">.</span><span class="n">addDefaultSFP</span><span class="p">()</span>
 
@@ -317,16 +325,16 @@
             <span class="n">bpGeom</span> <span class="o">=</span> <span class="n">geom</span> <span class="k">if</span> <span class="n">structure</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;core&quot;</span> <span class="k">else</span> <span class="kc">None</span>
             <span class="n">structure</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">geom</span><span class="o">=</span><span class="n">bpGeom</span><span class="p">)</span>
 
-    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Reactor: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reactor: </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="c1"># return a Reactor object</span>
     <span class="k">if</span> <span class="n">cs</span><span class="p">[</span><span class="n">CONF_SORT_REACTOR</span><span class="p">]:</span>
         <span class="n">r</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">&quot;DeprecationWarning: This Reactor is not being sorted on blueprint read. &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;Due to the setting </span><span class="si">{</span><span class="n">CONF_SORT_REACTOR</span><span class="si">}</span><span class="s2">, this Reactor is unsorted. &quot;</span>
-            <span class="s2">&quot;But this feature is temporary and will be removed by 2024.&quot;</span>
+            <span class="s2">&quot;DeprecationWarning: This Reactor is not being sorted on blueprint read. Due to the &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;setting </span><span class="si">{</span><span class="n">CONF_SORT_REACTOR</span><span class="si">}</span><span class="s2">, this Reactor is unsorted. But this feature is temporary &quot;</span>
+            <span class="s2">&quot;and will be removed by 2024.&quot;</span>
         <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">r</span></div>
@@ -668,8 +676,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">a1</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">discharge</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trackAssems</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">sfp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">a1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">excore</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sfp&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">excore</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">a1</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No Spent Fuel Pool is found, can&#39;t track assemblies.&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -719,24 +727,6 @@
                     <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="n">label</span><span class="o">=</span><span class="s2">&quot;cannot dereference: lost block&quot;</span><span class="p">,</span>
                 <span class="p">)</span>
-
-<div class="viewcode-block" id="Core.removeAllAssemblies"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.removeAllAssemblies">[docs]</a>    <span class="k">def</span> <span class="nf">removeAllAssemblies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">discharge</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Clears the core.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        must clear auxiliary bookkeeping lists as well or else a regeneration step will</span>
-<span class="sd">        auto-add assemblies back in.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">assems</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">removeAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">discharge</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;sfp&quot;</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">removeAll</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">blocksByName</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assembliesByName</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span> <span class="o">=</span> <span class="mi">0</span></div>
 
 <div class="viewcode-block" id="Core.normalizeNames"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.reactors.html#armi.reactor.reactors.Core.normalizeNames">[docs]</a>    <span class="k">def</span> <span class="nf">normalizeNames</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">startIndex</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1338,8 +1328,12 @@
 
         <span class="n">assems</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">sortKey</span><span class="p">))</span>
 
-        <span class="k">if</span> <span class="n">includeSFP</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">sfp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">assems</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">())</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">includeSFP</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">excore</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sfp&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="n">assems</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">excore</span><span class="o">.</span><span class="n">sfp</span><span class="o">.</span><span class="n">getChildren</span><span class="p">())</span>
 
         <span class="k">if</span> <span class="n">typeSpec</span><span class="p">:</span>
             <span class="n">assems</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span> <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="n">exact</span><span class="p">)]</span>
@@ -2654,7 +2648,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-10-05.
+      <span class="lastupdated">Last updated on 2024-10-08.
       </span></p>
   </div>
 
