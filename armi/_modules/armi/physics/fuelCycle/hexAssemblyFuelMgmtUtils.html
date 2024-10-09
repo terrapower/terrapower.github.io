@@ -112,13 +112,11 @@
 <span class="sd">-----</span>
 <span class="sd">We are keeping these in ARMI even if they appear unused internally.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">math</span>
-
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
-<span class="kn">from</span> <span class="nn">armi.utils.hexagon</span> <span class="kn">import</span> <span class="n">getIndexOfRotatedCell</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span> <span class="nn">armi.utils.hexagon</span> <span class="kn">import</span> <span class="n">getIndexOfRotatedCell</span>
 <span class="kn">from</span> <span class="nn">armi.utils.mathematics</span> <span class="kn">import</span> <span class="n">findClosest</span>
 
 
@@ -434,165 +432,6 @@
 
     <span class="c1"># step 4. assemble and return</span>
     <span class="k">return</span> <span class="n">convergent</span><span class="p">,</span> <span class="n">conWidths</span></div>
-
-
-<span class="k">def</span> <span class="nf">_buildEqRingScheduleHelper</span><span class="p">(</span><span class="n">ringSchedule</span><span class="p">,</span> <span class="n">numRings</span><span class="p">):</span>
-<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    turns ``ringScheduler`` into explicit list of rings.</span>
-
-<span class="sd">    Pulled out of buildEqRingSchedule for testing.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    ringSchedule : list</span>
-<span class="sd">        List of ring bounds that is required to be an even number of entries.  These</span>
-<span class="sd">        entries then are used in a from - to approach to add the rings.  The from ring will</span>
-<span class="sd">        always be included.</span>
-
-<span class="sd">    numRings : int</span>
-<span class="sd">        The number of rings in the hex assembly reactor.</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    ringList : list</span>
-<span class="sd">        List of all rings in the order they should be shuffled.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; _buildEqRingScheduleHelper([1,5])</span>
-<span class="sd">    [1,2,3,4,5]</span>
-
-<span class="sd">    &gt;&gt;&gt; _buildEqRingScheduleHelper([1,5,9,6])</span>
-<span class="sd">    [1,2,3,4,5,9,8,7,6]</span>
-
-<span class="sd">    &gt;&gt;&gt; _buildEqRingScheduleHelper([9,5,3,4,1,2])</span>
-<span class="sd">    [9,8,7,6,5,3,4,1,2]</span>
-
-<span class="sd">    &gt;&gt;&gt; _buildEqRingScheduleHelper([2,5,1,1])</span>
-<span class="sd">    [2,3,4,5,1]</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ringSchedule</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Ring schedule: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ringSchedule</span><span class="p">))</span>
-        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Ring schedule does not have an even number of entries.&quot;</span><span class="p">)</span>
-
-    <span class="n">ringList</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ringSchedule</span><span class="p">),</span> <span class="mi">2</span><span class="p">):</span>
-        <span class="n">fromRing</span> <span class="o">=</span> <span class="n">ringSchedule</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-        <span class="n">toRing</span> <span class="o">=</span> <span class="n">ringSchedule</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-        <span class="n">numRings</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">toRing</span> <span class="o">-</span> <span class="n">fromRing</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
-
-        <span class="n">ringList</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">fromRing</span><span class="p">,</span> <span class="n">toRing</span><span class="p">,</span> <span class="n">numRings</span><span class="p">)])</span>
-
-    <span class="c1"># eliminate doubles (but allow a ring to show up multiple times)</span>
-    <span class="n">newList</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">lastRing</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="n">ringList</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">ring</span> <span class="o">!=</span> <span class="n">lastRing</span><span class="p">:</span>
-            <span class="n">newList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ring</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">ring</span> <span class="o">&gt;</span> <span class="n">numRings</span><span class="p">:</span>
-            <span class="c1"># error checking</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Ring </span><span class="si">{0}</span><span class="s2"> in eqRingSchedule larger than largest ring in reactor </span><span class="si">{1}</span><span class="s2">. &quot;</span>
-                <span class="s2">&quot;Adjust shuffling.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ring</span><span class="p">,</span> <span class="n">numRings</span><span class="p">),</span>
-                <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">label</span><span class="o">=</span><span class="s2">&quot;too many rings&quot;</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="n">lastRing</span> <span class="o">=</span> <span class="n">ring</span>
-
-    <span class="k">return</span> <span class="n">newList</span>
-
-
-<span class="k">def</span> <span class="nf">_squaredDistanceFromOrigin</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the squared distance from the origin of an assembly.</span>
-
-<span class="sd">    Notes</span>
-<span class="sd">    -----</span>
-<span class="sd">    Just a helper for ``buildEqRingSchedule()``</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    a: Assembly</span>
-<span class="sd">        Fully initialize Assembly object; already part of a reactor core.</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    float: Distance from reactor center</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">origin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>
-    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">())</span>
-    <span class="k">return</span> <span class="p">((</span><span class="n">p</span> <span class="o">-</span> <span class="n">origin</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-
-
-<span class="k">def</span> <span class="nf">_assemAngle</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the angle of the Assembly, in the reactor core.</span>
-
-<span class="sd">    Notes</span>
-<span class="sd">    -----</span>
-<span class="sd">    Just a helper for ``buildEqRingSchedule()``</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    a: Assembly</span>
-<span class="sd">        Fully initialize Assembly object; already part of a reactor core.</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    float: Angle position of assembly around the reactor core</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span>
-    <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">atan2</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
-
-
-<div class="viewcode-block" id="buildEqRingSchedule"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.hexAssemblyFuelMgmtUtils.html#armi.physics.fuelCycle.hexAssemblyFuelMgmtUtils.buildEqRingSchedule">[docs]</a><span class="k">def</span> <span class="nf">buildEqRingSchedule</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">ringSchedule</span><span class="p">,</span> <span class="n">circularRingOrder</span><span class="p">):</span>
-<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Expands simple ``ringSchedule`` input into full-on location schedule.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    core : Core object</span>
-<span class="sd">        Fully initialized Core object, for a hex assembly reactor.</span>
-
-<span class="sd">    ringSchedule : list</span>
-<span class="sd">        List of ring bounds that is required to be an even number of entries.  These</span>
-<span class="sd">        entries then are used in a from - to approach to add the rings.  The from ring will</span>
-<span class="sd">        always be included.</span>
-
-<span class="sd">    circularRingOrder : str</span>
-<span class="sd">        From the circularRingOrder setting. Valid values include angle and distanceSmart,</span>
-<span class="sd">        anything else will</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    list: location schedule</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># start by expanding the user-input eqRingSchedule list into a list containing</span>
-    <span class="c1"># all the rings as it goes.</span>
-    <span class="n">ringList</span> <span class="o">=</span> <span class="n">_buildEqRingScheduleHelper</span><span class="p">(</span><span class="n">ringSchedule</span><span class="p">,</span> <span class="n">core</span><span class="o">.</span><span class="n">getNumRings</span><span class="p">())</span>
-
-    <span class="c1"># now build the locationSchedule ring by ring using this ringSchedule</span>
-    <span class="n">lastRing</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">locationSchedule</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="n">ringList</span><span class="p">:</span>
-        <span class="n">assemsInRing</span> <span class="o">=</span> <span class="n">core</span><span class="o">.</span><span class="n">getAssembliesInRing</span><span class="p">(</span><span class="n">ring</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">circularRingOrder</span> <span class="o">==</span> <span class="s2">&quot;angle&quot;</span><span class="p">:</span>
-            <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">_assemAngle</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">circularRingOrder</span> <span class="o">==</span> <span class="s2">&quot;distanceSmart&quot;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">lastRing</span> <span class="o">==</span> <span class="n">ring</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="c1"># converging. Put things on the outside first.</span>
-                <span class="n">sorter</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="o">-</span><span class="n">_squaredDistanceFromOrigin</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># diverging. Put things on the inside first.</span>
-                <span class="n">sorter</span> <span class="o">=</span> <span class="n">_squaredDistanceFromOrigin</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># purely based on distance. Can mix things up in convergent-divergent cases. Prefer distanceSmart</span>
-            <span class="n">sorter</span> <span class="o">=</span> <span class="n">_squaredDistanceFromOrigin</span>
-
-        <span class="n">assemsInRing</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">assemsInRing</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">sorter</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assemsInRing</span><span class="p">:</span>
-            <span class="n">locationSchedule</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">getLocation</span><span class="p">())</span>
-        <span class="n">lastRing</span> <span class="o">=</span> <span class="n">ring</span>
-
-    <span class="k">return</span> <span class="n">locationSchedule</span></div>
 </pre></div>
 
            </div>
@@ -603,7 +442,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-10-08.
+      <span class="lastupdated">Last updated on 2024-10-09.
       </span></p>
   </div>
 
