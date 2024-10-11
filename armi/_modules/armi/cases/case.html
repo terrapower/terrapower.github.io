@@ -970,6 +970,7 @@
 <span class="sd">    enables developers to add new inputs in a plugin-dependent/ modular way.</span>
 
 <span class="sd">    This function should now be able to handle the updating of:</span>
+
 <span class="sd">      - a single file (relative or absolute)</span>
 <span class="sd">      - a list of files (relative or absolute), and</span>
 <span class="sd">      - a file entry that has a wildcard processing into multiple files.</span>
@@ -988,12 +989,12 @@
 <span class="sd">        The source case settings to find input files</span>
 <span class="sd">    destination : str</span>
 <span class="sd">        The target directory to copy input files to</span>
-<span class="sd">    sourceDir : str (optional)</span>
+<span class="sd">    sourceDir : str, optional</span>
 <span class="sd">        The directory from which to copy files. Defaults to cs.inputDirectory</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    newSettings : dict</span>
+<span class="sd">    dict</span>
 <span class="sd">        A new settings object that contains settings for the keys and values that are</span>
 <span class="sd">        either an absolute file path, a list of absolute file paths, or the original</span>
 <span class="sd">        file path if absolute paths could not be resolved</span>
@@ -1019,12 +1020,15 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">Setting</span><span class="p">):</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">key</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">getSetting</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                    <span class="n">label</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">name</span>
+                    <span class="n">isSetting</span> <span class="o">=</span> <span class="kc">True</span>
                 <span class="k">except</span> <span class="n">NonexistentSetting</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> is not a valid setting. Ensure the relevant specifyInputs &quot;</span>
-                        <span class="s2">&quot;method uses a correct setting name.&quot;</span>
-                    <span class="p">)</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">name</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> is not a valid setting; continuing on anyway.&quot;</span><span class="p">)</span>
+                    <span class="n">label</span> <span class="o">=</span> <span class="n">key</span>
+                    <span class="n">isSetting</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">isSetting</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">label</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">name</span>
 
             <span class="n">newFiles</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
@@ -1069,16 +1073,17 @@
 
                 <span class="k">if</span> <span class="n">destFilePath</span> <span class="o">==</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;No input files for `</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">` setting could be resolved with &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;the following path: `</span><span class="si">{</span><span class="n">sourceFullPath</span><span class="si">}</span><span class="s2">`. Will not update `</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">`.&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;No input files for `</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">` could be resolved with the &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;following path: `</span><span class="si">{</span><span class="n">sourceFullPath</span><span class="si">}</span><span class="s2">`. Will not update `</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">`.&quot;</span>
                     <span class="p">)</span>
 
             <span class="c1"># Some settings are a single filename. Others are lists of files. Make</span>
             <span class="c1"># sure we are returning what the setting expects</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">WILDCARD</span><span class="p">:</span>
-                <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">newFiles</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">newFiles</span>
+            <span class="k">if</span> <span class="n">isSetting</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">WILDCARD</span><span class="p">:</span>
+                    <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">newFiles</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">newFiles</span>
 
     <span class="k">return</span> <span class="n">newSettings</span></div>
 </pre></div>
@@ -1091,7 +1096,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-10-09.
+      <span class="lastupdated">Last updated on 2024-10-11.
       </span></p>
   </div>
 
