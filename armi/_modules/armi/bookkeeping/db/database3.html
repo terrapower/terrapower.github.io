@@ -168,6 +168,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.components</span> <span class="kn">import</span> <span class="n">Component</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.composites</span> <span class="kn">import</span> <span class="n">ArmiObject</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.parameters</span> <span class="kn">import</span> <span class="n">parameterCollections</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.reactorParameters</span> <span class="kn">import</span> <span class="n">makeParametersReadOnly</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.reactors</span> <span class="kn">import</span> <span class="n">Core</span><span class="p">,</span> <span class="n">Reactor</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_SORT_REACTOR</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">getNodesPerCycle</span>
@@ -802,13 +803,11 @@
         <span class="n">statePointName</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">allowMissing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a new reactor from (cycle, node).</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a new reactor from a DB at (cycle, node).</span>
 
-<span class="sd">        Case settings and blueprints can be provided by the client, or read from the</span>
-<span class="sd">        database itself. Providing these from the client could be useful when</span>
-<span class="sd">        performing snapshot runs or where it is expected to use results from a run</span>
-<span class="sd">        using different settings and continue with new settings (or if blueprints are</span>
-<span class="sd">        not on the database). Geometry is read from the database itself.</span>
+<span class="sd">        Case settings and blueprints can be provided, or read from the database. Providing these</span>
+<span class="sd">        can be useful for snapshot runs or when you want to change settings mid-simulation. Geometry</span>
+<span class="sd">        is read from the database.</span>
 
 <span class="sd">        .. impl:: Users can load a reactor from a DB.</span>
 <span class="sd">            :id: I_ARMI_DB_R_LOAD</span>
@@ -828,14 +827,13 @@
 <span class="sd">        cycle : int</span>
 <span class="sd">            Cycle number</span>
 <span class="sd">        node : int</span>
-<span class="sd">            Time node. If value is negative, will be indexed from EOC backwards</span>
-<span class="sd">            like a list.</span>
-<span class="sd">        cs : armi.settings.Settings (optional)</span>
+<span class="sd">            Time node. If value is negative, will be indexed from EOC backwards like a list.</span>
+<span class="sd">        cs : armi.settings.Settings, optional</span>
 <span class="sd">            If not provided one is read from the database</span>
-<span class="sd">        bp : armi.reactor.Blueprints (optional)</span>
+<span class="sd">        bp : armi.reactor.Blueprints, optional</span>
 <span class="sd">            If not provided one is read from the database</span>
-<span class="sd">        statePointName : str</span>
-<span class="sd">            Optional arbitrary statepoint name (e.g., &quot;special&quot; for &quot;c00n00-special/&quot;)</span>
+<span class="sd">        statePointName : str, optional</span>
+<span class="sd">            Statepoint name (e.g., &quot;special&quot; for &quot;c00n00-special/&quot;)</span>
 <span class="sd">        allowMissing : bool, optional</span>
 <span class="sd">            Whether to emit a warning, rather than crash if reading a database</span>
 <span class="sd">            with undefined parameters. Default False.</span>
@@ -891,6 +889,37 @@
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">root</span></div>
+
+<div class="viewcode-block" id="Database3.loadReadOnly"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database3.html#armi.bookkeeping.db.Database3.loadReadOnly">[docs]</a>    <span class="k">def</span> <span class="nf">loadReadOnly</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">statePointName</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load a new reactor, in read-only mode from a DB at (cycle, node).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        cycle : int</span>
+<span class="sd">            Cycle number</span>
+<span class="sd">        node : int</span>
+<span class="sd">            Time node. If value is negative, will be indexed from EOC backwards like a list.</span>
+<span class="sd">        statePointName : str, optional</span>
+<span class="sd">            Statepoint name (e.g., &quot;special&quot; for &quot;c00n00-special/&quot;)</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Reactor</span>
+<span class="sd">            The top-level object stored in the database; a Reactor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">statePointName</span><span class="o">=</span><span class="n">statePointName</span><span class="p">,</span> <span class="n">allowMissing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setParamsBeforeFreezing</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="n">makeParametersReadOnly</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">r</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_setParamsBeforeFreezing</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set some special case parameters before they are made read-only.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">getChildren</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">Component</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="c1"># calling Component.getVolume() sets the volume parameter</span>
+            <span class="n">child</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_assignBlueprintsParams</span><span class="p">(</span><span class="n">blueprints</span><span class="p">,</span> <span class="n">groupedComps</span><span class="p">):</span>
