@@ -221,11 +221,16 @@
             <span class="n">result</span> <span class="o">|=</span> <span class="n">_CONVERSIONS</span><span class="p">[</span><span class="n">conversion</span><span class="p">]</span>
 
     <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">typeSpec</span><span class="o">.</span><span class="n">split</span><span class="p">():</span>
-        <span class="c1"># ignore numbers so we don&#39;t have to define flags up to 217+ (number of pins/assem)</span>
-        <span class="n">typeSpecWithoutNumbers</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">name</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">c</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()])</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">typeSpecWithoutNumbers</span><span class="p">:</span>
-            <span class="k">continue</span>
-        <span class="n">result</span> <span class="o">|=</span> <span class="n">updateMethod</span><span class="p">(</span><span class="n">typeSpecWithoutNumbers</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># first, check for an exact match, to cover flags with digits</span>
+            <span class="n">result</span> <span class="o">|=</span> <span class="bp">cls</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="c1"># ignore numbers so we don&#39;t have to define flags up to the number of pins/assem</span>
+            <span class="n">typeSpecWithoutNumbers</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">name</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">c</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()])</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">typeSpecWithoutNumbers</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">result</span> <span class="o">|=</span> <span class="n">updateMethod</span><span class="p">(</span><span class="n">typeSpecWithoutNumbers</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">result</span>
 
 
@@ -241,8 +246,7 @@
 
 <span class="sd">    Complications arise when:</span>
 
-<span class="sd">    a. multiple-word flags are used such as *grid plate* or</span>
-<span class="sd">       *inlet nozzle* so we use lookups.</span>
+<span class="sd">    a. multiple-word flags are used such as *grid plate* or *inlet nozzle* so we use lookups.</span>
 <span class="sd">    b. Some flags have digits in them. We just strip those off.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -263,8 +267,8 @@
             <span class="k">return</span> <span class="bp">cls</span><span class="p">[</span><span class="n">typeSpec</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InvalidFlagsError</span><span class="p">(</span>
-                <span class="s2">&quot;The requested type specification `</span><span class="si">{}</span><span class="s2">` is invalid. &quot;</span>
-                <span class="s2">&quot;See armi.reactor.flags documentation.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">)</span>
+                <span class="sa">f</span><span class="s2">&quot;The requested type specification `</span><span class="si">{</span><span class="n">typeSpec</span><span class="si">}</span><span class="s2">` is invalid. &quot;</span>
+                <span class="s2">&quot;See armi.reactor.flags documentation.&quot;</span>
             <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">__fromStringGeneral</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">,</span> <span class="n">updateMethod</span><span class="p">)</span>
@@ -382,15 +386,14 @@
 <span class="sd">            :id: I_ARMI_FLAG_TO_STR0</span>
 <span class="sd">            :implements: R_ARMI_FLAG_TO_STR</span>
 
-<span class="sd">            For a string passed as ``typeSpec``, first converts the whole string</span>
-<span class="sd">            to uppercase. Then tries to parse the string for any special phrases, as</span>
-<span class="sd">            defined in the module dictionary ``_CONVERSIONS``, and converts those</span>
-<span class="sd">            phrases to flags directly.</span>
+<span class="sd">            For a string passed as ``typeSpec``, first converts the whole string to uppercase. Then</span>
+<span class="sd">            tries to parse the string for any special phrases, as defined in the module dictionary</span>
+<span class="sd">            ``_CONVERSIONS``, and converts those phrases to flags directly.</span>
 
-<span class="sd">            Then it splits the remaining string into separate words based on the presence</span>
-<span class="sd">            of spaces. Looping over each of the words, any numbers are stripped out</span>
-<span class="sd">            and the remaining string is matched up to any class attribute names.</span>
-<span class="sd">            If any matches are found these are returned as flags.</span>
+<span class="sd">            Then it splits the remaining string into words based on spaces. Looping over each of the</span>
+<span class="sd">            words, if any word exactly matches a flag name. Otherwise, any numbers are stripped out</span>
+<span class="sd">            and the remaining string is matched up to any class attribute names. If any matches are</span>
+<span class="sd">            found these are returned as flags.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_fromString</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">)</span></div>
 
@@ -403,11 +406,9 @@
 <span class="sd">            :id: I_ARMI_FLAG_TO_STR1</span>
 <span class="sd">            :implements: R_ARMI_FLAG_TO_STR</span>
 
-<span class="sd">            This converts the representation of a bunch of flags from ``typeSpec``,</span>
-<span class="sd">            which might look like ``Flags.A|B``,</span>
-<span class="sd">            into a string with spaces in between the flag names, which would look</span>
-<span class="sd">            like  ``&#39;A B&#39;``. This is done via nesting string splitting and replacement</span>
-<span class="sd">            actions.</span>
+<span class="sd">            This converts the representation of a bunch of flags from ``typeSpec``, which might look</span>
+<span class="sd">            like ``Flags.A|B``, into a string with spaces in between the flag names, which would</span>
+<span class="sd">            look like  ``&#39;A B&#39;``. This is done via nesting string splitting and replacement actions.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">_toString</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">)</span></div></div>
 
@@ -454,7 +455,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-10-21.
+      <span class="lastupdated">Last updated on 2024-10-22.
       </span></p>
   </div>
 
