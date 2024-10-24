@@ -165,6 +165,8 @@
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">parameters</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.reactors</span> <span class="kn">import</span> <span class="n">Reactor</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="n">CONF_UNIFORM_MESH_MINIMUM_SIZE</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.globalFlux</span> <span class="kn">import</span> <span class="n">RX_PARAM_NAMES</span><span class="p">,</span> <span class="n">RX_ABS_MICRO_LABELS</span>
+
 
 <span class="n">HEAVY_METAL_PARAMS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;molesHmBOL&quot;</span><span class="p">,</span> <span class="s2">&quot;massHmBOL&quot;</span><span class="p">]</span>
 
@@ -1193,12 +1195,41 @@
                     <span class="n">aDest</span><span class="p">,</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">paramMapper</span><span class="p">,</span>
                     <span class="n">mapNumberDensities</span><span class="p">,</span>
-                    <span class="n">calcReactionRates</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">calcReactionRates</span><span class="p">,</span>
+                    <span class="n">calcReactionRates</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="c1"># If requested, the reaction rates will be calculated based on the</span>
+            <span class="c1"># mapped neutron flux and the XS library.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">calcReactionRates</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_calculateReactionRatesEfficient</span><span class="p">(</span>
+                    <span class="n">destReactor</span><span class="o">.</span><span class="n">core</span><span class="p">,</span> <span class="n">sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">keff</span>
                 <span class="p">)</span>
 
         <span class="c1"># Clear the cached data after it has been mapped to prevent issues with</span>
         <span class="c1"># holding on to block data long-term.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cachedReactorCoreParamData</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_calculateReactionRatesEfficient</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">keff</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        First, sort blocks into groups by XS type. Then, we just need to grab micros for each XS type once.</span>
+
+<span class="sd">        Iterate over list of blocks with the given XS type; calculate reaction rates for these blocks</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xsTypeGroups</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
+            <span class="n">xsTypeGroups</span><span class="p">[</span><span class="n">b</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">xsID</span><span class="p">,</span> <span class="n">blockList</span> <span class="ow">in</span> <span class="n">xsTypeGroups</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">nucSet</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blockList</span><span class="p">:</span>
+                <span class="n">nucSet</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                    <span class="n">nuc</span> <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">ndens</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">ndens</span> <span class="o">&gt;</span> <span class="mf">0.0</span>
+                <span class="p">)</span>
+            <span class="n">xsNucDict</span> <span class="o">=</span> <span class="p">{</span><span class="n">nuc</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">getNuclide</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">xsID</span><span class="p">)</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nucSet</span><span class="p">}</span>
+            <span class="n">UniformMeshGeometryConverter</span><span class="o">.</span><span class="n">_calcReactionRatesBlockList</span><span class="p">(</span>
+                <span class="n">blockList</span><span class="p">,</span> <span class="n">keff</span><span class="p">,</span> <span class="n">xsNucDict</span>
+            <span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_calculateReactionRates</span><span class="p">(</span><span class="n">lib</span><span class="p">,</span> <span class="n">keff</span><span class="p">,</span> <span class="n">assem</span><span class="p">):</span>
@@ -1223,6 +1254,87 @@
                 <span class="k">continue</span>
             <span class="n">globalFluxInterface</span><span class="o">.</span><span class="n">calcReactionRates</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">keff</span><span class="p">,</span> <span class="n">lib</span><span class="p">)</span>
 
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_calcReactionRatesBlockList</span><span class="p">(</span><span class="n">objList</span><span class="p">,</span> <span class="n">keff</span><span class="p">,</span> <span class="n">xsNucDict</span><span class="p">):</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute 1-group reaction rates for the objects in objList (usually a block).</span>
+
+<span class="sd">        :meta public:</span>
+
+<span class="sd">        .. impl:: Return the reaction rates for a given ArmiObject</span>
+<span class="sd">            :id: I_ARMI_FLUX_RX_RATES_BY_XS_ID</span>
+<span class="sd">            :implements: R_ARMI_FLUX_RX_RATES</span>
+
+<span class="sd">            This is an alternative implementation of :need:`I_ARMI_FLUX_RX_RATES` that</span>
+<span class="sd">            is more efficient when computing reaction rates for a large set of blocks</span>
+<span class="sd">            that share a common set of microscopic cross sections.</span>
+
+<span class="sd">            For more detail on the reation rate calculations, see :need:`I_ARMI_FLUX_RX_RATES`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        objList : List[Block]</span>
+<span class="sd">            The list of objects to compute reaction rates on. Notionally this could be upgraded to be</span>
+<span class="sd">            any kind of ArmiObject but with params defined as they are it currently is only</span>
+<span class="sd">            implemented for a block.</span>
+
+<span class="sd">        keff : float</span>
+<span class="sd">            The keff of the core. This is required to get the neutron production rate correct</span>
+<span class="sd">            via the neutron balance statement (since nuSigF has a 1/keff term).</span>
+
+<span class="sd">        xsNucDict: Dict[str, XSNuclide]</span>
+<span class="sd">            Microscopic cross sections to use in computing the reaction rates. Keys are</span>
+<span class="sd">            nuclide names (e.g., &quot;U235&quot;) and values are the associated XSNuclide objects</span>
+<span class="sd">            from the cross section library, which contain the microscopic cross section</span>
+<span class="sd">            data for a given nuclide in the current cross section group.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">objList</span><span class="p">:</span>
+            <span class="n">rate</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+            <span class="n">numberDensities</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">mgFlux</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">getMgFlux</span><span class="p">())</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="k">for</span> <span class="n">nucName</span><span class="p">,</span> <span class="n">numberDensity</span> <span class="ow">in</span> <span class="n">numberDensities</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">numberDensity</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">nucRate</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+                <span class="n">micros</span> <span class="o">=</span> <span class="n">xsNucDict</span><span class="p">[</span><span class="n">nucName</span><span class="p">]</span><span class="o">.</span><span class="n">micros</span>
+
+                <span class="c1"># absorption is fission + capture (no n2n here)</span>
+                <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">RX_ABS_MICRO_LABELS</span><span class="p">:</span>
+                    <span class="n">volumetricRR</span> <span class="o">=</span> <span class="n">numberDensity</span> <span class="o">*</span> <span class="n">mgFlux</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">micros</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+                    <span class="n">nucRate</span><span class="p">[</span><span class="s2">&quot;rateAbs&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">volumetricRR</span>
+                    <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;fission&quot;</span><span class="p">:</span>
+                        <span class="n">nucRate</span><span class="p">[</span><span class="s2">&quot;rateCap&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">volumetricRR</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">nucRate</span><span class="p">[</span><span class="s2">&quot;rateFis&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">volumetricRR</span>
+                        <span class="c1"># scale nu by keff.</span>
+                        <span class="n">nusigmaF</span> <span class="o">=</span> <span class="n">micros</span><span class="p">[</span><span class="s2">&quot;fission&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">micros</span><span class="o">.</span><span class="n">neutronsPerFission</span>
+                        <span class="n">nucRate</span><span class="p">[</span><span class="s2">&quot;rateProdFis&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span>
+                            <span class="n">numberDensity</span> <span class="o">*</span> <span class="n">mgFlux</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">nusigmaF</span><span class="p">)</span> <span class="o">/</span> <span class="n">keff</span>
+                        <span class="p">)</span>
+
+                <span class="n">nucRate</span><span class="p">[</span><span class="s2">&quot;rateProdN2n&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">numberDensity</span> <span class="o">*</span> <span class="n">mgFlux</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">micros</span><span class="o">.</span><span class="n">n2n</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">rx</span> <span class="ow">in</span> <span class="n">RX_PARAM_NAMES</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">nucRate</span><span class="p">[</span><span class="n">rx</span><span class="p">]:</span>
+                        <span class="n">rate</span><span class="p">[</span><span class="n">rx</span><span class="p">]</span> <span class="o">+=</span> <span class="n">nucRate</span><span class="p">[</span><span class="n">rx</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">paramName</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">rate</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>  <span class="c1"># put in #/cm^3/s</span>
+
+            <span class="k">if</span> <span class="n">rate</span><span class="p">[</span><span class="s2">&quot;rateFis&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">fuelVolFrac</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">getComponentAreaFrac</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
+                <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">fisDens</span> <span class="o">=</span> <span class="n">rate</span><span class="p">[</span><span class="s2">&quot;rateFis&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">fuelVolFrac</span>
+                <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">fisDensHom</span> <span class="o">=</span> <span class="n">rate</span><span class="p">[</span><span class="s2">&quot;rateFis&quot;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">fisDens</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">fisDensHom</span> <span class="o">=</span> <span class="mf">0.0</span>
+
 <div class="viewcode-block" id="UniformMeshGeometryConverter.updateReactionRates"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.UniformMeshGeometryConverter.updateReactionRates">[docs]</a>    <span class="k">def</span> <span class="nf">updateReactionRates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Update reaction rates on converted assemblies.</span>
@@ -1240,10 +1352,9 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">keff</span><span class="p">,</span> <span class="n">assem</span>
                 <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">assem</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">():</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_calculateReactionRates</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">lib</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">keff</span><span class="p">,</span> <span class="n">assem</span>
-                <span class="p">)</span></div></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_calculateReactionRatesEfficient</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">convReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">keff</span>
+            <span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="NeutronicsUniformMeshConverter"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.uniformMesh.html#armi.reactor.converters.uniformMesh.NeutronicsUniformMeshConverter">[docs]</a><span class="k">class</span> <span class="nc">NeutronicsUniformMeshConverter</span><span class="p">(</span><span class="n">UniformMeshGeometryConverter</span><span class="p">):</span>
