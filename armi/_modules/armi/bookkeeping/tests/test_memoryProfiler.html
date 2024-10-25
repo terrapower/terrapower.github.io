@@ -106,11 +106,16 @@
 <span class="c1"># limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;Tests for memoryProfiler.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">MagicMock</span><span class="p">,</span> <span class="n">patch</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">unittest</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">memoryProfiler</span>
+<span class="kn">from</span> <span class="nn">armi.bookkeeping.memoryProfiler</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">getCurrentMemoryUsage</span><span class="p">,</span>
+    <span class="n">getTotalJobMemory</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.tests</span> <span class="kn">import</span> <span class="n">test_reactors</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span><span class="p">,</span> <span class="n">TEST_ROOT</span>
 
@@ -122,7 +127,9 @@
             <span class="p">{</span><span class="s2">&quot;debugMem&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
             <span class="n">inputFileName</span><span class="o">=</span><span class="s2">&quot;smallestTestReactor/armiRunSmallest.yaml&quot;</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">memPro</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;memoryProfiler&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memPro</span><span class="p">:</span> <span class="n">memoryProfiler</span><span class="o">.</span><span class="n">MemoryProfiler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span>
+            <span class="s2">&quot;memoryProfiler&quot;</span>
+        <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">tearDown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">removeInterface</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">memPro</span><span class="p">)</span>
@@ -214,7 +221,74 @@
 
 <div class="viewcode-block" id="TestMemoryProfiler.test_profileMemoryUsageAction"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.tests.test_memoryProfiler.html#armi.bookkeeping.tests.test_memoryProfiler.TestMemoryProfiler.test_profileMemoryUsageAction">[docs]</a>    <span class="k">def</span> <span class="nf">test_profileMemoryUsageAction</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">pmua</span> <span class="o">=</span> <span class="n">memoryProfiler</span><span class="o">.</span><span class="n">ProfileMemoryUsageAction</span><span class="p">(</span><span class="s2">&quot;timeDesc&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">pmua</span><span class="o">.</span><span class="n">timeDescription</span><span class="p">,</span> <span class="s2">&quot;timeDesc&quot;</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">pmua</span><span class="o">.</span><span class="n">timeDescription</span><span class="p">,</span> <span class="s2">&quot;timeDesc&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestMemoryProfiler.test_getTotalJobMemory"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.tests.test_memoryProfiler.html#armi.bookkeeping.tests.test_memoryProfiler.TestMemoryProfiler.test_getTotalJobMemory">[docs]</a>    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;psutil.virtual_memory&quot;</span><span class="p">)</span>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.bookkeeping.memoryProfiler.cpu_count&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_getTotalJobMemory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mockCpuCount</span><span class="p">,</span> <span class="n">mockVMem</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Use an example node with 50 GB of total physical memory and 10 CPUs.&quot;&quot;&quot;</span>
+        <span class="n">mockCpuCount</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="mi">10</span>
+        <span class="n">vMem</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
+        <span class="n">vMem</span><span class="o">.</span><span class="n">total</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1024</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="mi">50</span>
+        <span class="n">mockVMem</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">vMem</span>
+
+        <span class="n">expectedArrangement</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mi">45</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">5</span><span class="p">:</span> <span class="mi">50</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">nTasksPerNode</span><span class="p">,</span> <span class="n">jobMemory</span> <span class="ow">in</span> <span class="n">expectedArrangement</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">getTotalJobMemory</span><span class="p">(</span><span class="n">nTasksPerNode</span><span class="p">),</span> <span class="n">jobMemory</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestMemoryProfiler.test_getCurrentMemoryUsage"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.tests.test_memoryProfiler.html#armi.bookkeeping.tests.test_memoryProfiler.TestMemoryProfiler.test_getCurrentMemoryUsage">[docs]</a>    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.bookkeeping.memoryProfiler.PrintSystemMemoryUsageAction&quot;</span><span class="p">)</span>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.bookkeeping.memoryProfiler.SystemAndProcessMemoryUsage&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_getCurrentMemoryUsage</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">mockSysAndProcMemUse</span><span class="p">,</span> <span class="n">mockPrintSysMemUseAction</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mock the memory usage across 3 different processes and that the total usage is as expected (6 MB).&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setMemUseMock</span><span class="p">(</span><span class="n">mockPrintSysMemUseAction</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">getCurrentMemoryUsage</span><span class="p">(),</span> <span class="mi">6</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestMemoryProfiler.test_printCurrentMemoryState"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.tests.test_memoryProfiler.html#armi.bookkeeping.tests.test_memoryProfiler.TestMemoryProfiler.test_printCurrentMemoryState">[docs]</a>    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.bookkeeping.memoryProfiler.PrintSystemMemoryUsageAction&quot;</span><span class="p">)</span>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.bookkeeping.memoryProfiler.SystemAndProcessMemoryUsage&quot;</span><span class="p">)</span>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;psutil.virtual_memory&quot;</span><span class="p">)</span>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.bookkeeping.memoryProfiler.cpu_count&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">test_printCurrentMemoryState</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">mockCpuCount</span><span class="p">,</span> <span class="n">mockVMem</span><span class="p">,</span> <span class="n">mock1</span><span class="p">,</span> <span class="n">mockPrintSysMemUseAction</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Use an example node with 50 GB of total physical memory and 10 CPUs while using 6 GB.&quot;&quot;&quot;</span>
+        <span class="n">mockCpuCount</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="mi">10</span>
+        <span class="n">vMem</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
+        <span class="n">vMem</span><span class="o">.</span><span class="n">total</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1024</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="mi">50</span>
+        <span class="n">mockVMem</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">vMem</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setMemUseMock</span><span class="p">(</span><span class="n">mockPrintSysMemUseAction</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mockLogs</span><span class="p">:</span>
+            <span class="n">csMock</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
+            <span class="n">csMock</span><span class="o">.</span><span class="fm">__getitem__</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="mi">2</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">memPro</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="n">csMock</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">memPro</span><span class="o">.</span><span class="n">printCurrentMemoryState</span><span class="p">()</span>
+            <span class="n">stdOut</span> <span class="o">=</span> <span class="n">mockLogs</span><span class="o">.</span><span class="n">getStdout</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Currently using 6.0 GB of memory.&quot;</span><span class="p">,</span> <span class="n">stdOut</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;There is 44.0 GB of memory left.&quot;</span><span class="p">,</span> <span class="n">stdOut</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;There is a total allocation of 50.0 GB&quot;</span><span class="p">,</span> <span class="n">stdOut</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestMemoryProfiler.test_printCurrentMemoryState_noSetting"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.tests.test_memoryProfiler.html#armi.bookkeeping.tests.test_memoryProfiler.TestMemoryProfiler.test_printCurrentMemoryState_noSetting">[docs]</a>    <span class="k">def</span> <span class="nf">test_printCurrentMemoryState_noSetting</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that the try/except works as it should.&quot;&quot;&quot;</span>
+        <span class="n">expectedStr</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;To view memory consumed, remaining available, and total allocated for a case, &quot;</span>
+            <span class="s2">&quot;add the setting &#39;nTasksPerNode&#39; to your application.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mockLogs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">memPro</span><span class="o">.</span><span class="n">printCurrentMemoryState</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="n">expectedStr</span><span class="p">,</span> <span class="n">mockLogs</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span></div>
+
+    <span class="k">def</span> <span class="nf">_setMemUseMock</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mockPrintSysMemUseAction</span><span class="p">):</span>
+        <span class="k">class</span> <span class="nc">mockMemUse</span><span class="p">:</span>
+            <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mem</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">processVirtualMemoryInMB</span> <span class="o">=</span> <span class="n">mem</span>
+
+        <span class="n">instance</span> <span class="o">=</span> <span class="n">mockPrintSysMemUseAction</span><span class="o">.</span><span class="n">return_value</span>
+        <span class="n">instance</span><span class="o">.</span><span class="n">gather</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">mockMemUse</span><span class="p">(</span><span class="mi">1</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">),</span>
+            <span class="n">mockMemUse</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">),</span>
+            <span class="n">mockMemUse</span><span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">),</span>
+        <span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="KlassCounterTests"><a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.tests.test_memoryProfiler.html#armi.bookkeeping.tests.test_memoryProfiler.KlassCounterTests">[docs]</a><span class="k">class</span> <span class="nc">KlassCounterTests</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>

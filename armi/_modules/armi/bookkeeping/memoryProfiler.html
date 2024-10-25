@@ -129,6 +129,8 @@
 <span class="sd">https://pythonhosted.org/psutil/</span>
 <span class="sd">https://docs.python.org/3/library/gc.html#gc.garbage</span>
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">floor</span>
+<span class="kn">from</span> <span class="nn">os</span> <span class="kn">import</span> <span class="n">cpu_count</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
 <span class="kn">import</span> <span class="nn">gc</span>
 <span class="kn">import</span> <span class="nn">sys</span>
@@ -139,6 +141,7 @@
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.composites</span> <span class="kn">import</span> <span class="n">ArmiObject</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">tabulate</span>
+<span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">NonexistentSetting</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="c1"># psutil is an optional requirement, since it doesnt support MacOS very well</span>
@@ -161,6 +164,28 @@
     <span class="k">return</span> <span class="p">(</span><span class="n">MemoryProfiler</span><span class="p">,</span> <span class="p">{})</span></div>
 
 
+<div class="viewcode-block" id="getTotalJobMemory"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.getTotalJobMemory">[docs]</a><span class="k">def</span> <span class="nf">getTotalJobMemory</span><span class="p">(</span><span class="n">nTasksPerNode</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Function to calculate the total memory of a job. This is a constant during a simulation.&quot;&quot;&quot;</span>
+    <span class="n">cpuPerNode</span> <span class="o">=</span> <span class="n">cpu_count</span><span class="p">()</span>
+    <span class="n">ramPerCpuGB</span> <span class="o">=</span> <span class="n">psutil</span><span class="o">.</span><span class="n">virtual_memory</span><span class="p">()</span><span class="o">.</span><span class="n">total</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="n">cpuPerNode</span>
+    <span class="k">if</span> <span class="n">nTasksPerNode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">nTasksPerNode</span> <span class="o">=</span> <span class="n">cpuPerNode</span>
+    <span class="n">cpusPerTask</span> <span class="o">=</span> <span class="n">floor</span><span class="p">(</span><span class="n">cpuPerNode</span> <span class="o">/</span> <span class="n">nTasksPerNode</span><span class="p">)</span>
+    <span class="n">jobMem</span> <span class="o">=</span> <span class="n">nTasksPerNode</span> <span class="o">*</span> <span class="n">cpusPerTask</span> <span class="o">*</span> <span class="n">ramPerCpuGB</span>
+    <span class="k">return</span> <span class="n">jobMem</span></div>
+
+
+<div class="viewcode-block" id="getCurrentMemoryUsage"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.getCurrentMemoryUsage">[docs]</a><span class="k">def</span> <span class="nf">getCurrentMemoryUsage</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This scavenges the memory profiler in ARMI to get the current memory usage.&quot;&quot;&quot;</span>
+    <span class="n">memUsageAction</span> <span class="o">=</span> <span class="n">PrintSystemMemoryUsageAction</span><span class="p">()</span>
+    <span class="n">memUsageAction</span><span class="o">.</span><span class="n">broadcast</span><span class="p">()</span>
+    <span class="n">smpu</span> <span class="o">=</span> <span class="n">SystemAndProcessMemoryUsage</span><span class="p">()</span>
+    <span class="n">memUsages</span> <span class="o">=</span> <span class="n">memUsageAction</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">smpu</span><span class="p">)</span>
+    <span class="c1"># Grab virtual memory instead of physical. There is a large discrepancy, we will be conservative</span>
+    <span class="n">memoryUsageInMB</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">mu</span><span class="o">.</span><span class="n">processVirtualMemoryInMB</span> <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">memUsages</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">memoryUsageInMB</span></div>
+
+
 <div class="viewcode-block" id="MemoryProfiler"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.MemoryProfiler">[docs]</a><span class="k">class</span> <span class="nc">MemoryProfiler</span><span class="p">(</span><span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="p">):</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;memoryProfiler&quot;</span>
@@ -171,6 +196,7 @@
 
 <div class="viewcode-block" id="MemoryProfiler.interactBOL"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.MemoryProfiler.interactBOL">[docs]</a>    <span class="k">def</span> <span class="nf">interactBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="n">interactBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">printCurrentMemoryState</span><span class="p">()</span>
         <span class="n">mpiAction</span> <span class="o">=</span> <span class="n">PrintSystemMemoryUsageAction</span><span class="p">()</span>
         <span class="n">mpiAction</span><span class="o">.</span><span class="n">broadcast</span><span class="p">()</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
         <span class="n">mpiAction</span><span class="o">.</span><span class="n">printUsage</span><span class="p">(</span><span class="s2">&quot;BOL SYS_MEM&quot;</span><span class="p">)</span>
@@ -181,6 +207,8 @@
             <span class="n">mpiAction</span><span class="o">.</span><span class="n">broadcast</span><span class="p">()</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MemoryProfiler.interactEveryNode"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.MemoryProfiler.interactEveryNode">[docs]</a>    <span class="k">def</span> <span class="nf">interactEveryNode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">printCurrentMemoryState</span><span class="p">()</span>
+
         <span class="n">mp</span> <span class="o">=</span> <span class="n">PrintSystemMemoryUsageAction</span><span class="p">()</span>
         <span class="n">mp</span><span class="o">.</span><span class="n">broadcast</span><span class="p">()</span>
         <span class="n">mp</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
@@ -194,10 +222,29 @@
             <span class="n">mpiAction</span><span class="o">.</span><span class="n">broadcast</span><span class="p">()</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="MemoryProfiler.interactEOL"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.MemoryProfiler.interactEOL">[docs]</a>    <span class="k">def</span> <span class="nf">interactEOL</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;End of life hook. Good place to wrap up or print out summary outputs.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;End of life hook. Good place to wrap up or print out summary outputs.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;debugMem&quot;</span><span class="p">]:</span>
             <span class="n">mpiAction</span> <span class="o">=</span> <span class="n">ProfileMemoryUsageAction</span><span class="p">(</span><span class="s2">&quot;EOL&quot;</span><span class="p">)</span>
             <span class="n">mpiAction</span><span class="o">.</span><span class="n">broadcast</span><span class="p">()</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MemoryProfiler.printCurrentMemoryState"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.MemoryProfiler.printCurrentMemoryState">[docs]</a>    <span class="k">def</span> <span class="nf">printCurrentMemoryState</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Print the current memory footprint and available memory.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">nTasksPerNode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nTasksPerNode&quot;</span><span class="p">]</span>
+        <span class="k">except</span> <span class="n">NonexistentSetting</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
+                <span class="s2">&quot;To view memory consumed, remaining available, and total allocated for a case, &quot;</span>
+                <span class="s2">&quot;add the setting &#39;nTasksPerNode&#39; to your application.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+        <span class="n">totalMemoryInGB</span> <span class="o">=</span> <span class="n">getTotalJobMemory</span><span class="p">(</span><span class="n">nTasksPerNode</span><span class="p">)</span>
+        <span class="n">currentMemoryUsageInGB</span> <span class="o">=</span> <span class="n">getCurrentMemoryUsage</span><span class="p">()</span> <span class="o">/</span> <span class="mi">1024</span>
+        <span class="n">availableMemoryInGB</span> <span class="o">=</span> <span class="n">totalMemoryInGB</span> <span class="o">-</span> <span class="n">currentMemoryUsageInGB</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Currently using </span><span class="si">{</span><span class="n">currentMemoryUsageInGB</span><span class="si">}</span><span class="s2"> GB of memory. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;There is </span><span class="si">{</span><span class="n">availableMemoryInGB</span><span class="si">}</span><span class="s2"> GB of memory left. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;There is a total allocation of </span><span class="si">{</span><span class="n">totalMemoryInGB</span><span class="si">}</span><span class="s2"> GB.&quot;</span>
+        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="MemoryProfiler.displayMemoryUsage"><a class="viewcode-back" href="../../../.apidocs/armi.bookkeeping.memoryProfiler.html#armi.bookkeeping.memoryProfiler.MemoryProfiler.displayMemoryUsage">[docs]</a>    <span class="k">def</span> <span class="nf">displayMemoryUsage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeDescription</span><span class="p">):</span>
 <span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
