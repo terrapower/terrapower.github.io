@@ -114,6 +114,7 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">ClassVar</span>
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">functools</span>
 <span class="kn">import</span> <span class="nn">math</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -1652,7 +1653,31 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">axialExpTargetComponent</span> <span class="o">=</span> <span class="n">targetComponent</span><span class="o">.</span><span class="n">name</span></div>
 
-<div class="viewcode-block" id="Block.getPinCoordinates"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getPinCoordinates">[docs]</a>    <span class="k">def</span> <span class="nf">getPinCoordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Block.getPinLocations"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getPinLocations">[docs]</a>    <span class="k">def</span> <span class="nf">getPinLocations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">grids</span><span class="o">.</span><span class="n">IndexLocation</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Produce all the index locations for pins in the block.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list[grids.IndexLocation]</span>
+<span class="sd">            Integer locations where pins can be found in the block.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Only components with ``Flags.CLAD`` are considered to define a pin&#39;s location.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        :meth:`getPinCoordinates` - companion for this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">clad</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getChildrenWithFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">MultiIndexLocation</span><span class="p">):</span>
+                <span class="n">items</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">items</span></div>
+
+<div class="viewcode-block" id="Block.getPinCoordinates"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getPinCoordinates">[docs]</a>    <span class="k">def</span> <span class="nf">getPinCoordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the local centroid coordinates of any pins in this block.</span>
 
@@ -1660,18 +1685,17 @@
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
-<span class="sd">        localCoordinates : list</span>
-<span class="sd">            list of (x,y,z) pairs representing each pin in the order they are listed as children</span>
+<span class="sd">        localCoords : numpy.ndarray</span>
+<span class="sd">            ``(N, 3)`` array of coordinates for pins locations. ``localCoords[i]`` contains a triplet of</span>
+<span class="sd">            the x, y, z location for pin ``i``. Ordered according to how they are listed as children</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        :meth:`getPinLocations` - companion for this method</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">coords</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">clad</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getChildrenWithFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">):</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">MultiIndexLocation</span><span class="p">):</span>
-                <span class="n">coords</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
-                    <span class="p">[</span><span class="n">locator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span> <span class="k">for</span> <span class="n">locator</span> <span class="ow">in</span> <span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">]</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">clad</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">())</span>
-        <span class="k">return</span> <span class="n">coords</span></div>
+        <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getPinLocations</span><span class="p">()</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">location</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span> <span class="k">for</span> <span class="n">location</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Block.getTotalEnergyGenerationConstants"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getTotalEnergyGenerationConstants">[docs]</a>    <span class="k">def</span> <span class="nf">getTotalEnergyGenerationConstants</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -2110,7 +2134,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">linPowByPin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">powerKey</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="HexBlock.rotate"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.rotate">[docs]</a>    <span class="k">def</span> <span class="nf">rotate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rad</span><span class="p">):</span>
+<div class="viewcode-block" id="HexBlock.rotate"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.rotate">[docs]</a>    <span class="k">def</span> <span class="nf">rotate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rad</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Rotates a block&#39;s spatially varying parameters by a specified angle in the</span>
 <span class="sd">        counter-clockwise direction.</span>
@@ -2121,6 +2145,22 @@
 
 <span class="sd">        The pin indexing, as stored on the ``pinLocation`` parameter, is also updated.</span>
 
+<span class="sd">        .. impl:: A hexagonal block shall be rotatable by 60 degree increments.</span>
+<span class="sd">            :id: I_ARMI_ROTATE_HEX</span>
+<span class="sd">            :implements: R_ARMI_ROTATE_HEX</span>
+
+<span class="sd">        .. impl:: Rotating a hex block updates the orientation parameter.</span>
+<span class="sd">            :id: I_ARMI_ROTATE_HEX_ORIENTATION</span>
+<span class="sd">            :implements: R_ARMI_ROTATE_HEX_PARAMS</span>
+
+<span class="sd">        .. imp:: Rotating a hex block updates parameters on the boundary of the hexagon.</span>
+<span class="sd">            :id: I_ARMI_ROTATE_HEX_BOUNDARY</span>
+<span class="sd">            :tests: R_ARMI_ROTATE_HEX_PARAMS</span>
+
+<span class="sd">        .. impl:: Rotating a hex block updates the spatial coordinates on contained objects.</span>
+<span class="sd">            :id: I_ARMI_ROTATE_HEX_PIN</span>
+<span class="sd">            :tests: R_ARMI_ROTATE_HEX</span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        rad: float, required</span>
@@ -2130,9 +2170,43 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">rotNum</span> <span class="o">=</span> <span class="nb">round</span><span class="p">((</span><span class="n">rad</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mi">60</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_rotatePins</span><span class="p">(</span><span class="n">rotNum</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_rotateChildLocations</span><span class="p">(</span><span class="n">rad</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">orientation</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="n">rotNum</span> <span class="o">*</span> <span class="mi">60</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_rotateBoundaryParameters</span><span class="p">(</span><span class="n">rotNum</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_rotateDisplacement</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_rotateChildLocations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">radians</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update spatial locators for children.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">locationRotator</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">rotateIndex</span><span class="p">,</span> <span class="n">rotations</span><span class="o">=</span><span class="n">rotNum</span>
+        <span class="p">)</span>
+        <span class="n">rotationMatrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="p">[</span><span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">radians</span><span class="p">),</span> <span class="o">-</span><span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">radians</span><span class="p">)],</span>
+                <span class="p">[</span><span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">radians</span><span class="p">),</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">radians</span><span class="p">)],</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">MultiIndexLocation</span><span class="p">):</span>
+                <span class="n">newLocations</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">locationRotator</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">))</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">MultiIndexLocation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">)</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">newLocations</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">CoordinateLocation</span><span class="p">):</span>
+                <span class="n">oldCoords</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getLocalCoordinates</span><span class="p">()</span>
+                <span class="n">newXY</span> <span class="o">=</span> <span class="n">rotationMatrix</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">oldCoords</span><span class="p">[:</span><span class="mi">2</span><span class="p">])</span>
+                <span class="n">newLocation</span> <span class="o">=</span> <span class="n">grids</span><span class="o">.</span><span class="n">CoordinateLocation</span><span class="p">(</span>
+                    <span class="n">newXY</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">newXY</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">oldCoords</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatialGrid</span>
+                <span class="p">)</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="n">newLocation</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">IndexLocation</span><span class="p">):</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="n">locationRotator</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> has an invalid spatial locator for rotation: </span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_rotateBoundaryParameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Rotate any parameters defined on the corners or edge of bounding hexagon.</span>
@@ -2182,98 +2256,6 @@
         <span class="k">if</span> <span class="p">(</span><span class="n">dispx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">dispy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">displacementX</span> <span class="o">=</span> <span class="n">dispx</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span> <span class="o">-</span> <span class="n">dispy</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">displacementY</span> <span class="o">=</span> <span class="n">dispx</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span> <span class="o">+</span> <span class="n">dispy</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">rad</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_rotatePins</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">,</span> <span class="n">justCompute</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Rotate the pins of a block, which means rotating the indexing of pins. Note that this does</span>
-<span class="sd">        not rotate all block quantities, just the pins.</span>
-
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        rotNum : int, required</span>
-<span class="sd">            An integer from 0 to 5, indicating the number of counterclockwise 60-degree rotations</span>
-<span class="sd">            from the CURRENT orientation. Degrees of counter-clockwise rotation = 60*rot</span>
-
-<span class="sd">        justCompute : boolean, optional</span>
-<span class="sd">            If True, rotateIndexLookup will be returned but NOT assigned to the object parameter</span>
-<span class="sd">            self.p.pinLocation. If False, rotateIndexLookup will be returned AND assigned to the</span>
-<span class="sd">            object variable self.p.pinLocation.  Useful for figuring out which rotation is best</span>
-<span class="sd">            to minimize burnup, etc.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        rotateIndexLookup : dict of ints</span>
-<span class="sd">            This is an index lookup (or mapping) between pin ids and pin locations. The pin</span>
-<span class="sd">            indexing is 1-D (not ring,pos or GEODST). The &quot;ARMI pin ordering&quot; is used for location,</span>
-<span class="sd">            which is counter-clockwise from 1 o&#39;clock. Pin ids are always consecutively</span>
-<span class="sd">            ordered starting at 1, while pin locations are not once a rotation has been</span>
-<span class="sd">            applied.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        Changing (x,y) positions of pins does NOT constitute rotation, because the indexing of pin</span>
-<span class="sd">        atom densities must be re-ordered.  Re-order indexing of pin-level quantities, NOT (x,y)</span>
-<span class="sd">        locations of pins.  Otherwise, subchannel input will be in wrong order.</span>
-
-<span class="sd">        How rotations works is like this. There are pins with unique pin numbers in each block.</span>
-<span class="sd">        These pin numbers will not change no matter what happens to a block, so if you have pin 1,</span>
-<span class="sd">        you always have pin 1. However, these pins are all in pinLocations, and these are what</span>
-<span class="sd">        change with rotations. At BOL, a pin&#39;s pinLocation is equal to its pin number, but after</span>
-<span class="sd">        a rotation, this will no longer be so.</span>
-
-<span class="sd">        So, all params that don&#39;t care about exactly where in space the pin is (such as depletion)</span>
-<span class="sd">        can just use the pin number, but anything that needs to know the spatial location (such as</span>
-<span class="sd">        fluxRecon, which interpolates the flux spatially, or subchannel codes, which needs to know where the</span>
-<span class="sd">        power is) need to map through the pinLocation parameters.</span>
-
-<span class="sd">        This method rotates the pins by changing the pinLocation parameter.</span>
-
-<span class="sd">        See Also</span>
-<span class="sd">        --------</span>
-<span class="sd">        armi.reactor.blocks.HexBlock.rotate</span>
-<span class="sd">            Rotates the entire block (pins, ducts, and spatial quantities).</span>
-
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">            rotateIndexLookup[i_after_rotation-1] = i_before_rotation-1</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">rotNum</span> <span class="o">&lt;=</span> <span class="mi">5</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot rotate </span><span class="si">{0}</span><span class="s2"> to rotNum </span><span class="si">{1}</span><span class="s2">. Must be 0-5. &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">)</span>
-            <span class="p">)</span>
-
-        <span class="n">numPins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">()</span>
-        <span class="n">hexRings</span> <span class="o">=</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">numRingsToHoldNumCells</span><span class="p">(</span><span class="n">numPins</span><span class="p">)</span>
-        <span class="n">fullNumPins</span> <span class="o">=</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">totalPositionsUpToRing</span><span class="p">(</span><span class="n">hexRings</span><span class="p">)</span>
-        <span class="n">rotateIndexLookup</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-            <span class="nb">zip</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">fullNumPins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">fullNumPins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Look up the current orientation and add this to it. The math below just rotates</span>
-        <span class="c1"># from the reference point so we need a total rotation.</span>
-        <span class="n">rotNum</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">getRotationNum</span><span class="p">()</span> <span class="o">+</span> <span class="n">rotNum</span><span class="p">)</span> <span class="o">%</span> <span class="mi">6</span><span class="p">)</span>
-
-        <span class="c1"># non-trivial rotation requested</span>
-        <span class="c1"># start at 2 because pin 1 never changes (it&#39;s in the center!)</span>
-        <span class="k">for</span> <span class="n">pinNum</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">fullNumPins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">rotNum</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># Rotation to reference orientation. Pin locations are pin IDs.</span>
-                <span class="k">pass</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">newPinLocation</span> <span class="o">=</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">getIndexOfRotatedCell</span><span class="p">(</span><span class="n">pinNum</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">)</span>
-                <span class="c1"># Assign &quot;before&quot; and &quot;after&quot; pin indices to the index lookup</span>
-                <span class="n">rotateIndexLookup</span><span class="p">[</span><span class="n">pinNum</span><span class="p">]</span> <span class="o">=</span> <span class="n">newPinLocation</span>
-
-        <span class="c1"># Because the above math creates indices based on the absolute rotation number,</span>
-        <span class="c1"># the old values of pinLocation (if they&#39;ve been set in the past) can be overwritten</span>
-        <span class="c1"># with new numbers</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">justCompute</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setRotationNum</span><span class="p">(</span><span class="n">rotNum</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;pinLocation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">rotateIndexLookup</span><span class="p">[</span><span class="n">pinNum</span><span class="p">]</span> <span class="k">for</span> <span class="n">pinNum</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">fullNumPins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="p">]</span>
-
-        <span class="k">return</span> <span class="n">rotateIndexLookup</span>
 
 <div class="viewcode-block" id="HexBlock.verifyBlockDims"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.verifyBlockDims">[docs]</a>    <span class="k">def</span> <span class="nf">verifyBlockDims</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform some checks on this type of block before it is assembled.&quot;&quot;&quot;</span>
@@ -2379,13 +2361,13 @@
 
         <span class="k">return</span> <span class="n">pinToDuctGap</span></div>
 
-<div class="viewcode-block" id="HexBlock.getRotationNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.getRotationNum">[docs]</a>    <span class="k">def</span> <span class="nf">getRotationNum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="HexBlock.getRotationNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.getRotationNum">[docs]</a>    <span class="k">def</span> <span class="nf">getRotationNum</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get index 0 through 5 indicating number of rotations counterclockwise around the z-axis.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">(</span>
             <span class="n">np</span><span class="o">.</span><span class="n">rint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">orientation</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mf">360.0</span> <span class="o">*</span> <span class="mi">6</span><span class="p">)</span> <span class="o">%</span> <span class="mi">6</span>
         <span class="p">)</span>  <span class="c1"># assume rotation only in Z</span></div>
 
-<div class="viewcode-block" id="HexBlock.setRotationNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.setRotationNum">[docs]</a>    <span class="k">def</span> <span class="nf">setRotationNum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">):</span>
+<div class="viewcode-block" id="HexBlock.setRotationNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.setRotationNum">[docs]</a>    <span class="k">def</span> <span class="nf">setRotationNum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rotNum</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set orientation based on a number 0 through 5 indicating number of rotations</span>
 <span class="sd">        counterclockwise around the z-axis.</span>

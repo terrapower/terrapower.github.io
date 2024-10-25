@@ -105,6 +105,7 @@
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">deque</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">sqrt</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
 
@@ -117,7 +118,7 @@
     <span class="n">BOUNDARY_60_DEGREES</span><span class="p">,</span>
     <span class="n">BOUNDARY_CENTER</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">armi.reactor.grids.locations</span> <span class="kn">import</span> <span class="n">IJKType</span><span class="p">,</span> <span class="n">IJType</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.grids.locations</span> <span class="kn">import</span> <span class="n">IJKType</span><span class="p">,</span> <span class="n">IJType</span><span class="p">,</span> <span class="n">IndexLocation</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.grids.structuredGrid</span> <span class="kn">import</span> <span class="n">StructuredGrid</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">hexagon</span>
 
@@ -315,7 +316,8 @@
         <span class="n">positionBase</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">edge</span> <span class="o">*</span> <span class="p">(</span><span class="n">ring</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">ring</span><span class="p">,</span> <span class="n">positionBase</span> <span class="o">+</span> <span class="n">offset</span></div>
 
-<div class="viewcode-block" id="HexGrid.getMinimumRings"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.grids.hexagonal.html#armi.reactor.grids.hexagonal.HexGrid.getMinimumRings">[docs]</a>    <span class="k">def</span> <span class="nf">getMinimumRings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<div class="viewcode-block" id="HexGrid.getMinimumRings"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.grids.hexagonal.html#armi.reactor.grids.hexagonal.HexGrid.getMinimumRings">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">getMinimumRings</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the minimum number of rings needed to fit ``n`` objects.</span>
 
@@ -326,7 +328,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">numRingsToHoldNumCells</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="HexGrid.getPositionsInRing"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.grids.hexagonal.html#armi.reactor.grids.hexagonal.HexGrid.getPositionsInRing">[docs]</a>    <span class="k">def</span> <span class="nf">getPositionsInRing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ring</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<div class="viewcode-block" id="HexGrid.getPositionsInRing"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.grids.hexagonal.html#armi.reactor.grids.hexagonal.HexGrid.getPositionsInRing">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">getPositionsInRing</span><span class="p">(</span><span class="n">ring</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of positions within a ring.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">numPositionsInRing</span><span class="p">(</span><span class="n">ring</span><span class="p">)</span></div>
 
@@ -665,7 +668,74 @@
             <span class="p">)</span>
         <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">locList</span><span class="p">[:</span><span class="n">nLocs</span><span class="p">]</span></div></div>
+        <span class="k">return</span> <span class="n">locList</span><span class="p">[:</span><span class="n">nLocs</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="HexGrid.rotateIndex"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.grids.hexagonal.html#armi.reactor.grids.hexagonal.HexGrid.rotateIndex">[docs]</a>    <span class="k">def</span> <span class="nf">rotateIndex</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loc</span><span class="p">:</span> <span class="n">IndexLocation</span><span class="p">,</span> <span class="n">rotations</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IndexLocation</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find the new location of an index after some number of CCW rotations.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        loc : IndexLocation</span>
+<span class="sd">            Starting index</span>
+<span class="sd">        rotations : int</span>
+<span class="sd">            Number of counter clockwise rotations</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        IndexLocation</span>
+<span class="sd">            Index in the grid after rotation</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Rotation uses a three-dimensional index in what can be known elsewhere</span>
+<span class="sd">        by the confusing name of &quot;cubic&quot; coordinate system for a hexagon. Cubic stems</span>
+<span class="sd">        from the notion of using three dimensions, ``(q, r, s)`` to describe a point in the</span>
+<span class="sd">        hexagonal grid. The conversion from the indexing used in the ARMI framework follows::</span>
+
+<span class="sd">            q = i</span>
+<span class="sd">            r = j</span>
+<span class="sd">            # s = - q - r = - (q + r)</span>
+<span class="sd">            s = -(i + j)</span>
+
+<span class="sd">        The motivation for the cubic notation is rotation is far simpler: a clockwise</span>
+<span class="sd">        rotation by 60 degrees results in a shifting and negating of the coordinates. So</span>
+<span class="sd">        the first rotation of ``(q, r, s)`` would produce a new coordinate</span>
+<span class="sd">        ``(-r, -s, -q)``. Another rotation would produce ``(s, q, r)``, and so on.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            If ``loc.grid`` is populated and not consistent with this grid. For example,</span>
+<span class="sd">            it doesn&#39;t make sense to rotate an index from a Cartesian grid in a hexagonal coordinate</span>
+<span class="sd">            system, nor hexagonal grid with different orientation (flats up vs. corners up)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_roughlyEqual</span><span class="p">(</span><span class="n">loc</span><span class="o">.</span><span class="n">grid</span><span class="p">)</span> <span class="ow">or</span> <span class="n">loc</span><span class="o">.</span><span class="n">grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="n">loc</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>
+            <span class="n">buffer</span> <span class="o">=</span> <span class="n">deque</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="o">-</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="n">j</span><span class="p">)))</span>
+            <span class="n">buffer</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="o">-</span><span class="n">rotations</span><span class="p">)</span>
+            <span class="n">newI</span> <span class="o">=</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">newJ</span> <span class="o">=</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">rotations</span> <span class="o">%</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">newI</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+                <span class="n">newJ</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+            <span class="k">return</span> <span class="n">IndexLocation</span><span class="p">(</span><span class="n">newI</span><span class="p">,</span> <span class="n">newJ</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">loc</span><span class="o">.</span><span class="n">grid</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Refusing to rotate an index </span><span class="si">{</span><span class="n">loc</span><span class="si">}</span><span class="s2"> from a grid </span><span class="si">{</span><span class="n">loc</span><span class="o">.</span><span class="n">grid</span><span class="si">}</span><span class="s2"> that &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;is not consistent with </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_roughlyEqual</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that two hex grids are nearly identical.</span>
+
+<span class="sd">        Would the same ``(i, j, k)`` index in ``self`` be the same location in ``other``?</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">HexGrid</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">pitch</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">pitch</span>
+            <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">cornersUp</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">cornersUp</span>
+        <span class="p">)</span></div>
 </pre></div>
 
            </div>
