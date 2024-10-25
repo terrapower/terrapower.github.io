@@ -50,7 +50,9 @@ for b in reactor.core.getBlocks(Flags.FUEL):
     b.p.percentBu = 5 * math.cos(d * math.pi / 2 / 90)
 
 # show the initial burnup distribution
-plotting.plotFaceMap(reactor.core, param="percentBu")
+plotting.plotFaceMap(
+    reactor.core, param="percentBu", fName="sphx_glr_run_fuelManagement_001.png"
+)
 
 fuelHandler = fuelHandlers.FuelHandler(o)
 
@@ -72,5 +74,7 @@ for num in range(8):
     fuelHandler.swapAssemblies(high, low)
 
 # show final burnup distribution
-plotting.plotFaceMap(reactor.core, param="percentBu")
+plotting.plotFaceMap(
+    reactor.core, param="percentBu", fName="sphx_glr_run_fuelManagement_002.png"
+)
 plt.close()
