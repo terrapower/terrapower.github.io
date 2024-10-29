@@ -105,16 +105,18 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;Enable component-wise axial expansion for assemblies and/or a reactor.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">typing</span>
 
 <span class="kn">from</span> <span class="nn">numpy</span> <span class="kn">import</span> <span class="n">array</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.assemblies</span> <span class="kn">import</span> <span class="n">Assembly</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.converters.axialExpansionChanger.assemblyAxialLinkage</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AssemblyAxialLinkage</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.converters.axialExpansionChanger.expansionData</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">ExpansionData</span><span class="p">,</span>
-    <span class="n">getSolidComponents</span><span class="p">,</span>
+    <span class="n">iterSolidComponents</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 
@@ -162,6 +164,9 @@
 <span class="sd">      for any other assembly type.</span>
 <span class="sd">    - Useful for fuel performance, thermal expansion, reactivity coefficients, etc.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">linked</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">AssemblyAxialLinkage</span><span class="p">]</span>
+    <span class="n">expansionData</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">ExpansionData</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">detailedAxialExpansion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -242,7 +247,7 @@
                 <span class="n">b</span><span class="o">.</span><span class="n">completeInitialLoading</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="AxialExpansionChanger.performPrescribedAxialExpansion"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.AxialExpansionChanger.performPrescribedAxialExpansion">[docs]</a>    <span class="k">def</span> <span class="nf">performPrescribedAxialExpansion</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">componentLst</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">percents</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">setFuel</span><span class="o">=</span><span class="kc">True</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">Assembly</span><span class="p">,</span> <span class="n">components</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">percents</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">setFuel</span><span class="o">=</span><span class="kc">True</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform axial expansion/contraction of an assembly given prescribed expansion percentages.</span>
 
@@ -261,10 +266,10 @@
 <span class="sd">        ----------</span>
 <span class="sd">        a : :py:class:`Assembly &lt;armi.reactor.assemblies.Assembly&gt;`</span>
 <span class="sd">            ARMI assembly to be changed</span>
-<span class="sd">        componentLst : list[:py:class:`Component &lt;armi.reactor.components.component.Component&gt;`]</span>
+<span class="sd">        components : list[:py:class:`Component &lt;armi.reactor.components.component.Component&gt;`]</span>
 <span class="sd">            list of Components to be expanded</span>
 <span class="sd">        percents : list[float]</span>
-<span class="sd">            list of expansion percentages for each component listed in componentList</span>
+<span class="sd">            list of expansion percentages for each component listed in components</span>
 <span class="sd">        setFuel : boolean, optional</span>
 <span class="sd">            Boolean to determine whether or not fuel blocks should have their target components set</span>
 <span class="sd">            This is useful when target components within a fuel block need to be determined on-the-fly.</span>
@@ -274,12 +279,12 @@
 <span class="sd">        - percents may be positive (expansion) or negative (contraction)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">setFuel</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">setExpansionFactors</span><span class="p">(</span><span class="n">componentLst</span><span class="p">,</span> <span class="n">percents</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">setExpansionFactors</span><span class="p">(</span><span class="n">components</span><span class="p">,</span> <span class="n">percents</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">axiallyExpandAssembly</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="AxialExpansionChanger.performThermalAxialExpansion"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.AxialExpansionChanger.performThermalAxialExpansion">[docs]</a>    <span class="k">def</span> <span class="nf">performThermalAxialExpansion</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">a</span><span class="p">,</span>
+        <span class="n">a</span><span class="p">:</span> <span class="n">Assembly</span><span class="p">,</span>
         <span class="n">tempGrid</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
         <span class="n">tempField</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
         <span class="n">setFuel</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -326,7 +331,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">linked</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span> <span class="o">=</span> <span class="kc">None</span></div>
 
-<div class="viewcode-block" id="AxialExpansionChanger.setAssembly"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.AxialExpansionChanger.setAssembly">[docs]</a>    <span class="k">def</span> <span class="nf">setAssembly</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">setFuel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">expandFromTinputToThot</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="AxialExpansionChanger.setAssembly"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.AxialExpansionChanger.setAssembly">[docs]</a>    <span class="k">def</span> <span class="nf">setAssembly</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">Assembly</span><span class="p">,</span> <span class="n">setFuel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">expandFromTinputToThot</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the armi assembly to be changed and init expansion data class for assembly.</span>
 
 <span class="sd">        Parameters</span>
@@ -415,10 +420,10 @@
             <span class="c1"># set bottom of block equal to top of block below it</span>
             <span class="c1"># if ib == 0, leave block bottom = 0.0</span>
             <span class="k">if</span> <span class="n">ib</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span>
+                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span>
             <span class="n">isDummyBlock</span> <span class="o">=</span> <span class="n">ib</span> <span class="o">==</span> <span class="p">(</span><span class="n">numOfBlocks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">isDummyBlock</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">getSolidComponents</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">iterSolidComponents</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
                     <span class="n">growFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">getExpansionFactor</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">msg</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;      Component </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">, growFrac = </span><span class="si">{</span><span class="n">growFrac</span><span class="si">:</span><span class="s2">.4e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                     <span class="n">c</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">growFrac</span> <span class="o">*</span> <span class="n">blockHeight</span>
@@ -426,14 +431,14 @@
                     <span class="k">if</span> <span class="n">ib</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="mf">0.0</span>
                     <span class="k">else</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedComponents</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedComponents</span><span class="p">[</span><span class="n">c</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                             <span class="c1"># use linked components below</span>
-                            <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedComponents</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ztop</span>
+                            <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedComponents</span><span class="p">[</span><span class="n">c</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="o">.</span><span class="n">ztop</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="c1"># otherwise there aren&#39;t any linked components</span>
                             <span class="c1"># so just set the bottom of the component to</span>
                             <span class="c1"># the top of the block below it</span>
-                            <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span>
+                            <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span>
                     <span class="n">c</span><span class="o">.</span><span class="n">ztop</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">+</span> <span class="n">c</span><span class="o">.</span><span class="n">height</span>
                     <span class="c1"># update component number densities</span>
                     <span class="n">newNumberDensities</span> <span class="o">=</span> <span class="p">{</span>
@@ -522,7 +527,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-10-28.
+      <span class="lastupdated">Last updated on 2024-10-29.
       </span></p>
   </div>
 
