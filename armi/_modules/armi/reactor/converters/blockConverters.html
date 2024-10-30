@@ -601,6 +601,11 @@
 <span class="sd">    duct/intercoolant pinComponentsRing1 | coolant | pinComponentsRing2 | coolant | ... |</span>
 <span class="sd">    nonpins ...</span>
 
+<span class="sd">    The ``ductHeterogeneous`` option allows the user to treat everything inside the duct</span>
+<span class="sd">    as a single homogenized composition. This could significantly reduce the memory and runtime</span>
+<span class="sd">    required for the lattice physics solver, and also provide an alternative approximation for</span>
+<span class="sd">    the spatial self-shielding effect on microscopic cross sections.</span>
+
 <span class="sd">    This converter expects the ``sourceBlock`` and ``driverFuelBlock`` to defined and for</span>
 <span class="sd">    the ``sourceBlock`` to have a spatial grid defined. Additionally, both the ``sourceBlock``</span>
 <span class="sd">    and ``driverFuelBlock`` must be instances of HexBlocks.</span>
@@ -612,6 +617,8 @@
         <span class="n">driverFuelBlock</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">numExternalRings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">mergeIntoClad</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">mergeIntoFuel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">ductHeterogeneous</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="n">BlockAvgToCylConverter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
@@ -641,6 +648,8 @@
                 <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pinPitch</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">getPinPitch</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mergeIntoClad</span> <span class="o">=</span> <span class="n">mergeIntoClad</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mergeIntoFuel</span> <span class="o">=</span> <span class="n">mergeIntoFuel</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ductHeterogeneous</span> <span class="o">=</span> <span class="n">ductHeterogeneous</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interRingComponent</span> <span class="o">=</span> <span class="n">sourceBlock</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">COOLANT</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_remainingCoolantFillArea</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interRingComponent</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">interRingComponent</span><span class="p">:</span>
@@ -676,9 +685,12 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_sourceBlock</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">()</span>
         <span class="p">)</span>
         <span class="n">pinComponents</span><span class="p">,</span> <span class="n">nonPins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_classifyComponents</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_buildFirstRing</span><span class="p">(</span><span class="n">pinComponents</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">numRings</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_buildNthRing</span><span class="p">(</span><span class="n">pinComponents</span><span class="p">,</span> <span class="n">ring</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ductHeterogeneous</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_buildInsideDuct</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_buildFirstRing</span><span class="p">(</span><span class="n">pinComponents</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">ring</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">numRings</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_buildNthRing</span><span class="p">(</span><span class="n">pinComponents</span><span class="p">,</span> <span class="n">ring</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_buildNonPinRings</span><span class="p">(</span><span class="n">nonPins</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_addDriverFuelRings</span><span class="p">()</span>
 
@@ -699,9 +711,13 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_remainingCoolantFillArea</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interRingComponent</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
 
-        <span class="c1"># do user-input merges</span>
+        <span class="c1"># do user-input merges into cladding</span>
         <span class="k">for</span> <span class="n">componentName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mergeIntoClad</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dissolveComponentIntoComponent</span><span class="p">(</span><span class="n">componentName</span><span class="p">,</span> <span class="s2">&quot;clad&quot;</span><span class="p">)</span>
+
+        <span class="c1"># do user-input merges into fuel</span>
+        <span class="k">for</span> <span class="n">componentName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mergeIntoFuel</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dissolveComponentIntoComponent</span><span class="p">(</span><span class="n">componentName</span><span class="p">,</span> <span class="s2">&quot;fuel&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_classifyComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -737,6 +753,25 @@
                 <span class="n">nonPins</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">pinComponents</span><span class="p">)),</span> <span class="n">nonPins</span>
+
+    <span class="k">def</span> <span class="nf">_buildInsideDuct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a homogenized material of the components inside the duct.&quot;&quot;&quot;</span>
+        <span class="n">blockType</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceBlock</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span>
+        <span class="n">blockName</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Homogenized </span><span class="si">{</span><span class="n">blockType</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">newBlock</span><span class="p">,</span> <span class="n">mixtureFlags</span> <span class="o">=</span> <span class="n">stripComponents</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceBlock</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">)</span>
+        <span class="n">outerDiam</span> <span class="o">=</span> <span class="n">getOuterDiamFromIDAndArea</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">newBlock</span><span class="o">.</span><span class="n">getArea</span><span class="p">())</span>
+        <span class="n">circle</span> <span class="o">=</span> <span class="n">components</span><span class="o">.</span><span class="n">Circle</span><span class="p">(</span>
+            <span class="n">blockName</span><span class="p">,</span>
+            <span class="s2">&quot;_Mixture&quot;</span><span class="p">,</span>
+            <span class="n">newBlock</span><span class="o">.</span><span class="n">getAverageTempInC</span><span class="p">(),</span>
+            <span class="n">newBlock</span><span class="o">.</span><span class="n">getAverageTempInC</span><span class="p">(),</span>
+            <span class="nb">id</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">od</span><span class="o">=</span><span class="n">outerDiam</span><span class="p">,</span>
+            <span class="n">mult</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">circle</span><span class="o">.</span><span class="n">setNumberDensities</span><span class="p">(</span><span class="n">newBlock</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">())</span>
+        <span class="n">circle</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="n">mixtureFlags</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">convertedBlock</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">circle</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_buildFirstRing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pinComponents</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add first ring of components to new block.&quot;&quot;&quot;</span>
@@ -786,14 +821,17 @@
 <span class="sd">        Also needs to add final coolant layer between the outer pins and the non-pins.</span>
 <span class="sd">        Will crash if there are things that are not circles or hexes.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># fill in the last ring of coolant using the rest</span>
-        <span class="n">coolInnerDiam</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convertedBlock</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span>
-        <span class="n">coolantOD</span> <span class="o">=</span> <span class="n">getOuterDiamFromIDAndArea</span><span class="p">(</span>
-            <span class="n">coolInnerDiam</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_remainingCoolantFillArea</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_addCoolantRing</span><span class="p">(</span><span class="n">coolantOD</span><span class="p">,</span> <span class="s2">&quot; outer&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ductHeterogeneous</span><span class="p">:</span>
+            <span class="c1"># fill in the last ring of coolant using the rest</span>
+            <span class="n">coolInnerDiam</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convertedBlock</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span>
+            <span class="n">coolantOD</span> <span class="o">=</span> <span class="n">getOuterDiamFromIDAndArea</span><span class="p">(</span>
+                <span class="n">coolInnerDiam</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_remainingCoolantFillArea</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_addCoolantRing</span><span class="p">(</span><span class="n">coolantOD</span><span class="p">,</span> <span class="s2">&quot; outer&quot;</span><span class="p">)</span>
+            <span class="n">innerDiameter</span> <span class="o">=</span> <span class="n">coolantOD</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">innerDiameter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convertedBlock</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span>
 
-        <span class="n">innerDiameter</span> <span class="o">=</span> <span class="n">coolantOD</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">hexagon</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">nonPins</span><span class="p">)):</span>
             <span class="n">outerDiam</span> <span class="o">=</span> <span class="n">getOuterDiamFromIDAndArea</span><span class="p">(</span>
                 <span class="n">innerDiameter</span><span class="p">,</span> <span class="n">hexagon</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
@@ -917,6 +955,66 @@
         <span class="n">rLast</span><span class="p">,</span> <span class="n">bigRLast</span> <span class="o">=</span> <span class="n">rodRadius</span><span class="p">,</span> <span class="n">distFromCenterComp</span>
 
     <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">radiiFromRodCenter</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="stripComponents"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.blockConverters.html#armi.reactor.converters.blockConverters.stripComponents">[docs]</a><span class="k">def</span> <span class="nf">stripComponents</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">compFlags</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Remove all components from a block outside of the first component that matches compFlags.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    block : armi.reactor.blocks.Block</span>
+<span class="sd">        Source block from which to produce a modified copy</span>
+<span class="sd">    compFlags : armi.reactor.flags.Flags</span>
+<span class="sd">        Component flags to indicate which components to strip from the</span>
+<span class="sd">        block. All components outside of the first one that matches</span>
+<span class="sd">        compFlags are stripped.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    newBlock : armi.reactor.blocks.Block</span>
+<span class="sd">        Copy of source block with specified components stripped off.</span>
+<span class="sd">    mixtureFlags : TypeSpec</span>
+<span class="sd">        Combination of all component flags within newBlock.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This is often used for creating a partially heterogeneous representation</span>
+<span class="sd">    of a block. For example, one might want to treat everything inside of a</span>
+<span class="sd">    specific component (such as the duct) as homogenized, while keeping a</span>
+<span class="sd">    heterogeneous representation of the remaining components.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">newBlock</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+    <span class="n">avgBlockTemp</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getAverageTempInC</span><span class="p">()</span>
+    <span class="n">mixtureFlags</span> <span class="o">=</span> <span class="n">newBlock</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">COOLANT</span><span class="p">)</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span>
+    <span class="n">innerMostComp</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+        <span class="n">i</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">newBlock</span><span class="o">.</span><span class="n">getComponents</span><span class="p">()))</span>
+        <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">compFlags</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">outsideComp</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">indexedComponents</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">newBlock</span><span class="o">.</span><span class="n">getComponents</span><span class="p">()))]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">indexedComponents</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">outsideComp</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">innerMostComp</span><span class="p">:</span>
+                <span class="n">compIP</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;ip&quot;</span><span class="p">)</span>
+                <span class="n">outsideComp</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">newBlock</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">recomputeAreaFractions</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mixtureFlags</span> <span class="o">=</span> <span class="n">mixtureFlags</span> <span class="o">|</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span>
+
+    <span class="c1"># add pitch defining component with no area</span>
+    <span class="n">newBlock</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+        <span class="n">components</span><span class="o">.</span><span class="n">Hexagon</span><span class="p">(</span>
+            <span class="s2">&quot;pitchComponent&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Void&quot;</span><span class="p">,</span>
+            <span class="n">avgBlockTemp</span><span class="p">,</span>
+            <span class="n">avgBlockTemp</span><span class="p">,</span>
+            <span class="n">ip</span><span class="o">=</span><span class="n">compIP</span><span class="p">,</span>
+            <span class="n">op</span><span class="o">=</span><span class="n">compIP</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">newBlock</span><span class="p">,</span> <span class="n">mixtureFlags</span></div>
 </pre></div>
 
            </div>

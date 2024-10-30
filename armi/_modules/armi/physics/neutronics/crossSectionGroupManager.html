@@ -156,6 +156,7 @@
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.const</span> <span class="kn">import</span> <span class="n">CONF_CROSS_SECTION</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">flags</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.components</span> <span class="kn">import</span> <span class="n">basicShapes</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.converters.blockConverters</span> <span class="kn">import</span> <span class="n">stripComponents</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="kn">import</span> <span class="n">TRACE_NUMBER_DENSITY</span>
 
@@ -716,7 +717,11 @@
             <span class="n">weight</span> <span class="o">=</span> <span class="n">bWeight</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
             <span class="n">totalWeight</span> <span class="o">+=</span> <span class="n">weight</span>
             <span class="n">densities</span> <span class="o">+=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">allNucNames</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">allNucNames</span><span class="p">,</span> <span class="n">densities</span> <span class="o">/</span> <span class="n">totalWeight</span>
+        <span class="k">if</span> <span class="n">totalWeight</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">weightedDensities</span> <span class="o">=</span> <span class="n">densities</span> <span class="o">/</span> <span class="n">totalWeight</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">weightedDensities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">densities</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">allNucNames</span><span class="p">,</span> <span class="n">weightedDensities</span>
 
     <span class="k">def</span> <span class="nf">_orderComponentsInGroup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">repBlock</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Order the components based on dimension and material type within the representative</span>
@@ -735,6 +740,64 @@
             <span class="n">wt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getWeight</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
             <span class="n">nvtBlock</span><span class="p">,</span> <span class="n">nvBlock</span> <span class="o">=</span> <span class="n">getBlockNuclideTemperatureAvgTerms</span><span class="p">(</span>
                 <span class="n">block</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
+            <span class="p">)</span>
+            <span class="n">nvt</span> <span class="o">+=</span> <span class="n">nvtBlock</span> <span class="o">*</span> <span class="n">wt</span>
+            <span class="n">nv</span> <span class="o">+=</span> <span class="n">nvBlock</span> <span class="o">*</span> <span class="n">wt</span>
+        <span class="k">return</span> <span class="n">nvt</span><span class="p">,</span> <span class="n">nv</span></div>
+
+
+<div class="viewcode-block" id="CylindricalComponentsDuctHetAverageBlockCollection"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.CylindricalComponentsDuctHetAverageBlockCollection">[docs]</a><span class="k">class</span> <span class="nc">CylindricalComponentsDuctHetAverageBlockCollection</span><span class="p">(</span>
+    <span class="n">CylindricalComponentsAverageBlockCollection</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a representative block for the purpose of cross section generation with a one-</span>
+<span class="sd">    dimensional cylindrical model where all material inside the duct is homogenized.</span>
+
+<span class="sd">    .. impl:: Create partially heterogeneous representative blocks.</span>
+<span class="sd">        :id: I_ARMI_XSGM_CREATE_REPR_BLOCKS2</span>
+<span class="sd">        :implements: R_ARMI_XSGM_CREATE_REPR_BLOCKS</span>
+
+<span class="sd">        This class constructs representative blocks based on a volume-weighted average using</span>
+<span class="sd">        cylindrical blocks from an existing block list. Inheriting functionality from the abstract</span>
+<span class="sd">        :py:class:`Reactor &lt;armi.physics.neutronics.crossSectionGroupManager.BlockCollection&gt;`</span>
+<span class="sd">        object, this class will construct representative blocks using averaged parameters of all</span>
+<span class="sd">        blocks in the given collection. Number density averages are computed at a component level.</span>
+<span class="sd">        Nuclide temperatures from a median block-average temperature are used and the average burnup</span>
+<span class="sd">        is evaluated across all blocks in the block list.</span>
+
+<span class="sd">        The average nuclide temperatures are calculated only for the homogenized region inside of</span>
+<span class="sd">        the duct. For the non-homogenized regions, the MC2 writer uses the component temperatures.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The representative block for this collection is the same as the parent. The only difference between</span>
+<span class="sd">    the two collection types is that this collection calculates average nuclide temperatures based only</span>
+<span class="sd">    on the components that are inside of the duct.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_getNewBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">newBlock</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_selectCandidateBlock</span><span class="p">())</span>
+        <span class="n">newBlock</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;1D_CYL_DUCT_HET_AVG_&quot;</span> <span class="o">+</span> <span class="n">newBlock</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">newBlock</span>
+
+    <span class="k">def</span> <span class="nf">_makeRepresentativeBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a representative fuel block based on component number densities.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calcAvgNuclideTemperatures</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">CylindricalComponentsAverageBlockCollection</span><span class="o">.</span><span class="n">_makeRepresentativeBlock</span><span class="p">(</span>
+            <span class="bp">self</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_getNucTempHelper</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;All candidate blocks are used in the average.&quot;&quot;&quot;</span>
+        <span class="n">nvt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">allNuclidesInProblem</span><span class="p">))</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">allNuclidesInProblem</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCandidateBlocks</span><span class="p">():</span>
+            <span class="n">wt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getWeight</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+            <span class="c1"># remove the duct and intercoolant from the block before</span>
+            <span class="c1"># calculating average nuclide temps</span>
+            <span class="n">newBlock</span><span class="p">,</span> <span class="n">_mixtureFlags</span> <span class="o">=</span> <span class="n">stripComponents</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">)</span>
+            <span class="n">nvtBlock</span><span class="p">,</span> <span class="n">nvBlock</span> <span class="o">=</span> <span class="n">getBlockNuclideTemperatureAvgTerms</span><span class="p">(</span>
+                <span class="n">newBlock</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
             <span class="p">)</span>
             <span class="n">nvt</span> <span class="o">+=</span> <span class="n">nvtBlock</span> <span class="o">*</span> <span class="n">wt</span>
             <span class="n">nv</span> <span class="o">+=</span> <span class="n">nvBlock</span> <span class="o">*</span> <span class="n">wt</span>
@@ -882,7 +945,11 @@
             <span class="n">weight</span> <span class="o">=</span> <span class="n">bWeight</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span>
             <span class="n">totalWeight</span> <span class="o">+=</span> <span class="n">weight</span>
             <span class="n">densities</span> <span class="o">+=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">allNucNames</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">allNucNames</span><span class="p">,</span> <span class="n">densities</span> <span class="o">/</span> <span class="n">totalWeight</span>
+        <span class="k">if</span> <span class="n">totalWeight</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">weightedDensities</span> <span class="o">=</span> <span class="n">densities</span> <span class="o">/</span> <span class="n">totalWeight</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">weightedDensities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">densities</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">allNucNames</span><span class="p">,</span> <span class="n">weightedDensities</span>
 
     <span class="k">def</span> <span class="nf">_orderComponentsInGroup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">repBlock</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Order the components based on dimension and material type within the representative block.&quot;&quot;&quot;</span>
@@ -1613,6 +1680,9 @@
 <span class="n">FLUX_WEIGHTED_AVERAGE_BLOCK_COLLECTION</span> <span class="o">=</span> <span class="s2">&quot;FluxWeightedAverage&quot;</span>
 <span class="n">SLAB_COMPONENTS_BLOCK_COLLECTION</span> <span class="o">=</span> <span class="s2">&quot;ComponentAverage1DSlab&quot;</span>
 <span class="n">CYLINDRICAL_COMPONENTS_BLOCK_COLLECTION</span> <span class="o">=</span> <span class="s2">&quot;ComponentAverage1DCylinder&quot;</span>
+<span class="n">CYLINDRICAL_COMPONENTS_DUCT_HET_BLOCK_COLLECTION</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;ComponentAverage1DCylinderDuctHeterogeneous&quot;</span>
+<span class="p">)</span>
 
 <span class="c1"># Mapping between block collection string constants and their</span>
 <span class="c1"># respective block collection classes.</span>
@@ -1622,12 +1692,17 @@
     <span class="n">FLUX_WEIGHTED_AVERAGE_BLOCK_COLLECTION</span><span class="p">:</span> <span class="n">FluxWeightedAverageBlockCollection</span><span class="p">,</span>
     <span class="n">SLAB_COMPONENTS_BLOCK_COLLECTION</span><span class="p">:</span> <span class="n">SlabComponentsAverageBlockCollection</span><span class="p">,</span>
     <span class="n">CYLINDRICAL_COMPONENTS_BLOCK_COLLECTION</span><span class="p">:</span> <span class="n">CylindricalComponentsAverageBlockCollection</span><span class="p">,</span>
+    <span class="n">CYLINDRICAL_COMPONENTS_DUCT_HET_BLOCK_COLLECTION</span><span class="p">:</span> <span class="n">CylindricalComponentsDuctHetAverageBlockCollection</span><span class="p">,</span>
 <span class="p">}</span>
 
 
 <div class="viewcode-block" id="blockCollectionFactory"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.blockCollectionFactory">[docs]</a><span class="k">def</span> <span class="nf">blockCollectionFactory</span><span class="p">(</span><span class="n">xsSettings</span><span class="p">,</span> <span class="n">allNuclidesInProblem</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a block collection based on user settings and input.&quot;&quot;&quot;</span>
     <span class="n">blockRepresentation</span> <span class="o">=</span> <span class="n">xsSettings</span><span class="o">.</span><span class="n">blockRepresentation</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">blockRepresentation</span> <span class="o">==</span> <span class="n">CYLINDRICAL_COMPONENTS_BLOCK_COLLECTION</span>
+    <span class="p">)</span> <span class="ow">and</span> <span class="n">xsSettings</span><span class="o">.</span><span class="n">ductHeterogeneous</span><span class="p">:</span>
+        <span class="n">blockRepresentation</span> <span class="o">=</span> <span class="n">CYLINDRICAL_COMPONENTS_DUCT_HET_BLOCK_COLLECTION</span>
     <span class="n">validBlockTypes</span> <span class="o">=</span> <span class="n">xsSettings</span><span class="o">.</span><span class="n">validBlockTypes</span>
     <span class="n">averageByComponent</span> <span class="o">=</span> <span class="n">xsSettings</span><span class="o">.</span><span class="n">averageByComponent</span>
     <span class="k">return</span> <span class="n">BLOCK_COLLECTIONS</span><span class="p">[</span><span class="n">blockRepresentation</span><span class="p">](</span>
