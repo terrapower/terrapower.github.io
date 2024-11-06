@@ -127,6 +127,7 @@
 <span class="sd">--------</span>
 <span class="sd">    csm = CrossSectionGroupManager()</span>
 <span class="sd">    csm._setBuGroupBounds(cs[&#39;buGroups&#39;])</span>
+<span class="sd">    csm._setTempGroupBounds(cs[&#39;tempGroups&#39;]) # or empty list</span>
 <span class="sd">    csm._addXsGroupsFromBlocks(blockList)</span>
 <span class="sd">    csm.createRepresentativeBlocks()</span>
 <span class="sd">    representativeBlockList = csm.representativeBlocks.values()</span>
@@ -158,7 +159,7 @@
 <span class="kn">from</span> <span class="nn">armi.reactor.components</span> <span class="kn">import</span> <span class="n">basicShapes</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.converters.blockConverters</span> <span class="kn">import</span> <span class="n">stripComponents</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
-<span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="kn">import</span> <span class="n">TRACE_NUMBER_DENSITY</span>
+<span class="kn">from</span> <span class="nn">armi.utils.units</span> <span class="kn">import</span> <span class="n">TRACE_NUMBER_DENSITY</span><span class="p">,</span> <span class="n">C_TO_K</span>
 
 <span class="n">ORDER</span> <span class="o">=</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">BEFORE</span> <span class="o">+</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">STACK_ORDER</span><span class="o">.</span><span class="n">CROSS_SECTIONS</span>
 
@@ -566,6 +567,12 @@
             <span class="k">return</span> <span class="kc">True</span></div>
 
 
+<div class="viewcode-block" id="getBlockNuclideTemperature"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.getBlockNuclideTemperature">[docs]</a><span class="k">def</span> <span class="nf">getBlockNuclideTemperature</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">nuclide</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the average temperature for 1 nuclide.&quot;&quot;&quot;</span>
+    <span class="n">tempIntegratedVolume</span><span class="p">,</span> <span class="n">volume</span> <span class="o">=</span> <span class="n">getBlockNuclideTemperatureAvgTerms</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="p">[</span><span class="n">nuclide</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">tempIntegratedVolume</span> <span class="o">/</span> <span class="n">volume</span> <span class="k">if</span> <span class="n">volume</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span></div>
+
+
 <div class="viewcode-block" id="getBlockNuclideTemperatureAvgTerms"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.getBlockNuclideTemperatureAvgTerms">[docs]</a><span class="k">def</span> <span class="nf">getBlockNuclideTemperatureAvgTerms</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">allNucNames</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute terms (numerator, denominator) of average for this block.</span>
@@ -589,12 +596,13 @@
     <span class="n">components</span><span class="p">,</span> <span class="n">volFracs</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">block</span><span class="o">.</span><span class="n">getVolumeFractions</span><span class="p">())</span>
     <span class="c1"># D = CxN matrix of number densities</span>
     <span class="n">ndens</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">getNumberDensitiesWithTrace</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">allNucNames</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">])</span>
-    <span class="n">temperatures</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
-        <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">]</span>
-    <span class="p">)</span>  <span class="c1"># C-length temperature array</span>
-    <span class="n">nvBlock</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">ndens</span><span class="o">.</span><span class="n">T</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">volFracs</span><span class="p">)</span> <span class="o">*</span> <span class="n">vol</span>
-    <span class="p">)</span>  <span class="c1"># multiply each component&#39;s values by volume frac, now NxC</span>
+
+    <span class="c1"># C-length temperature array</span>
+    <span class="n">temperatures</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">])</span>
+
+    <span class="c1"># multiply each component&#39;s values by volume frac, now NxC</span>
+    <span class="n">nvBlock</span> <span class="o">=</span> <span class="n">ndens</span><span class="o">.</span><span class="n">T</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">volFracs</span><span class="p">)</span> <span class="o">*</span> <span class="n">vol</span>
+
     <span class="n">nvt</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">nvBlock</span> <span class="o">*</span> <span class="n">temperatures</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>  <span class="c1"># N-length array summing over components.</span>
     <span class="n">nv</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">nvBlock</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>  <span class="c1"># N-length array</span>
     <span class="k">return</span> <span class="n">nvt</span><span class="p">,</span> <span class="n">nv</span></div>
@@ -655,6 +663,7 @@
             <span class="p">)</span>
             <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">aDensity</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">allNucsNames</span><span class="p">,</span> <span class="n">densities</span><span class="p">):</span>
                 <span class="n">c</span><span class="o">.</span><span class="n">setNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">aDensity</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calcAvgNuclideTemperatures</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">repBlock</span>
 
     <span class="nd">@staticmethod</span>
@@ -1007,11 +1016,16 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
         <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_upperBuGroupBounds</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buGroupBounds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tempGroupBounds</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">representativeBlocks</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">avgNucTemperatures</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_buGroupUpdatesEnabled</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># this turns off updates for when core changes are made, but dont want to re-evaluate XS</span>
+        <span class="c1"># for example if lattice physics was only once per cycle we might not want to re-evaluate groups</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_envGroupUpdatesEnabled</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_setBuGroupBounds</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;buGroups&quot;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setTempGroupBounds</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tempGroups&quot;</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_unrepresentedXSIDs</span> <span class="o">=</span> <span class="p">[]</span>
 
 <div class="viewcode-block" id="CrossSectionGroupManager.interactBOL"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.CrossSectionGroupManager.interactBOL">[docs]</a>    <span class="k">def</span> <span class="nf">interactBOL</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1137,13 +1151,13 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">representativeBlocks</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">avgNucTemperatures</span> <span class="o">=</span> <span class="p">{}</span></div>
 
-    <span class="k">def</span> <span class="nf">_setBuGroupBounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">upperBuGroupBounds</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_setBuGroupBounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buGroupBounds</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set the burnup group structure.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        upperBuGroupBounds : list</span>
+<span class="sd">        buGroupBounds : list</span>
 <span class="sd">            List of upper burnup values in percent.</span>
 
 <span class="sd">        Raises</span>
@@ -1151,9 +1165,9 @@
 <span class="sd">        ValueError</span>
 <span class="sd">            If the provided burnup groups are invalid</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_upperBuGroupBounds</span> <span class="o">=</span> <span class="n">upperBuGroupBounds</span>
         <span class="n">lastBu</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">for</span> <span class="n">upperBu</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_upperBuGroupBounds</span><span class="p">:</span>
+        <span class="c1"># validate structure</span>
+        <span class="k">for</span> <span class="n">upperBu</span> <span class="ow">in</span> <span class="n">buGroupBounds</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">upperBu</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">upperBu</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;Burnup group upper bound </span><span class="si">{0}</span><span class="s2"> is invalid&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">upperBu</span><span class="p">)</span>
@@ -1162,46 +1176,85 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Burnup groups must be ascending&quot;</span><span class="p">)</span>
             <span class="n">lastBu</span> <span class="o">=</span> <span class="n">upperBu</span>
 
-    <span class="k">def</span> <span class="nf">_updateBurnupGroups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockList</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Update the burnup group of each block based on its burnup.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buGroupBounds</span> <span class="o">=</span> <span class="n">buGroupBounds</span> <span class="o">+</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)]</span>
 
-<span class="sd">        If only one burnup group exists, then this is skipped so as to accomodate the possibility</span>
+    <span class="k">def</span> <span class="nf">_setTempGroupBounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tempGroupBounds</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the temperature group structure.&quot;&quot;&quot;</span>
+        <span class="n">lastTemp</span> <span class="o">=</span> <span class="o">-</span><span class="n">C_TO_K</span>
+        <span class="c1"># validate structure</span>
+        <span class="k">for</span> <span class="n">upperTemp</span> <span class="ow">in</span> <span class="n">tempGroupBounds</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">upperTemp</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">C_TO_K</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Temperature boundary is below absolute zero </span><span class="si">{0}</span><span class="s2">.format(upperTemp)&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">upperTemp</span> <span class="o">&lt;</span> <span class="n">lastTemp</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Temp groups must be ascending&quot;</span><span class="p">)</span>
+            <span class="n">lastTemp</span> <span class="o">=</span> <span class="n">upperTemp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tempGroupBounds</span> <span class="o">=</span> <span class="n">tempGroupBounds</span> <span class="o">+</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)]</span>
+
+    <span class="k">def</span> <span class="nf">_updateEnvironmentGroups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockList</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Update the burnup group of each block based on its burnup and temperature .</span>
+
+<span class="sd">        If only one burnup group exists, then this is skipped so as to accommodate the possibility</span>
 <span class="sd">        of 2-character xsGroup values (useful for detailed V&amp;V models w/o depletion).</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
 <span class="sd">        armi.reactor.blocks.Block.getMicroSuffix</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buGroupUpdatesEnabled</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_upperBuGroupBounds</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Updating burnup groups of </span><span class="si">{0}</span><span class="s2"> blocks&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">blockList</span><span class="p">)))</span>
-            <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">blockList</span><span class="p">:</span>
-                <span class="n">bu</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span>
-                <span class="k">for</span> <span class="n">buGroupIndex</span><span class="p">,</span> <span class="n">upperBu</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_upperBuGroupBounds</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="n">bu</span> <span class="o">&lt;=</span> <span class="n">upperBu</span><span class="p">:</span>
-                        <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">buGroupNum</span> <span class="o">=</span> <span class="n">buGroupIndex</span>
-                        <span class="k">break</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;no bu group found for bu=</span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">bu</span><span class="p">))</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_envGroupUpdatesEnabled</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                 <span class="s2">&quot;Skipping burnup group update of </span><span class="si">{0}</span><span class="s2"> blocks because it is disabled&quot;</span>
                 <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">blockList</span><span class="p">))</span>
             <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">numBuGroups</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buGroupBounds</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">numBuGroups</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tempGroupBounds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># dont set block.p.envGroupNum since all 1 group and we want to support 2 char xsGroup</span>
+            <span class="k">return</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Updating env groups of </span><span class="si">{0}</span><span class="s2"> blocks&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">blockList</span><span class="p">)))</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">blockList</span><span class="p">:</span>
+            <span class="n">bu</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span>
+            <span class="k">for</span> <span class="n">buIndex</span><span class="p">,</span> <span class="n">upperBu</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_buGroupBounds</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">bu</span> <span class="o">&lt;=</span> <span class="n">upperBu</span><span class="p">:</span>
+                    <span class="n">buGroupVal</span> <span class="o">=</span> <span class="n">buIndex</span>
+                    <span class="n">tempGroupVal</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">isotope</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initializeXsID</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">())</span><span class="o">.</span><span class="n">xsTempIsotope</span>
+                    <span class="k">if</span> <span class="n">isotope</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tempGroupBounds</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="c1"># if statement saves this somewhat expensive calc if we are not doing temp groups</span>
+                        <span class="n">tempC</span> <span class="o">=</span> <span class="n">getBlockNuclideTemperature</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">isotope</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">tempIndex</span><span class="p">,</span> <span class="n">upperTemp</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tempGroupBounds</span><span class="p">):</span>
+                            <span class="k">if</span> <span class="n">tempC</span> <span class="o">&lt;=</span> <span class="n">upperTemp</span><span class="p">:</span>
+                                <span class="n">tempGroupVal</span> <span class="o">=</span> <span class="n">tempIndex</span>
+                                <span class="k">break</span>
+                    <span class="c1"># this ordering groups like-temperatures together in group number</span>
+                    <span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">envGroupNum</span> <span class="o">=</span> <span class="n">tempGroupVal</span> <span class="o">*</span> <span class="n">numBuGroups</span> <span class="o">+</span> <span class="n">buGroupVal</span>
+                    <span class="k">break</span>
 
     <span class="k">def</span> <span class="nf">_addXsGroupsFromBlocks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockCollectionsByXsGroup</span><span class="p">,</span> <span class="n">blockList</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Build all the cross section groups based on their XS type and BU group.</span>
+<span class="sd">        Build all the cross section groups based on their XS type and Env group.</span>
 
-<span class="sd">        Also ensures that their BU group is up to date with their burnup.</span>
+<span class="sd">        Also ensures that their Env group is up to date with their environment.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_updateBurnupGroups</span><span class="p">(</span><span class="n">blockList</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_updateEnvironmentGroups</span><span class="p">(</span><span class="n">blockList</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blockList</span><span class="p">:</span>
             <span class="n">xsID</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()</span>
             <span class="n">xsSettings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initializeXsID</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;tempGroups&quot;</span><span class="p">]</span>
+                <span class="ow">and</span> <span class="n">xsSettings</span><span class="o">.</span><span class="n">blockRepresentation</span> <span class="o">==</span> <span class="n">MEDIAN_BLOCK_COLLECTION</span>
+            <span class="p">):</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Median block currently only consider median burnup block, and &quot;</span>
+                    <span class="s2">&quot;not median temperature block in group&quot;</span>
+                <span class="p">)</span>
             <span class="n">blockCollectionType</span> <span class="o">=</span> <span class="n">blockCollectionFactory</span><span class="p">(</span>
                 <span class="n">xsSettings</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">allNuclidesInProblem</span>
             <span class="p">)</span>
+
             <span class="n">group</span> <span class="o">=</span> <span class="n">blockCollectionsByXsGroup</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">xsID</span><span class="p">,</span> <span class="n">blockCollectionType</span><span class="p">)</span>
             <span class="n">group</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
             <span class="n">blockCollectionsByXsGroup</span><span class="p">[</span><span class="n">xsID</span><span class="p">]</span> <span class="o">=</span> <span class="n">group</span>
@@ -1320,9 +1373,8 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">avgNucTemperatures</span><span class="p">[</span><span class="n">xsID</span><span class="p">]</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">avgNucTemperatures</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                    <span class="s2">&quot;No candidate blocks for </span><span class="si">{}</span><span class="s2"> will apply different burnup group&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                        <span class="n">xsID</span>
-                    <span class="p">)</span>
+                    <span class="s2">&quot;No candidate blocks in group for </span><span class="si">{}</span><span class="s2"> (with a valid representative block flag). &quot;</span>
+                    <span class="s2">&quot;Will apply different environment group&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
                 <span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_unrepresentedXSIDs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
 
@@ -1502,22 +1554,23 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">availableXsTypes</span><span class="p">[:</span><span class="n">howMany</span><span class="p">]</span></div>
 
-    <span class="k">def</span> <span class="nf">_getUnrepresentedBlocks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockCollectionsByXsGroup</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_getMissingBlueprintBlocks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockCollectionsByXsGroup</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Gets all blocks with suffixes not yet represented (for blocks in assemblies in the blueprints but not the core).</span>
+<span class="sd">        Gets all blocks with suffixes not yet represented.</span>
+<span class="sd">        (for blocks in assemblies in the blueprints but not in the core).</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        Certain cases (ZPPR validation cases) need to run cross sections for assemblies not in</span>
 <span class="sd">        the core to get by region cross sections and flux factors.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">unrepresentedBlocks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">missingBlueprintBlocks</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">blueprints</span><span class="o">.</span><span class="n">assemblies</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">blockCollectionsByXsGroup</span><span class="p">:</span>
                     <span class="n">b2</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
-                    <span class="n">unrepresentedBlocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b2</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">unrepresentedBlocks</span>
+                    <span class="n">missingBlueprintBlocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">missingBlueprintBlocks</span>
 
 <div class="viewcode-block" id="CrossSectionGroupManager.makeCrossSectionGroups"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.CrossSectionGroupManager.makeCrossSectionGroups">[docs]</a>    <span class="k">def</span> <span class="nf">makeCrossSectionGroups</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Make cross section groups for all blocks in reactor and unrepresented blocks from blueprints.&quot;&quot;&quot;</span>
@@ -1525,41 +1578,56 @@
         <span class="n">bCollectXSGroup</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_addXsGroupsFromBlocks</span><span class="p">(</span>
             <span class="n">bCollectXSGroup</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()</span>
         <span class="p">)</span>
+
+        <span class="c1"># add blocks that are defined in blueprints, but not in core</span>
         <span class="n">bCollectXSGroup</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_addXsGroupsFromBlocks</span><span class="p">(</span>
-            <span class="n">bCollectXSGroup</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getUnrepresentedBlocks</span><span class="p">(</span><span class="n">bCollectXSGroup</span><span class="p">)</span>
+            <span class="n">bCollectXSGroup</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getMissingBlueprintBlocks</span><span class="p">(</span><span class="n">bCollectXSGroup</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">blockCollectionsByXsGroup</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">(</span>
             <span class="nb">sorted</span><span class="p">(</span><span class="n">bCollectXSGroup</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">blockCollectionsByXsGroup</span></div>
 
+    <span class="k">def</span> <span class="nf">_getAlternateEnvGroup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">missingXsType</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a substitute block to use since there are no blocks with flags for xs gen.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">otherXsID</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">representativeBlocks</span><span class="p">:</span>
+            <span class="n">repType</span><span class="p">,</span> <span class="n">repEnvGroup</span> <span class="o">=</span> <span class="n">otherXsID</span>
+            <span class="k">if</span> <span class="n">repType</span> <span class="o">==</span> <span class="n">missingXsType</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">repEnvGroup</span>
+
     <span class="k">def</span> <span class="nf">_modifyUnrepresentedXSIDs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockCollectionsByXsGroup</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Adjust the xsID of blocks in the groups that are not represented.</span>
 
 <span class="sd">        Try to just adjust the burnup group up to something that is represented</span>
-<span class="sd">        (can happen to structure in AA when only AB, AC, AD still remain).</span>
+<span class="sd">        (can happen to structure in AA when only AB, AC, AD still remain,</span>
+<span class="sd">        but if some fresh AA happened to be added it might be needed).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># No blocks in in this ID had a valid representative block flag (such as `fuel` for default),</span>
+        <span class="c1"># so nothing valid to run lattice physics on...</span>
         <span class="k">for</span> <span class="n">xsID</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unrepresentedXSIDs</span><span class="p">:</span>
-            <span class="n">missingXsType</span><span class="p">,</span> <span class="n">_missingBuGroup</span> <span class="o">=</span> <span class="n">xsID</span>
-            <span class="k">for</span> <span class="n">otherXsID</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">representativeBlocks</span><span class="p">:</span>  <span class="c1"># order gets closest BU</span>
-                <span class="n">repType</span><span class="p">,</span> <span class="n">repBuGroup</span> <span class="o">=</span> <span class="n">otherXsID</span>
-                <span class="k">if</span> <span class="n">repType</span> <span class="o">==</span> <span class="n">missingXsType</span><span class="p">:</span>
-                    <span class="n">nonRepBlocks</span> <span class="o">=</span> <span class="n">blockCollectionsByXsGroup</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">nonRepBlocks</span><span class="p">:</span>
-                        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
-                            <span class="s2">&quot;Changing XSID of </span><span class="si">{0}</span><span class="s2"> blocks from </span><span class="si">{1}</span><span class="s2"> to </span><span class="si">{2}</span><span class="s2">&quot;</span>
-                            <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">nonRepBlocks</span><span class="p">),</span> <span class="n">xsID</span><span class="p">,</span> <span class="n">otherXsID</span><span class="p">)</span>
+            <span class="n">missingXsType</span><span class="p">,</span> <span class="n">_missingEnvGroup</span> <span class="o">=</span> <span class="n">xsID</span>
+            <span class="n">nonRepBlocks</span> <span class="o">=</span> <span class="n">blockCollectionsByXsGroup</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">nonRepBlocks</span><span class="p">:</span>
+                <span class="n">newEnvGroup</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAlternateEnvGroup</span><span class="p">(</span><span class="n">missingXsType</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">newEnvGroup</span><span class="p">:</span>
+                    <span class="c1"># there were no blocks flagged to xs gen even though there were some not suitable for</span>
+                    <span class="c1"># generation in the group so can&#39;t make XS and use different.</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">&quot;Changing XSID of </span><span class="si">{0}</span><span class="s2"> blocks from </span><span class="si">{1}</span><span class="s2"> to </span><span class="si">{2}</span><span class="s2">&quot;</span>
+                        <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="nb">len</span><span class="p">(</span><span class="n">nonRepBlocks</span><span class="p">),</span> <span class="n">xsID</span><span class="p">,</span> <span class="n">missingXsType</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">newEnvGroup</span>
                         <span class="p">)</span>
-                        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">nonRepBlocks</span><span class="p">:</span>
-                            <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">buGroup</span> <span class="o">=</span> <span class="n">repBuGroup</span>
-                    <span class="k">break</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;No representative blocks with XS type </span><span class="si">{0}</span><span class="s2"> exist in the core. &quot;</span>
-                    <span class="s2">&quot;These XS cannot be generated and must exist in the working &quot;</span>
-                    <span class="s2">&quot;directory or the run will fail.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
-                <span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">nonRepBlocks</span><span class="p">:</span>
+                        <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">envGroup</span> <span class="o">=</span> <span class="n">newEnvGroup</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">&quot;No representative blocks with XS type </span><span class="si">{0}</span><span class="s2"> exist in the core. &quot;</span>
+                        <span class="s2">&quot;There were also no similar blocks to use. &quot;</span>
+                        <span class="s2">&quot;These XS cannot be generated and must exist in the working &quot;</span>
+                        <span class="s2">&quot;directory or the run will fail.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
+                    <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_summarizeGroups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockCollectionsByXsGroup</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Summarize current contents of the XS groups.&quot;&quot;&quot;</span>
@@ -1574,9 +1642,20 @@
                 <span class="n">xsIDGroup</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getXsIDGroup</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">xsIDGroup</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_REPR_GROUP</span><span class="p">:</span>
                     <span class="n">reprBlock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">representativeBlocks</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
+                    <span class="n">xsSettings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initializeXsID</span><span class="p">(</span><span class="n">reprBlock</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">())</span>
+                    <span class="n">temp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">avgNucTemperatures</span><span class="p">[</span><span class="n">xsID</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                        <span class="n">xsSettings</span><span class="o">.</span><span class="n">xsTempIsotope</span><span class="p">,</span> <span class="s2">&quot;N/A&quot;</span>
+                    <span class="p">)</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
-                        <span class="s2">&quot;XS ID </span><span class="si">{}</span><span class="s2"> contains </span><span class="si">{:4d}</span><span class="s2"> blocks, represented by: </span><span class="si">{:65s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                            <span class="n">xsID</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">),</span> <span class="n">reprBlock</span>
+                        <span class="p">(</span>
+                            <span class="s2">&quot;XS ID </span><span class="si">{}</span><span class="s2"> contains </span><span class="si">{:4d}</span><span class="s2"> blocks, with avg burnup </span><span class="si">{}</span><span class="s2"> &quot;</span>
+                            <span class="s2">&quot;and avg fuel temp </span><span class="si">{}</span><span class="s2">, represented by: </span><span class="si">{:65s}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="n">xsID</span><span class="p">,</span>
+                            <span class="nb">len</span><span class="p">(</span><span class="n">blocks</span><span class="p">),</span>
+                            <span class="n">reprBlock</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">percentBu</span><span class="p">,</span>
+                            <span class="n">temp</span><span class="p">,</span>
+                            <span class="n">reprBlock</span><span class="p">,</span>
                         <span class="p">)</span>
                     <span class="p">)</span>
                 <span class="k">elif</span> <span class="n">xsIDGroup</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NON_REPR_GROUP</span><span class="p">:</span>
@@ -1604,31 +1683,31 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NON_REPR_GROUP</span>
         <span class="k">return</span> <span class="kc">None</span>
 
-<div class="viewcode-block" id="CrossSectionGroupManager.disableBuGroupUpdates"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.CrossSectionGroupManager.disableBuGroupUpdates">[docs]</a>    <span class="k">def</span> <span class="nf">disableBuGroupUpdates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="CrossSectionGroupManager.disableEnvGroupUpdates"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.CrossSectionGroupManager.disableEnvGroupUpdates">[docs]</a>    <span class="k">def</span> <span class="nf">disableEnvGroupUpdates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Turn off updating bu groups based on burnup.</span>
+<span class="sd">        Turn off updating Env groups based on environment.</span>
 
 <span class="sd">        Useful during reactivity coefficient calculations to be consistent with ref. run.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
-<span class="sd">        enableBuGroupUpdates</span>
+<span class="sd">        enableEnvGroupUpdates</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Burnup group updating disabled&quot;</span><span class="p">)</span>
-        <span class="n">wasEnabled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buGroupUpdatesEnabled</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_buGroupUpdatesEnabled</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Environment xs group updating disabled&quot;</span><span class="p">)</span>
+        <span class="n">wasEnabled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_envGroupUpdatesEnabled</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_envGroupUpdatesEnabled</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="n">wasEnabled</span></div>
 
-<div class="viewcode-block" id="CrossSectionGroupManager.enableBuGroupUpdates"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.CrossSectionGroupManager.enableBuGroupUpdates">[docs]</a>    <span class="k">def</span> <span class="nf">enableBuGroupUpdates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="CrossSectionGroupManager.enableEnvGroupUpdates"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.CrossSectionGroupManager.enableEnvGroupUpdates">[docs]</a>    <span class="k">def</span> <span class="nf">enableEnvGroupUpdates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Turn on updating bu groups based on burnup.</span>
+<span class="sd">        Turn on updating Env groups based on environment.</span>
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
-<span class="sd">        disableBuGroupUpdates</span>
+<span class="sd">        disableEnvGroupUpdates</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Burnup group updating enabled&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_buGroupUpdatesEnabled</span> <span class="o">=</span> <span class="kc">True</span></div>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Environment xs group updating enabled&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_envGroupUpdatesEnabled</span> <span class="o">=</span> <span class="kc">True</span></div>
 
 <div class="viewcode-block" id="CrossSectionGroupManager.getNucTemperature"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.CrossSectionGroupManager.getNucTemperature">[docs]</a>    <span class="k">def</span> <span class="nf">getNucTemperature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xsID</span><span class="p">,</span> <span class="n">nucName</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
