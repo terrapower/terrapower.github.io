@@ -122,7 +122,6 @@
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">nuclideBases</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">report</span>
-<span class="kn">from</span> <span class="nn">armi.nucDirectory</span> <span class="kn">import</span> <span class="n">elements</span>
 <span class="kn">from</span> <span class="nn">armi.nuclearDataIO</span> <span class="kn">import</span> <span class="n">xsCollections</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">GAMMA</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics</span> <span class="kn">import</span> <span class="n">NEUTRON</span>
@@ -887,11 +886,22 @@
         <span class="n">massHmBOL</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">sf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSymmetryFactor</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="c1"># multiplying by sf ends up cancelling out the symmetry factor used in</span>
+            <span class="c1"># Component.getMass(). So massHmBOL does not respect the symmetry factor.</span>
             <span class="n">hmMass</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">getHMMass</span><span class="p">()</span> <span class="o">*</span> <span class="n">sf</span>
             <span class="n">massHmBOL</span> <span class="o">+=</span> <span class="n">hmMass</span>
-            <span class="c1"># Components have a massHmBOL parameter but not every composite will</span>
+            <span class="c1"># Components have the following parameters but not every composite will</span>
+            <span class="c1"># massHmBOL, molesHmBOL, puFrac</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">components</span><span class="o">.</span><span class="n">Component</span><span class="p">):</span>
                 <span class="n">child</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span> <span class="o">=</span> <span class="n">hmMass</span>
+                <span class="c1"># to stay consistent with massHmBOL, molesHmBOL and puFrac should be</span>
+                <span class="c1"># independent of sf. As such, the need to be scaled by 1/sf.</span>
+                <span class="n">child</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">getHMMoles</span><span class="p">()</span> <span class="o">/</span> <span class="n">sf</span>
+                <span class="n">child</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">puFrac</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">getPuMoles</span><span class="p">()</span> <span class="o">/</span> <span class="n">sf</span> <span class="o">/</span> <span class="n">child</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span>
+                    <span class="k">if</span> <span class="n">child</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="o">&gt;</span> <span class="mf">0.0</span>
+                    <span class="k">else</span> <span class="mf">0.0</span>
+                <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span> <span class="o">=</span> <span class="n">massHmBOL</span>
 
@@ -1525,63 +1535,6 @@
             <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{0}</span><span class="s2"> has no updatedDims method -- skipping&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">c</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="Block.breakFuelComponentsIntoIndividuals"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.breakFuelComponentsIntoIndividuals">[docs]</a>    <span class="k">def</span> <span class="nf">breakFuelComponentsIntoIndividuals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Split block-level components (in fuel blocks) into pin-level components.</span>
-
-<span class="sd">        The fuel component will be broken up according to its multiplicity.</span>
-
-<span class="sd">        Order matters! The first pin component will be located at a particular (x, y), which</span>
-<span class="sd">        will be used in the fluxRecon module to determine the interpolated flux.</span>
-
-<span class="sd">        The fuel will become fuel001 through fuel169 if there are 169 pins.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">fuels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getChildrenWithFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fuels</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                <span class="s2">&quot;This block contains </span><span class="si">{0}</span><span class="s2"> fuel components: </span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fuels</span><span class="p">),</span> <span class="n">fuels</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot break </span><span class="si">{0}</span><span class="s2"> into multiple fuel components b/c there is not a single fuel&quot;</span>
-                <span class="s2">&quot; component.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-            <span class="p">)</span>
-
-        <span class="n">fuel</span> <span class="o">=</span> <span class="n">fuels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">fuelFlags</span> <span class="o">=</span> <span class="n">fuel</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span>
-        <span class="n">nPins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">()</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="s2">&quot;Creating </span><span class="si">{}</span><span class="s2"> individual </span><span class="si">{}</span><span class="s2"> components on </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nPins</span><span class="p">,</span> <span class="n">fuel</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Handle all other components that may be linked to the fuel multiplicity</span>
-        <span class="c1"># by unlinking them and setting them directly.</span>
-        <span class="c1"># TODO: What about other (actual) dimensions? This is a limitation in that only fuel</span>
-        <span class="c1"># components are duplicated, and not the entire pin. It is also a reasonable assumption with</span>
-        <span class="c1"># current/historical usage of ARMI.</span>
-        <span class="k">for</span> <span class="n">comp</span><span class="p">,</span> <span class="n">dim</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getComponentsThatAreLinkedTo</span><span class="p">(</span><span class="n">fuel</span><span class="p">,</span> <span class="s2">&quot;mult&quot;</span><span class="p">):</span>
-            <span class="n">comp</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">nPins</span><span class="p">)</span>
-
-        <span class="c1"># finish the first pin as a single pin</span>
-        <span class="n">fuel</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">fuel</span><span class="o">.</span><span class="n">setName</span><span class="p">(</span><span class="s2">&quot;fuel001&quot;</span><span class="p">)</span>
-        <span class="n">fuel</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNum</span> <span class="o">=</span> <span class="mi">1</span>
-
-        <span class="c1"># create all the new pin components and add them to the block with &#39;fuel001&#39; names</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nPins</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="c1"># wow, only use of a non-deepcopy</span>
-            <span class="n">newC</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">fuel</span><span class="p">)</span>
-            <span class="n">newC</span><span class="o">.</span><span class="n">setName</span><span class="p">(</span><span class="s2">&quot;fuel</span><span class="si">{0:03d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>  <span class="c1"># start with 002.</span>
-            <span class="n">newC</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNum</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">2</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">newC</span><span class="p">)</span>
-
-        <span class="c1"># update moles at BOL for each pin</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOLByPin</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">pin</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
-            <span class="c1"># Update the fuel component flags to be the same as before the split (i.e., DEPLETABLE)</span>
-            <span class="n">pin</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="n">fuelFlags</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOLByPin</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pin</span><span class="o">.</span><span class="n">getHMMoles</span><span class="p">())</span>
-            <span class="n">pin</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span> <span class="o">/=</span> <span class="n">nPins</span></div>
-
 <div class="viewcode-block" id="Block.getIntegratedMgFlux"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getIntegratedMgFlux">[docs]</a>    <span class="k">def</span> <span class="nf">getIntegratedMgFlux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">adjoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the volume integrated multigroup neutron tracklength in [n-cm/s].</span>
@@ -1831,18 +1784,6 @@
         <span class="k">if</span> <span class="n">total</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
             <span class="k">return</span> <span class="mf">0.0</span>
         <span class="k">return</span> <span class="n">b10</span> <span class="o">/</span> <span class="n">total</span></div>
-
-<div class="viewcode-block" id="Block.getPuMoles"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getPuMoles">[docs]</a>    <span class="k">def</span> <span class="nf">getPuMoles</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns total number of moles of Pu isotopes.&quot;&quot;&quot;</span>
-        <span class="n">nucNames</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuc</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">elements</span><span class="o">.</span><span class="n">byZ</span><span class="p">[</span><span class="mi">94</span><span class="p">]</span><span class="o">.</span><span class="n">nuclides</span><span class="p">]</span>
-        <span class="n">puN</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">nucNames</span><span class="p">))</span>
-
-        <span class="k">return</span> <span class="p">(</span>
-            <span class="n">puN</span>
-            <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">MOLES_PER_CC_TO_ATOMS_PER_BARN_CM</span>
-            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
-            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSymmetryFactor</span><span class="p">()</span>
-        <span class="p">)</span></div>
 
 <div class="viewcode-block" id="Block.getUraniumMassEnrich"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.getUraniumMassEnrich">[docs]</a>    <span class="k">def</span> <span class="nf">getUraniumMassEnrich</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns U-235 mass fraction assuming U-235 and U-238 only.&quot;&quot;&quot;</span>
@@ -2796,7 +2737,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-11-21.
+      <span class="lastupdated">Last updated on 2024-11-22.
       </span></p>
   </div>
 
