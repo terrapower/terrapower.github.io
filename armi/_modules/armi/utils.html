@@ -932,6 +932,50 @@
     <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Copied </span><span class="si">{}</span><span class="s2"> -&gt; </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">))</span></div>
 
 
+<div class="viewcode-block" id="safeMove"><a class="viewcode-back" href="../../.apidocs/armi.utils.html#armi.utils.safeMove">[docs]</a><span class="k">def</span> <span class="nf">safeMove</span><span class="p">(</span><span class="n">src</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dst</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check that a file has been successfully moved before continuing.&quot;&quot;&quot;</span>
+    <span class="c1"># Convert files to OS-independence</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+    <span class="n">dst</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">dst</span><span class="p">):</span>
+        <span class="n">dst</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dst</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">src</span><span class="p">))</span>
+
+    <span class="n">srcSize</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;win&quot;</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="p">:</span>
+        <span class="c1"># this covers Windows (&quot;win32&quot;) and MacOS (&quot;darwin&quot;)</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="s2">&quot;linux&quot;</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="p">:</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;mv &quot;</span><span class="si">{</span><span class="n">src</span><span class="si">}</span><span class="s1">&quot; &quot;</span><span class="si">{</span><span class="n">dst</span><span class="si">}</span><span class="s1">&quot;&#39;</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span>
+            <span class="s2">&quot;Cannot perform ``safeMove`` on files because ARMI only supports &quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;Linux, MacOS, and Windows.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">waitTime</span> <span class="o">=</span> <span class="mf">0.01</span>  <span class="c1"># 10 ms</span>
+    <span class="n">maxWaitTime</span> <span class="o">=</span> <span class="mi">6000</span>  <span class="c1"># 1 min</span>
+    <span class="n">totalWaitTime</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dstSize</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">srcSize</span> <span class="o">==</span> <span class="n">dstSize</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">waitTime</span><span class="p">)</span>
+        <span class="n">totalWaitTime</span> <span class="o">+=</span> <span class="n">waitTime</span>
+        <span class="k">if</span> <span class="n">totalWaitTime</span> <span class="o">&gt;</span> <span class="n">maxWaitTime</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;File move from </span><span class="si">{</span><span class="n">dst</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">src</span><span class="si">}</span><span class="s2"> has failed due to exceeding &quot;</span>
+                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;a maximum wait time of </span><span class="si">{</span><span class="n">maxWaitTime</span><span class="o">/</span><span class="mi">60</span><span class="si">}</span><span class="s2"> minutes.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
+    <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Moved </span><span class="si">{}</span><span class="s2"> -&gt; </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">dst</span></div>
+
+
 <span class="c1"># Allow us to check the copy operation is complete before continuing</span>
 <span class="n">shutil_copy</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span>
 <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span> <span class="o">=</span> <span class="n">safeCopy</span>
