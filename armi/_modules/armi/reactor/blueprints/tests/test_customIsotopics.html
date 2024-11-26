@@ -112,13 +112,17 @@
 
 <span class="kn">import</span> <span class="nn">yamlize</span>
 
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">CONF_MCNP_LIB_BASE</span>
+<span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">CONF_NEUTRONICS_KERNEL</span>
 <span class="kn">from</span> <span class="nn">armi.physics.neutronics.settings</span> <span class="kn">import</span> <span class="n">CONF_XS_KERNEL</span>
 <span class="kn">from</span> <span class="nn">armi.reactor</span> <span class="kn">import</span> <span class="n">blueprints</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.blueprints</span> <span class="kn">import</span> <span class="n">isotopicOptions</span>
 <span class="kn">from</span> <span class="nn">armi.reactor.flags</span> <span class="kn">import</span> <span class="n">Flags</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.tests</span> <span class="kn">import</span> <span class="n">mockRunLogs</span>
+<span class="kn">from</span> <span class="nn">armi.utils.customExceptions</span> <span class="kn">import</span> <span class="n">InputError</span>
+<span class="kn">from</span> <span class="nn">armi.utils.directoryChangers</span> <span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
 
 
 <div class="viewcode-block" id="TestCustomIsotopics"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.blueprints.tests.test_customIsotopics.html#armi.reactor.blueprints.tests.test_customIsotopics.TestCustomIsotopics">[docs]</a><span class="k">class</span> <span class="nc">TestCustomIsotopics</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -623,6 +627,8 @@
 <span class="s2">    SI: {burn: true, xs: true}</span>
 <span class="s2">    MO: {burn: true, xs: true}</span>
 <span class="s2">    W: {burn: true, xs: true}</span>
+<span class="s2">    ZN: {burn: true, xs: true}</span>
+<span class="s2">    O: {burn: true, xs: true}</span>
 <span class="s2">blocks:</span>
 <span class="s2">    uzr fuel: &amp;block_0</span>
 <span class="s2">        fuel:</span>
@@ -635,6 +641,14 @@
 <span class="s2">        clad:</span>
 <span class="s2">            shape: Circle</span>
 <span class="s2">            material: HT9</span>
+<span class="s2">            Tinput: 25.0</span>
+<span class="s2">            Thot: 600.0</span>
+<span class="s2">            id: 0.0</span>
+<span class="s2">            mult: 1.0</span>
+<span class="s2">            od: 10.0</span>
+<span class="s2">        dummy:</span>
+<span class="s2">            shape: Circle</span>
+<span class="s2">            material: ZnO</span>
 <span class="s2">            Tinput: 25.0</span>
 <span class="s2">            Thot: 600.0</span>
 <span class="s2">            id: 0.0</span>
@@ -661,7 +675,51 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;FE54&quot;</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span>  <span class="c1"># natural isotopic as requested</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="s2">&quot;FE56&quot;</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span>  <span class="c1"># natural isotopic not requested</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="s2">&quot;FE51&quot;</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span>  <span class="c1"># un-natural</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="s2">&quot;FE&quot;</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="s2">&quot;FE&quot;</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestNuclideFlagsExpansion.test_eleExpandInfoBasedOnCodeENDF"><a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.blueprints.tests.test_customIsotopics.html#armi.reactor.blueprints.tests.test_customIsotopics.TestNuclideFlagsExpansion.test_eleExpandInfoBasedOnCodeENDF">[docs]</a>    <span class="k">def</span> <span class="nf">test_eleExpandInfoBasedOnCodeENDF</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">TemporaryDirectoryChanger</span><span class="p">():</span>
+            <span class="c1"># Reference elements to expand by library</span>
+            <span class="n">ref_E70_elem</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;V&quot;</span><span class="p">,</span> <span class="s2">&quot;ZN&quot;</span><span class="p">]</span>
+            <span class="n">ref_E71_elem</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">]</span>
+            <span class="n">ref_E80_elem</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="c1"># Load settings and set neutronics kernel to MCNP</span>
+            <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()</span>
+            <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">CONF_NEUTRONICS_KERNEL</span><span class="p">:</span> <span class="s2">&quot;MCNP&quot;</span><span class="p">})</span>
+
+            <span class="c1"># Set ENDF/B-VII.0 as MCNP cross section library base</span>
+            <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">CONF_MCNP_LIB_BASE</span><span class="p">:</span> <span class="s2">&quot;ENDF/B-VII.0&quot;</span><span class="p">})</span>
+            <span class="n">eleToKeep</span><span class="p">,</span> <span class="n">expansions</span> <span class="o">=</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">eleExpandInfoBasedOnCodeENDF</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+            <span class="n">E70_elem</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">eleToKeep</span><span class="p">]</span>
+
+            <span class="c1"># Set ENDF/B-VII.1 as MCNP cross section library base</span>
+            <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">CONF_MCNP_LIB_BASE</span><span class="p">:</span> <span class="s2">&quot;ENDF/B-VII.1&quot;</span><span class="p">})</span>
+            <span class="n">eleToKeep</span><span class="p">,</span> <span class="n">expansions</span> <span class="o">=</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">eleExpandInfoBasedOnCodeENDF</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+            <span class="n">E71_elem</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">eleToKeep</span><span class="p">]</span>
+
+            <span class="c1"># Set ENDF/B-VIII.0 as MCNP cross section library base</span>
+            <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">CONF_MCNP_LIB_BASE</span><span class="p">:</span> <span class="s2">&quot;ENDF/B-VIII.0&quot;</span><span class="p">})</span>
+            <span class="n">eleToKeep</span><span class="p">,</span> <span class="n">expansions</span> <span class="o">=</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">eleExpandInfoBasedOnCodeENDF</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+            <span class="n">E80_elem</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">eleToKeep</span><span class="p">]</span>
+
+            <span class="c1"># Assert equality of returned elements to reference elements</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">E70_elem</span><span class="p">),</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">ref_E70_elem</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">E71_elem</span><span class="p">),</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">ref_E71_elem</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">E80_elem</span><span class="p">),</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">ref_E80_elem</span><span class="p">))</span>
+
+            <span class="c1"># Disallowed inputs</span>
+            <span class="n">not_allowed</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ENDF/B-VIIII.0&quot;</span><span class="p">,</span> <span class="s2">&quot;ENDF/B-VI.0&quot;</span><span class="p">,</span> <span class="s2">&quot;JEFF-3.3&quot;</span><span class="p">]</span>
+            <span class="c1"># Assert raise InputError in case of invalid library setting</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">not_allowed</span><span class="p">:</span>
+                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="n">InputError</span><span class="p">)</span> <span class="k">as</span> <span class="n">context</span><span class="p">:</span>
+                    <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">CONF_MCNP_LIB_BASE</span><span class="p">:</span> <span class="n">x</span><span class="p">})</span>
+                    <span class="n">_</span> <span class="o">=</span> <span class="n">isotopicOptions</span><span class="o">.</span><span class="n">eleExpandInfoBasedOnCodeENDF</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span>
+                    <span class="s2">&quot;Failed to determine nuclides for modeling&quot;</span>
+                    <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">exception</span><span class="p">)</span>
+                <span class="p">)</span></div></div>
 </pre></div>
 
            </div>
@@ -672,7 +730,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-11-25.
+      <span class="lastupdated">Last updated on 2024-11-26.
       </span></p>
   </div>
 
