@@ -118,13 +118,10 @@
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span>
 
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">interfaces</span>
-<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">context</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">,</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping</span> <span class="kn">import</span> <span class="n">memoryProfiler</span>
 <span class="kn">from</span> <span class="nn">armi.bookkeeping.report</span> <span class="kn">import</span> <span class="n">reportingUtils</span>
 <span class="kn">from</span> <span class="nn">armi.operators.runTypes</span> <span class="kn">import</span> <span class="n">RunTypes</span>
@@ -134,22 +131,22 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.settings</span> <span class="kn">import</span> <span class="n">settingsValidation</span>
 <span class="kn">from</span> <span class="nn">armi.settings.fwSettings.globalSettings</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">CONF_TIGHT_COUPLING</span><span class="p">,</span>
-    <span class="n">CONF_TIGHT_COUPLING_MAX_ITERS</span><span class="p">,</span>
     <span class="n">CONF_CYCLES_SKIP_TIGHT_COUPLING_INTERACTION</span><span class="p">,</span>
     <span class="n">CONF_DEFERRED_INTERFACE_NAMES</span><span class="p">,</span>
     <span class="n">CONF_DEFERRED_INTERFACES_CYCLE</span><span class="p">,</span>
+    <span class="n">CONF_TIGHT_COUPLING</span><span class="p">,</span>
+    <span class="n">CONF_TIGHT_COUPLING_MAX_ITERS</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="n">codeTiming</span>
 <span class="kn">from</span> <span class="nn">armi.utils</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">pathTools</span><span class="p">,</span>
-    <span class="n">getPowerFractions</span><span class="p">,</span>
+    <span class="n">codeTiming</span><span class="p">,</span>
     <span class="n">getAvailabilityFactors</span><span class="p">,</span>
-    <span class="n">getStepLengths</span><span class="p">,</span>
-    <span class="n">getCycleLengths</span><span class="p">,</span>
     <span class="n">getBurnSteps</span><span class="p">,</span>
-    <span class="n">getMaxBurnSteps</span><span class="p">,</span>
+    <span class="n">getCycleLengths</span><span class="p">,</span>
     <span class="n">getCycleNames</span><span class="p">,</span>
+    <span class="n">getMaxBurnSteps</span><span class="p">,</span>
+    <span class="n">getPowerFractions</span><span class="p">,</span>
+    <span class="n">getStepLengths</span><span class="p">,</span>
+    <span class="n">pathTools</span><span class="p">,</span>
 <span class="p">)</span>
 
 
@@ -1312,16 +1309,15 @@
                     <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">newFile</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">_</span><span class="si">{1:03d}</span><span class="s2">_</span><span class="si">{2:d}{3}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">ext</span><span class="p">)</span>
-                <span class="c1"># add the cycle and timenode to the XS input file names so that a rx-coeff case that runs</span>
-                <span class="c1"># in here won&#39;t overwrite them.</span>
-                <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">fileName</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newFolder</span><span class="p">,</span> <span class="n">newFile</span><span class="p">))</span>
+                <span class="c1"># add the cycle and timenode to the XS input file names so that a rx-coeff case that</span>
+                <span class="c1"># runs in here won&#39;t overwrite them.</span>
+                <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span>
+                    <span class="n">fileName</span><span class="p">,</span> <span class="n">fileName</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newFolder</span><span class="p">,</span> <span class="n">newFile</span><span class="p">)</span>
+                <span class="p">)</span>
             <span class="k">if</span> <span class="s2">&quot;rzmflx&quot;</span> <span class="ow">in</span> <span class="n">fileName</span><span class="p">:</span>
                 <span class="n">pathTools</span><span class="o">.</span><span class="n">copyOrWarn</span><span class="p">(</span><span class="s2">&quot;rzmflx for snapshot&quot;</span><span class="p">,</span> <span class="n">fileName</span><span class="p">,</span> <span class="n">newFolder</span><span class="p">)</span>
 
-        <span class="n">fileNamePossibilities</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="sa">f</span><span class="s2">&quot;ISOTXS-c</span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">n</span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s2">&quot;ISOTXS-c</span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-        <span class="p">]</span>
+        <span class="n">fileNamePossibilities</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ISOTXS-c</span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">n</span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;ISOTXS-c</span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">iteration</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">fileNamePossibilities</span> <span class="o">=</span> <span class="p">[</span>
                 <span class="sa">f</span><span class="s2">&quot;ISOTXS-c</span><span class="si">{</span><span class="n">cycle</span><span class="si">}</span><span class="s2">n</span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">i</span><span class="si">{</span><span class="n">iteration</span><span class="si">}</span><span class="s2">&quot;</span>
