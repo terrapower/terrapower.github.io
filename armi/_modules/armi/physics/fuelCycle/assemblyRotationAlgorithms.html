@@ -115,12 +115,18 @@
 <span class="sd">.. warning:: Nothing should go in this file, but rotation algorithms.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 
 <span class="kn">from</span> <span class="nn">armi</span> <span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span> <span class="nn">armi.physics.fuelCycle.hexAssemblyFuelMgmtUtils</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">getOptimalAssemblyOrientation</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">armi.physics.fuelCycle.settings</span> <span class="kn">import</span> <span class="n">CONF_ASSEM_ROTATION_STATIONARY</span>
+<span class="kn">from</span> <span class="nn">armi.physics.fuelCycle.utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">assemblyHasFuelPinBurnup</span><span class="p">,</span>
+    <span class="n">assemblyHasFuelPinPowers</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">armi.reactor.assemblies</span> <span class="kn">import</span> <span class="n">Assembly</span>
 
 
 <span class="k">def</span> <span class="nf">_rotationNumberToRadians</span><span class="p">(</span><span class="n">rot</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -142,42 +148,47 @@
 <span class="sd">    simpleAssemblyRotation : an alternative rotation algorithm</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Algorithmically rotating assemblies to minimize burnup&quot;</span><span class="p">)</span>
-    <span class="n">numRotated</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">hist</span> <span class="o">=</span> <span class="n">fh</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;history&quot;</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">aPrev</span> <span class="ow">in</span> <span class="n">fh</span><span class="o">.</span><span class="n">moved</span><span class="p">:</span>  <span class="c1"># much more convenient to loop through aPrev first</span>
+    <span class="c1"># Store how we should rotate each assembly but don&#39;t perform the rotation just yet</span>
+    <span class="c1"># Consider assembly A is shuffled to a new location and rotated.</span>
+    <span class="c1"># Now, assembly B is shuffled to where assembly A used to be. We need to consider the</span>
+    <span class="c1"># power profile of A prior to it&#39;s rotation to understand the power profile B may see.</span>
+    <span class="n">rotations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">Assembly</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">aPrev</span> <span class="ow">in</span> <span class="n">fh</span><span class="o">.</span><span class="n">moved</span><span class="p">:</span>
+        <span class="c1"># If the assembly was out of the core, it will not have pin powers.</span>
+        <span class="c1"># No rotation information to be gained.</span>
+        <span class="k">if</span> <span class="n">aPrev</span><span class="o">.</span><span class="n">lastLocationLabel</span> <span class="ow">in</span> <span class="n">Assembly</span><span class="o">.</span><span class="n">NOT_IN_CORE</span><span class="p">:</span>
+            <span class="k">continue</span>
         <span class="n">aNow</span> <span class="o">=</span> <span class="n">fh</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyWithStringLocation</span><span class="p">(</span><span class="n">aPrev</span><span class="o">.</span><span class="n">lastLocationLabel</span><span class="p">)</span>
+        <span class="c1"># An assembly in the SFP could have burnup but if it&#39;s coming from the load</span>
+        <span class="c1"># queue it&#39;s totally fresh. Skip a check over all pins in the model</span>
+        <span class="k">if</span> <span class="n">aNow</span><span class="o">.</span><span class="n">lastLocationLabel</span> <span class="o">==</span> <span class="n">Assembly</span><span class="o">.</span><span class="n">LOAD_QUEUE</span><span class="p">:</span>
+            <span class="k">continue</span>
         <span class="c1"># no point in rotation if there&#39;s no pin detail</span>
-        <span class="k">if</span> <span class="n">aNow</span> <span class="ow">in</span> <span class="n">hist</span><span class="o">.</span><span class="n">getDetailAssemblies</span><span class="p">():</span>
-            <span class="n">_rotateByComparingLocations</span><span class="p">(</span><span class="n">aNow</span><span class="p">,</span> <span class="n">aPrev</span><span class="p">)</span>
-            <span class="n">numRotated</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">assemblyHasFuelPinPowers</span><span class="p">(</span><span class="n">aPrev</span><span class="p">)</span> <span class="ow">and</span> <span class="n">assemblyHasFuelPinBurnup</span><span class="p">(</span><span class="n">aNow</span><span class="p">):</span>
+            <span class="n">rot</span> <span class="o">=</span> <span class="n">getOptimalAssemblyOrientation</span><span class="p">(</span><span class="n">aNow</span><span class="p">,</span> <span class="n">aPrev</span><span class="p">)</span>
+            <span class="n">rotations</span><span class="p">[</span><span class="n">rot</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">aNow</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">fh</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_ASSEM_ROTATION_STATIONARY</span><span class="p">]:</span>
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">hist</span><span class="o">.</span><span class="n">getDetailAssemblies</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">a</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fh</span><span class="o">.</span><span class="n">moved</span><span class="p">:</span>
-                <span class="n">_rotateByComparingLocations</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
-                <span class="n">numRotated</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">filter</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">asm</span><span class="p">:</span> <span class="n">asm</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fh</span><span class="o">.</span><span class="n">moved</span>
+            <span class="ow">and</span> <span class="n">assemblyHasFuelPinPowers</span><span class="p">(</span><span class="n">asm</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">assemblyHasFuelPinBurnup</span><span class="p">(</span><span class="n">asm</span><span class="p">),</span>
+            <span class="n">fh</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="n">rot</span> <span class="o">=</span> <span class="n">getOptimalAssemblyOrientation</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
+            <span class="n">rotations</span><span class="p">[</span><span class="n">rot</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
 
-    <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Rotated </span><span class="si">{0}</span><span class="s2"> assemblies&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">numRotated</span><span class="p">))</span></div>
+    <span class="n">nRotations</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">rot</span><span class="p">,</span> <span class="n">assems</span> <span class="ow">in</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">item</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rotations</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+        <span class="c1"># Radians used for the actual rotation. But a neater degrees print out is nice for logs</span>
+        <span class="n">radians</span> <span class="o">=</span> <span class="n">_rotationNumberToRadians</span><span class="p">(</span><span class="n">rot</span><span class="p">)</span>
+        <span class="n">degrees</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">radians</span><span class="p">),</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rotating assembly </span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">degrees</span><span class="si">}</span><span class="s2"> CCW.&quot;</span><span class="p">)</span>
+            <span class="n">a</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">radians</span><span class="p">)</span>
+            <span class="n">nRotations</span> <span class="o">+=</span> <span class="mi">1</span>
 
-
-<span class="k">def</span> <span class="nf">_rotateByComparingLocations</span><span class="p">(</span><span class="n">aNow</span><span class="p">,</span> <span class="n">aPrev</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Rotate an assembly based on its previous location.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    aNow : Assembly</span>
-<span class="sd">        Assembly to be rotated</span>
-<span class="sd">    aPrev : Assembly</span>
-<span class="sd">        Assembly that previously occupied the location of this assembly.</span>
-<span class="sd">        If ``aNow`` has not been moved, this should be ``aNow``</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">rot</span> <span class="o">=</span> <span class="n">getOptimalAssemblyOrientation</span><span class="p">(</span><span class="n">aNow</span><span class="p">,</span> <span class="n">aPrev</span><span class="p">)</span>
-    <span class="n">radians</span> <span class="o">=</span> <span class="n">_rotationNumberToRadians</span><span class="p">(</span><span class="n">rot</span><span class="p">)</span>
-    <span class="n">aNow</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">radians</span><span class="p">)</span>
-    <span class="p">(</span><span class="n">ring</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span> <span class="o">=</span> <span class="n">aNow</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">getRingPos</span><span class="p">()</span>
-    <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-        <span class="s2">&quot;Rotating Assembly (</span><span class="si">{0}</span><span class="s2">,</span><span class="si">{1}</span><span class="s2">) to Orientation </span><span class="si">{2}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ring</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">rot</span><span class="p">)</span>
-    <span class="p">)</span>
+    <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rotated </span><span class="si">{</span><span class="n">nRotations</span><span class="si">}</span><span class="s2"> assemblies.&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="simpleAssemblyRotation"><a class="viewcode-back" href="../../../../.apidocs/armi.physics.fuelCycle.assemblyRotationAlgorithms.html#armi.physics.fuelCycle.assemblyRotationAlgorithms.simpleAssemblyRotation">[docs]</a><span class="k">def</span> <span class="nf">simpleAssemblyRotation</span><span class="p">(</span><span class="n">fh</span><span class="p">):</span>
@@ -226,7 +237,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-11-26.
+      <span class="lastupdated">Last updated on 2024-12-02.
       </span></p>
   </div>
 
