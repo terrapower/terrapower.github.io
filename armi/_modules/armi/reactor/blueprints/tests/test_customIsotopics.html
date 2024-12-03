@@ -403,7 +403,12 @@
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
         <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()</span>
-        <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">CONF_XS_KERNEL</span><span class="p">:</span> <span class="s2">&quot;MC2v2&quot;</span><span class="p">})</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span>
+            <span class="n">newSettings</span><span class="o">=</span><span class="p">{</span>
+                <span class="n">CONF_XS_KERNEL</span><span class="p">:</span> <span class="s2">&quot;MC2v2&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;inputHeightsConsideredHot&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
 
         <span class="bp">cls</span><span class="o">.</span><span class="n">bp</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">yamlString</span><span class="p">)</span>
         <span class="bp">cls</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">bp</span><span class="o">.</span><span class="n">constructAssem</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;fuel a&quot;</span><span class="p">)</span>
@@ -450,14 +455,19 @@
         <span class="c1"># A block with custom density set via number density</span>
         <span class="n">fuel8</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
 
+        <span class="n">dLL</span> <span class="o">=</span> <span class="n">fuel2</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">linearExpansionFactor</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span> <span class="n">T0</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+        <span class="c1"># the exponent here is 3 because inputHeightsConsideredHot = False.</span>
+        <span class="c1"># if inputHeightsConsideredHot were True, then we would use a factor of 2 instead</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="n">dLL</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span><span class="p">)</span>
+
         <span class="c1"># Check that the density is set correctly on the custom density block,</span>
         <span class="c1"># and that it is not the same as the original</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="mf">19.1</span><span class="p">,</span> <span class="n">fuel2</span><span class="o">.</span><span class="n">density</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="mf">19.1</span> <span class="o">*</span> <span class="n">f</span><span class="p">,</span> <span class="n">fuel2</span><span class="o">.</span><span class="n">density</span><span class="p">())</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertNotAlmostEqual</span><span class="p">(</span><span class="n">fuel0</span><span class="o">.</span><span class="n">density</span><span class="p">(),</span> <span class="n">fuel2</span><span class="o">.</span><span class="n">density</span><span class="p">(),</span> <span class="n">places</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
         <span class="c1"># Check that the custom density block has the correct material</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;UZr&quot;</span><span class="p">,</span> <span class="n">fuel2</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
         <span class="c1"># Check that the block with only number densities set has a new density</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="mf">19.1</span><span class="p">,</span> <span class="n">fuel8</span><span class="o">.</span><span class="n">density</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="mf">19.1</span> <span class="o">*</span> <span class="n">f</span><span class="p">,</span> <span class="n">fuel8</span><span class="o">.</span><span class="n">density</span><span class="p">())</span>
         <span class="c1"># original material density should not be changed after setting a custom density component,</span>
         <span class="c1"># so a new block without custom isotopics and density should have the same density as the original</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">fuel6</span><span class="o">.</span><span class="n">density</span><span class="p">(),</span> <span class="n">fuel0</span><span class="o">.</span><span class="n">density</span><span class="p">())</span>
@@ -481,12 +491,16 @@
 
             <span class="c1"># Check for log messages</span>
             <span class="n">streamVal</span> <span class="o">=</span> <span class="n">mockLog</span><span class="o">.</span><span class="n">getStdout</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Both TD_frac and a custom density&quot;</span><span class="p">,</span> <span class="n">streamVal</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="n">streamVal</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span>
+                <span class="s2">&quot;Both TD_frac and a custom isotopic with density&quot;</span><span class="p">,</span>
+                <span class="n">streamVal</span><span class="p">,</span>
+                <span class="n">msg</span><span class="o">=</span><span class="n">streamVal</span><span class="p">,</span>
+            <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span>
                 <span class="s2">&quot;A custom material density was specified&quot;</span><span class="p">,</span> <span class="n">streamVal</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="n">streamVal</span>
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span>
-                <span class="s2">&quot;A custom density or number densities has been specified&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;A custom isotopic with associated density has been specified for non-`Custom`&quot;</span><span class="p">,</span>
                 <span class="n">streamVal</span><span class="p">,</span>
                 <span class="n">msg</span><span class="o">=</span><span class="n">streamVal</span><span class="p">,</span>
             <span class="p">)</span>

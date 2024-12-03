@@ -280,7 +280,7 @@
     <span class="n">mergeWith</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
     <span class="n">area</span> <span class="o">=</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
-<div class="viewcode-block" id="ComponentBlueprint.construct"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.componentBlueprint.ComponentBlueprint.construct">[docs]</a>    <span class="k">def</span> <span class="nf">construct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="p">):</span>
+<div class="viewcode-block" id="ComponentBlueprint.construct"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.componentBlueprint.ComponentBlueprint.construct">[docs]</a>    <span class="k">def</span> <span class="nf">construct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="p">,</span> <span class="n">inputHeightsConsideredHot</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a component or group.</span>
 
 <span class="sd">        .. impl:: User-defined on material alterations are applied here.</span>
@@ -299,6 +299,17 @@
 <span class="sd">            The ``applyInputParams()`` method of that material class is then called,</span>
 <span class="sd">            passing in the associated material modifications data, which the material</span>
 <span class="sd">            class can then use to modify the isotopics as necessary.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        blueprint : Blueprints</span>
+<span class="sd">            Blueprints object containing various detailed information, such as nuclides to model</span>
+
+<span class="sd">        matMods : dict</span>
+<span class="sd">            Material modifications to apply to the component.</span>
+
+<span class="sd">        inputHeightsConsideredHot : bool</span>
+<span class="sd">            See the case setting of the same name.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Constructing component </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
         <span class="n">kwargs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_conformKwargs</span><span class="p">(</span><span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="p">)</span>
@@ -308,7 +319,9 @@
             <span class="n">constructedObject</span> <span class="o">=</span> <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">groupedComponent</span> <span class="ow">in</span> <span class="n">group</span><span class="p">:</span>
                 <span class="n">componentDesign</span> <span class="o">=</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">componentDesigns</span><span class="p">[</span><span class="n">groupedComponent</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
-                <span class="n">component</span> <span class="o">=</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span><span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="o">=</span><span class="nb">dict</span><span class="p">())</span>
+                <span class="n">component</span> <span class="o">=</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">construct</span><span class="p">(</span>
+                    <span class="n">blueprint</span><span class="p">,</span> <span class="p">{},</span> <span class="n">inputHeightsConsideredHot</span>
+                <span class="p">)</span>
                 <span class="c1"># override free component multiplicity if it&#39;s set based on the group definition</span>
                 <span class="n">component</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">,</span> <span class="n">groupedComponent</span><span class="o">.</span><span class="n">mult</span><span class="p">)</span>
                 <span class="n">_setComponentFlags</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">flags</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">)</span>
@@ -323,29 +336,33 @@
                 <span class="n">constructedObject</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">getTD</span><span class="p">()</span>
             <span class="p">)</span>
 
-        <span class="c1"># set the custom density for non-custom material components after construction</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">setCustomDensity</span><span class="p">(</span><span class="n">constructedObject</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setComponentCustomDensity</span><span class="p">(</span>
+            <span class="n">constructedObject</span><span class="p">,</span>
+            <span class="n">blueprint</span><span class="p">,</span>
+            <span class="n">matMods</span><span class="p">,</span>
+            <span class="n">inputHeightsConsideredHot</span><span class="p">,</span>
+        <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">constructedObject</span></div>
 
-<div class="viewcode-block" id="ComponentBlueprint.setCustomDensity"><a class="viewcode-back" href="../../../../.apidocs/armi.reactor.blueprints.componentBlueprint.html#armi.reactor.blueprints.componentBlueprint.ComponentBlueprint.setCustomDensity">[docs]</a>    <span class="k">def</span> <span class="nf">setCustomDensity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constructedComponent</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_setComponentCustomDensity</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">comp</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="p">,</span> <span class="n">inputHeightsConsideredHot</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply a custom density to a material with custom isotopics but not a &#39;custom material&#39;.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">isotopics</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># No custom isotopics specified</span>
             <span class="k">return</span>
 
-        <span class="n">density</span> <span class="o">=</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">customIsotopics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">isotopics</span><span class="p">]</span><span class="o">.</span><span class="n">density</span>
-        <span class="k">if</span> <span class="n">density</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">densityFromCustomIsotopic</span> <span class="o">=</span> <span class="n">blueprint</span><span class="o">.</span><span class="n">customIsotopics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">isotopics</span><span class="p">]</span><span class="o">.</span><span class="n">density</span>
+        <span class="k">if</span> <span class="n">densityFromCustomIsotopic</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Nothing to do</span>
             <span class="k">return</span>
 
-        <span class="k">if</span> <span class="n">density</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">densityFromCustomIsotopic</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                 <span class="s2">&quot;A zero or negative density was specified in a custom isotopics input. &quot;</span>
                 <span class="s2">&quot;This is not permitted, if a 0 density material is needed, use &#39;Void&#39;. &quot;</span>
-                <span class="s2">&quot;The component is </span><span class="si">{}</span><span class="s2"> and the isotopics entry is </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="n">constructedComponent</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">isotopics</span>
-                <span class="p">)</span>
+                <span class="sa">f</span><span class="s2">&quot;The component is </span><span class="si">{</span><span class="n">comp</span><span class="si">}</span><span class="s2"> and the isotopics entry is </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">isotopics</span><span class="si">}</span><span class="s2">.&quot;</span>
             <span class="p">)</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;A zero or negative density was specified in the custom isotopics for a component&quot;</span>
@@ -355,32 +372,42 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">materials</span><span class="o">.</span><span class="n">Custom</span><span class="p">):</span>
             <span class="c1"># check for some problem cases</span>
             <span class="k">if</span> <span class="s2">&quot;TD_frac&quot;</span> <span class="ow">in</span> <span class="n">matMods</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;Both TD_frac and a custom density (custom isotopics) has been specified for &quot;</span>
-                    <span class="s2">&quot;material </span><span class="si">{}</span><span class="s2">. The custom density will override the density calculated using &quot;</span>
-                    <span class="s2">&quot;TD_frac.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="p">)</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Both TD_frac and a custom isotopic with density </span><span class="si">{</span><span class="n">blueprint</span><span class="o">.</span><span class="n">customIsotopics</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">isotopics</span><span class="p">]</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;has been specified for material </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="si">}</span><span class="s2">. This is an overspecification.&quot;</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">mat</span><span class="o">.</span><span class="n">density</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">Tinput</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                    <span class="s2">&quot;A custom density has been assigned to material &#39;</span><span class="si">{}</span><span class="s2">&#39;, which has no baseline &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;A custom density has been assigned to material &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="si">}</span><span class="s2">&#39;, which has no baseline &quot;</span>
                     <span class="s2">&quot;density. Only materials with a starting density may be assigned a density. &quot;</span>
-                    <span class="s2">&quot;This comes up e.g. if isotopics are assigned to &#39;Void&#39;.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">material</span>
-                    <span class="p">)</span>
+                    <span class="s2">&quot;This comes up e.g. if isotopics are assigned to &#39;Void&#39;.&quot;</span>
                 <span class="p">)</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;Cannot apply custom densities to materials without density.&quot;</span>
                 <span class="p">)</span>
 
-            <span class="n">densityRatio</span> <span class="o">=</span> <span class="n">density</span> <span class="o">/</span> <span class="n">constructedComponent</span><span class="o">.</span><span class="n">density</span><span class="p">()</span>
-            <span class="n">constructedComponent</span><span class="o">.</span><span class="n">changeNDensByFactor</span><span class="p">(</span><span class="n">densityRatio</span><span class="p">)</span>
+            <span class="c1"># Apply a density scaling to account for the temperature change between Tinput</span>
+            <span class="c1"># Thot. There may be a better place in the initialization to determine</span>
+            <span class="c1"># if the block height will be interpreted as hot dimensions, which would</span>
+            <span class="c1"># allow us to not have to pass the case settings down this far</span>
+            <span class="n">dLL</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">linearExpansionFactor</span><span class="p">(</span>
+                <span class="n">Tc</span><span class="o">=</span><span class="n">comp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span> <span class="n">T0</span><span class="o">=</span><span class="n">comp</span><span class="o">.</span><span class="n">inputTemperatureInC</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">inputHeightsConsideredHot</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">dLL</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">dLL</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span>
+
+            <span class="n">scaledDensity</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">density</span><span class="p">()</span> <span class="o">/</span> <span class="n">f</span>
+            <span class="n">densityRatio</span> <span class="o">=</span> <span class="n">densityFromCustomIsotopic</span> <span class="o">/</span> <span class="n">scaledDensity</span>
+            <span class="n">comp</span><span class="o">.</span><span class="n">changeNDensByFactor</span><span class="p">(</span><span class="n">densityRatio</span><span class="p">)</span>
 
             <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
                 <span class="s2">&quot;A custom material density was specified in the custom isotopics for non-custom &quot;</span>
-                <span class="s2">&quot;material </span><span class="si">{}</span><span class="s2">. The component density has been altered to &quot;</span>
-                <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">constructedComponent</span><span class="o">.</span><span class="n">density</span><span class="p">()),</span>
+                <span class="sa">f</span><span class="s2">&quot;material </span><span class="si">{</span><span class="n">mat</span><span class="si">}</span><span class="s2">. The component density has been altered to &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">comp</span><span class="o">.</span><span class="n">density</span><span class="p">()</span><span class="si">}</span><span class="s2"> at temperature </span><span class="si">{</span><span class="n">comp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="si">}</span><span class="s2"> C&quot;</span><span class="p">,</span>
                 <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="p">)</span></div>
+            <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_conformKwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blueprint</span><span class="p">,</span> <span class="n">matMods</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;This method gets the relevant kwargs to construct the component.&quot;&quot;&quot;</span>
