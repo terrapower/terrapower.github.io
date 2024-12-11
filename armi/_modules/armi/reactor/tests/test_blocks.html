@@ -1323,13 +1323,7 @@
 
         <span class="n">sf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block</span><span class="o">.</span><span class="n">getSymmetryFactor</span><span class="p">()</span>
         <span class="n">cur</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span>
-        <span class="n">ref</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">block</span><span class="o">.</span><span class="n">getHMDens</span><span class="p">()</span>
-            <span class="o">/</span> <span class="n">MOLES_PER_CC_TO_ATOMS_PER_BARN_CM</span>
-            <span class="o">*</span> <span class="n">height</span>
-            <span class="o">*</span> <span class="n">area</span>
-            <span class="o">*</span> <span class="n">sf</span>
-        <span class="p">)</span>
+        <span class="n">ref</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block</span><span class="o">.</span><span class="n">getHMDens</span><span class="p">()</span> <span class="o">/</span> <span class="n">MOLES_PER_CC_TO_ATOMS_PER_BARN_CM</span> <span class="o">*</span> <span class="n">height</span> <span class="o">*</span> <span class="n">area</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">places</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
 
         <span class="n">totalHMMass</span> <span class="o">=</span> <span class="mf">0.0</span>
@@ -1337,20 +1331,16 @@
             <span class="n">nucs</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
             <span class="n">hmNucs</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuc</span> <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nucs</span> <span class="k">if</span> <span class="n">nucDir</span><span class="o">.</span><span class="n">isHeavyMetal</span><span class="p">(</span><span class="n">nuc</span><span class="p">)]</span>
             <span class="n">hmNDens</span> <span class="o">=</span> <span class="p">{</span><span class="n">hmNuc</span><span class="p">:</span> <span class="n">c</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">hmNuc</span><span class="p">)</span> <span class="k">for</span> <span class="n">hmNuc</span> <span class="ow">in</span> <span class="n">hmNucs</span><span class="p">}</span>
-            <span class="n">hmMass</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">calculateMassDensity</span><span class="p">(</span><span class="n">hmNDens</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+            <span class="c1"># use sf to account for only a 1/sf portion of the component being in the block</span>
+            <span class="n">hmMass</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">calculateMassDensity</span><span class="p">(</span><span class="n">hmNDens</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span> <span class="o">/</span> <span class="n">sf</span>
             <span class="n">totalHMMass</span> <span class="o">+=</span> <span class="n">hmMass</span>
             <span class="k">if</span> <span class="n">hmMass</span><span class="p">:</span>
-                <span class="c1"># hmMass does not need to account for sf since what&#39;s calculated in blocks.completeInitialLoading</span>
-                <span class="c1"># ends up cancelling out sf</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span><span class="p">,</span> <span class="n">hmMass</span><span class="p">,</span> <span class="n">places</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
-                <span class="c1"># since sf is cancelled out in massHmBOL, there needs to be a factor 1/sf here to cancel out the</span>
-                <span class="c1"># factor of sf in getHMMoles.</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
                     <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span><span class="p">,</span>
                     <span class="nb">sum</span><span class="p">(</span><span class="n">ndens</span> <span class="k">for</span> <span class="n">ndens</span> <span class="ow">in</span> <span class="n">hmNDens</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
                     <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">MOLES_PER_CC_TO_ATOMS_PER_BARN_CM</span>
-                    <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
-                    <span class="o">/</span> <span class="n">sf</span><span class="p">,</span>
+                    <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">(),</span>
                     <span class="n">places</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
@@ -3014,7 +3004,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-12-03.
+      <span class="lastupdated">Last updated on 2024-12-11.
       </span></p>
   </div>
 

@@ -115,6 +115,7 @@
 <span class="kn">import</span> <span class="nn">pickle</span>
 <span class="kn">from</span> <span class="nn">random</span> <span class="kn">import</span> <span class="n">randint</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span>
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Iterable</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">interpolate</span>
@@ -299,13 +300,34 @@
 
 <div class="viewcode-block" id="Assembly.moveTo"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.moveTo">[docs]</a>    <span class="k">def</span> <span class="nf">moveTo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">locator</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Move an assembly somewhere else.&quot;&quot;&quot;</span>
+        <span class="n">oldSymmetryFactor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSymmetryFactor</span><span class="p">()</span>
         <span class="n">composites</span><span class="o">.</span><span class="n">Composite</span><span class="o">.</span><span class="n">moveTo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">locator</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lastLocationLabel</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DATABASE</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">numMoves</span> <span class="o">+=</span> <span class="mi">1</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">daysSinceLastMove</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">childrenByLocator</span><span class="p">[</span><span class="n">locator</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="c1"># symmetry may have changed (either moving on or off of symmetry line)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">clearCache</span><span class="p">()</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clearCache</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scaleParamsToNewSymmetryFactor</span><span class="p">(</span><span class="n">oldSymmetryFactor</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Assembly.scaleParamsToNewSymmetryFactor"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.scaleParamsToNewSymmetryFactor">[docs]</a>    <span class="k">def</span> <span class="nf">scaleParamsToNewSymmetryFactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">oldSymmetryFactor</span><span class="p">):</span>
+        <span class="n">scalingFactor</span> <span class="o">=</span> <span class="n">oldSymmetryFactor</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSymmetryFactor</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">scalingFactor</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">volIntegratedParamsToScale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span>
+            <span class="n">ParamLocation</span><span class="o">.</span><span class="n">VOLUME_INTEGRATED</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">volIntegratedParamsToScale</span><span class="p">:</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">name</span>
+                <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">Iterable</span><span class="p">):</span>
+                    <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">value</span> <span class="o">*</span> <span class="n">scalingFactor</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">name</span><span class="p">]]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># numpy array or other</span>
+                    <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">*</span> <span class="n">scalingFactor</span></div>
 
 <div class="viewcode-block" id="Assembly.getNum"><a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.getNum">[docs]</a>    <span class="k">def</span> <span class="nf">getNum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return unique integer for this assembly.&quot;&quot;&quot;</span>
@@ -1431,7 +1453,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2024, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2024-12-03.
+      <span class="lastupdated">Last updated on 2024-12-11.
       </span></p>
   </div>
 
