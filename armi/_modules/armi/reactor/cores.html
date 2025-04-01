@@ -127,14 +127,17 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">getPluginManagerOrFail</span><span class="p">,</span> <span class="n">nuclearDataIO</span><span class="p">,</span> <span class="n">runLog</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.nuclearDataIO</span><span class="w"> </span><span class="kn">import</span> <span class="n">xsLibraries</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">assemblies</span><span class="p">,</span>
+    <span class="n">blocks</span><span class="p">,</span>
     <span class="n">composites</span><span class="p">,</span>
+    <span class="n">flags</span><span class="p">,</span>
     <span class="n">geometry</span><span class="p">,</span>
     <span class="n">grids</span><span class="p">,</span>
     <span class="n">parameters</span><span class="p">,</span>
@@ -385,12 +388,13 @@
         <span class="n">fissileMass</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">heavyMetalMass</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">totalVolume</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="n">numBlocks</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span>
-        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
+        <span class="n">numBlocks</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterBlocks</span><span class="p">():</span>
             <span class="n">totalMass</span> <span class="o">+=</span> <span class="n">block</span><span class="o">.</span><span class="n">getMass</span><span class="p">()</span>
             <span class="n">fissileMass</span> <span class="o">+=</span> <span class="n">block</span><span class="o">.</span><span class="n">getFissileMass</span><span class="p">()</span>
             <span class="n">heavyMetalMass</span> <span class="o">+=</span> <span class="n">block</span><span class="o">.</span><span class="n">getHMMass</span><span class="p">()</span>
             <span class="n">totalVolume</span> <span class="o">+=</span> <span class="n">block</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span>
+            <span class="n">numBlocks</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="n">totalMass</span> <span class="o">=</span> <span class="n">totalMass</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">powerMultiplier</span> <span class="o">/</span> <span class="mf">1000.0</span>
         <span class="n">fissileMass</span> <span class="o">=</span> <span class="n">fissileMass</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">powerMultiplier</span> <span class="o">/</span> <span class="mf">1000.0</span>
         <span class="n">heavyMetalMass</span> <span class="o">=</span> <span class="n">heavyMetalMass</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">powerMultiplier</span> <span class="o">/</span> <span class="mf">1000.0</span>
@@ -433,7 +437,7 @@
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.setBlockMassParams">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">setBlockMassParams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the parameters kgHM and kgFis for each block and calculate Pu fraction.&quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterBlocks</span><span class="p">():</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">kgHM</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getHMMass</span><span class="p">()</span> <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">G_PER_KG</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">kgFis</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getFissileMass</span><span class="p">()</span> <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">G_PER_KG</span>
             <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">puFrac</span> <span class="o">=</span> <span class="p">(</span>
@@ -876,7 +880,7 @@
         <span class="n">exactType</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">exclusions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">overrideCircularRingMode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">assemblies</span><span class="o">.</span><span class="n">Assembly</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the assemblies in a specified ring. Definitions of rings can change</span>
 <span class="sd">        with problem parameters.</span>
@@ -948,7 +952,7 @@
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.getAssembliesInSquareOrHexRing">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">getAssembliesInSquareOrHexRing</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">ring</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exactType</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">exclusions</span><span class="o">=</span><span class="kc">None</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">assemblies</span><span class="o">.</span><span class="n">Assembly</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the assemblies in a specified ring. Definitions of rings can change with problem</span>
 <span class="sd">        parameters.</span>
@@ -999,7 +1003,7 @@
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.getAssembliesInCircularRing">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">getAssembliesInCircularRing</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">ring</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exactType</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">exclusions</span><span class="o">=</span><span class="kc">None</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">assemblies</span><span class="o">.</span><span class="n">Assembly</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Gets an assemblies within a circular range of the center of the core. This function allows</span>
 <span class="sd">        for more circular styled assembly shuffling instead of the current hex approach.</span>
@@ -1112,7 +1116,7 @@
 
 <div class="viewcode-block" id="Core.getAssemblyByName">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.getAssemblyByName">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">getAssemblyByName</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getAssemblyByName</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">assemblies</span><span class="o">.</span><span class="n">Assembly</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Find the assembly that has this name.</span>
 
@@ -1151,7 +1155,7 @@
         <span class="n">includeAll</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">zones</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="p">):</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">assemblies</span><span class="o">.</span><span class="n">Assembly</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return a list of all the assemblies in the reactor.</span>
 
@@ -1239,7 +1243,7 @@
 
 <div class="viewcode-block" id="Core.getBlockByName">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.getBlockByName">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">getBlockByName</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getBlockByName</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">blocks</span><span class="o">.</span><span class="n">Block</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Finds a block based on its name.</span>
 
@@ -1265,7 +1269,7 @@
 
 <div class="viewcode-block" id="Core.getBlocksByIndices">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.getBlocksByIndices">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">getBlocksByIndices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getBlocksByIndices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">blocks</span><span class="o">.</span><span class="n">Block</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get blocks in assemblies by block indices.&quot;&quot;&quot;</span>
         <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">:</span>
@@ -1294,7 +1298,7 @@
 
 <div class="viewcode-block" id="Core.getBlocks">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.getBlocks">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">getBlocks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bType</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getBlocks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bType</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">blocks</span><span class="o">.</span><span class="n">Block</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns an iterator over all blocks in the reactor in order.</span>
 
@@ -1309,7 +1313,7 @@
 <span class="sd">            assemblies will be returned as well as the ones in the reactor.</span>
 
 <span class="sd">        kwargs : dict</span>
-<span class="sd">            Any keyword argument from R.getAssemblies()</span>
+<span class="sd">            Any keyword argument from :meth:`getAssemblies`</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1318,7 +1322,8 @@
 
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
-<span class="sd">        getAssemblies : locates the assemblies in the search</span>
+<span class="sd">        * :meth:`iterBlocks`: iterator over blocks with limited filtering.</span>
+<span class="sd">        * :meth:`getAssemblies` : locates the assemblies in the search</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssemblies</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">bType</span><span class="p">:</span>
@@ -1328,7 +1333,7 @@
 
 <div class="viewcode-block" id="Core.getFirstBlock">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.getFirstBlock">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">getFirstBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockType</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getFirstBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockType</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">blocks</span><span class="o">.</span><span class="n">Block</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the first block of the requested type in the reactor, or return first block.</span>
 <span class="sd">        exact=True will only match fuel, not testfuel, for example.</span>
@@ -1355,7 +1360,7 @@
 
 <div class="viewcode-block" id="Core.getFirstAssembly">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.getFirstAssembly">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">getFirstAssembly</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getFirstAssembly</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">assemblies</span><span class="o">.</span><span class="n">Assembly</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Gets the first assembly in the reactor.</span>
 
@@ -1399,7 +1404,7 @@
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.getAllXsSuffixes">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">getAllXsSuffixes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all XS suffices (e.g. AA, AB, etc.) in the core.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()))</span></div>
+        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getMicroSuffix</span><span class="p">()</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterBlocks</span><span class="p">()))</span></div>
 
 
 <div class="viewcode-block" id="Core.getNuclideCategories">
@@ -1597,11 +1602,10 @@
 <span class="sd">            The values you requested. length is NxG.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">flux</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">blocks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span>
         <span class="n">groups</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">numGroups</span><span class="p">)</span>
 
         <span class="c1"># build in order 0</span>
-        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterBlocks</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">adjoint</span><span class="p">:</span>
                 <span class="n">vals</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">adjMgFlux</span>
             <span class="k">elif</span> <span class="n">extSrc</span><span class="p">:</span>
@@ -1996,10 +2000,9 @@
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.saveAllFlux">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">saveAllFlux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fName</span><span class="o">=</span><span class="s2">&quot;allFlux.txt&quot;</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Dump all flux to file for debugging purposes.&quot;&quot;&quot;</span>
-        <span class="n">blocks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span>
         <span class="n">groups</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">numGroups</span><span class="p">)</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fName</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterBlocks</span><span class="p">():</span>
                 <span class="k">for</span> <span class="n">gi</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
                     <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
                         <span class="s2">&quot;</span><span class="si">{:10s}</span><span class="s2"> </span><span class="si">{:10d}</span><span class="s2"> </span><span class="si">{:12.5E}</span><span class="s2"> </span><span class="si">{:12.5E}</span><span class="s2"> </span><span class="si">{:12.5E}</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -2296,7 +2299,7 @@
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.getMaxNumPins">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">getMaxNumPins</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Find max number of pins of any block in the reactor.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">()</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span></div>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getNumPins</span><span class="p">()</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterBlocks</span><span class="p">())</span></div>
 
 
 <div class="viewcode-block" id="Core.getMinimumPercentFluxInFuel">
@@ -2324,7 +2327,7 @@
         <span class="n">fluxFraction</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">targetRing</span> <span class="o">=</span> <span class="n">numRings</span>
 
-        <span class="n">allFuelBlocks</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">))</span>
+        <span class="n">allFuelBlocks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
 
         <span class="c1"># loop there all of the rings</span>
         <span class="k">for</span> <span class="n">ringNumber</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">numRings</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
@@ -2333,7 +2336,7 @@
             <span class="n">blocksInRing</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
                 <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span>
                     <span class="o">*</span><span class="p">[</span>
-                        <span class="n">a</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
+                        <span class="n">a</span><span class="o">.</span><span class="n">iterBlocks</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
                         <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getAssembliesInRing</span><span class="p">(</span><span class="n">ringNumber</span><span class="p">)</span>
                     <span class="p">]</span>
                 <span class="p">)</span>
@@ -2386,7 +2389,7 @@
         <span class="n">num</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">denom</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">blockList</span><span class="p">:</span>
-            <span class="n">blockList</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">())</span>
+            <span class="n">blockList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">()</span>
 
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blockList</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">flux2Weight</span><span class="p">:</span>
@@ -2428,7 +2431,7 @@
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.setPitchUniform">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">setPitchUniform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pitchInCm</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the pitch in all blocks.&quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterBlocks</span><span class="p">():</span>
             <span class="n">b</span><span class="o">.</span><span class="n">setPitch</span><span class="p">(</span><span class="n">pitchInCm</span><span class="p">)</span>
 
         <span class="c1"># have to update the 2-D reactor mesh too.</span>
@@ -2531,7 +2534,7 @@
             <span class="s2">&quot;=========== Initializing Mesh, Assembly Zones, and Nuclide Categories =========== &quot;</span>
         <span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getBlocks</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterBlocks</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
                 <span class="k">break</span>
         <span class="k">else</span><span class="p">:</span>
@@ -2633,6 +2636,65 @@
 
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zones</span><span class="p">):</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No manual zones defined in `zoneDefinitions` setting&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Core.iterBlocks">
+<a class="viewcode-back" href="../../../.apidocs/armi.reactor.cores.html#armi.reactor.cores.Core.iterBlocks">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">iterBlocks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">typeSpec</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">flags</span><span class="o">.</span><span class="n">TypeSpec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">predicate</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">blocks</span><span class="o">.</span><span class="n">Block</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">blocks</span><span class="o">.</span><span class="n">Block</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Iterate over the blocks in the core.</span>
+
+<span class="sd">        Useful for operations that just want to find all the blocks in the core</span>
+<span class="sd">        with light filtering.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        typeSpec: armi.reactor.flags.TypeSpec, optional</span>
+<span class="sd">            Limit the traversal to blocks that have these flags.</span>
+<span class="sd">        exact: bool, optional</span>
+<span class="sd">            Strictness on the usage of ``typeSpec`` used in :meth:`armi.reactor.composites.hasFlags`</span>
+<span class="sd">        predicate: f(block) -&gt; bool, optional</span>
+<span class="sd">            Limit the traversal to blocks that pass this predicate. Can be used in addition to ``typeSpec``</span>
+<span class="sd">            to perform more advanced filtering.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        iterator[Block]</span>
+<span class="sd">            Iterator over blocks in the core that meet the conditions provided.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        Iterate over all fuel blocks::</span>
+
+<span class="sd">        &gt;&gt;&gt; for b in r.core.iterBlocks(Flags.FUEL):</span>
+<span class="sd">        ...     pass</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        :meth:`getBlocks` has more control over what is included in the returned list</span>
+<span class="sd">        including looking at the spent fuel pool and assemblies that may not exist now</span>
+<span class="sd">        but existed at BOL (via :meth:`getAssemblies`). But if you&#39;re just interested in</span>
+<span class="sd">        the blocks in the core now, maybe with a flag attached to that block, this is what</span>
+<span class="sd">        you should use.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Assumes your composite tree is structured ``Core`` -&gt; ``Assembly`` -&gt; ``Block``. If</span>
+<span class="sd">        this is not the case, consider using :meth:`iterChildren`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">typeSpec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">typeChecker</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">b</span><span class="p">:</span> <span class="n">b</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">typeSpec</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="n">exact</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">typeChecker</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">predicate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">blockChecker</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">b</span><span class="p">:</span> <span class="n">typeChecker</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="ow">and</span> <span class="n">predicate</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">blockChecker</span> <span class="o">=</span> <span class="n">typeChecker</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterChildren</span><span class="p">(</span><span class="n">generationNum</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">predicate</span><span class="o">=</span><span class="n">blockChecker</span><span class="p">)</span></div>
 </div>
 
 </pre></div>
@@ -2645,7 +2707,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-03-31.
+      <span class="lastupdated">Last updated on 2025-04-01.
       </span></p>
   </div>
 
