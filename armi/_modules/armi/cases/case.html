@@ -1065,24 +1065,21 @@
             <span class="n">newFiles</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
                 <span class="n">WILDCARD</span> <span class="o">=</span> <span class="kc">False</span>
-                <span class="n">RELATIVE</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">EMPTY</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">ABSOLUTE</span> <span class="o">=</span> <span class="kc">False</span>
                 <span class="k">if</span> <span class="s2">&quot;*&quot;</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">WILDCARD</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="k">if</span> <span class="s2">&quot;..&quot;</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
-                    <span class="n">RELATIVE</span> <span class="o">=</span> <span class="kc">True</span>
-
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="c1"># beware: pathlib.path(&quot;&quot;) returns &quot;.&quot; which can be bad news, so we handle empty strings as</span>
+                    <span class="c1"># their own category</span>
+                    <span class="n">EMPTY</span> <span class="o">=</span> <span class="kc">True</span>
                 <span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">WILDCARD</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">RELATIVE</span><span class="p">:</span>
-                    <span class="k">try</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">()</span> <span class="ow">and</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-                            <span class="c1"># Path is absolute, no settings modification or filecopy needed</span>
-                            <span class="n">newFiles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-                            <span class="k">continue</span>
-                    <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-                        <span class="k">pass</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">EMPTY</span> <span class="ow">and</span> <span class="n">path</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">():</span>
+                    <span class="n">ABSOLUTE</span> <span class="o">=</span> <span class="kc">True</span>
 
                 <span class="c1"># Attempt to construct an absolute file path</span>
                 <span class="n">sourceFullPath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sourceDirPath</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                <span class="n">destFilePath</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">if</span> <span class="n">WILDCARD</span><span class="p">:</span>
                     <span class="n">globFilePaths</span> <span class="o">=</span> <span class="p">[</span>
                         <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sourceDirPath</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span>
@@ -1097,7 +1094,14 @@
                                 <span class="n">label</span><span class="p">,</span> <span class="n">gFile</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">f</span>
                             <span class="p">)</span>
                             <span class="n">newFiles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">destFilePath</span><span class="p">))</span>
+                <span class="k">elif</span> <span class="n">EMPTY</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="k">elif</span> <span class="n">ABSOLUTE</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                        <span class="c1"># Path is absolute, no settings modification or filecopy needed</span>
+                        <span class="n">newFiles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># treat as a relative path</span>
                     <span class="n">destFilePath</span> <span class="o">=</span> <span class="n">_copyInputsHelper</span><span class="p">(</span>
                         <span class="n">label</span><span class="p">,</span> <span class="n">sourceFullPath</span><span class="p">,</span> <span class="n">destination</span><span class="p">,</span> <span class="n">f</span>
                     <span class="p">)</span>
@@ -1111,7 +1115,7 @@
 
             <span class="c1"># Some settings are a single filename. Others are lists of files. Make</span>
             <span class="c1"># sure we are returning what the setting expects</span>
-            <span class="k">if</span> <span class="n">isSetting</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">isSetting</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">newFiles</span><span class="p">):</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">WILDCARD</span><span class="p">:</span>
                     <span class="n">newSettings</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">newFiles</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
                 <span class="k">else</span><span class="p">:</span>
@@ -1129,7 +1133,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-04-01.
+      <span class="lastupdated">Last updated on 2025-04-02.
       </span></p>
   </div>
 
