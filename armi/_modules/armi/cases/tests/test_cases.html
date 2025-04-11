@@ -117,7 +117,6 @@
 <span class="sd">&quot;&quot;&quot;Unit tests for Case and CaseSuite objects.&quot;&quot;&quot;</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">cProfile</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">platform</span>
@@ -128,19 +127,10 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">cases</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">getApp</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">,</span> <span class="n">plugins</span><span class="p">,</span> <span class="n">runLog</span><span class="p">,</span> <span class="n">settings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.bookkeeping.db.databaseInterface</span><span class="w"> </span><span class="kn">import</span> <span class="n">DatabaseInterface</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.fuelCycle.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">CONF_SHUFFLE_LOGIC</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">blueprints</span><span class="p">,</span> <span class="n">systemLayoutInput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">blueprints</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">test_reactors</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">ARMI_RUN_PATH</span><span class="p">,</span> <span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">mockRunLogs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">directoryChangers</span>
-
-<span class="n">GEOM_INPUT</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;&lt;?xml version=&quot;1.0&quot; ?&gt;</span>
-<span class="s2">&lt;reactor geom=&quot;hex&quot; symmetry=&quot;third core periodic&quot;&gt;</span>
-<span class="s2">    &lt;assembly name=&quot;A1&quot; pos=&quot;1&quot;  ring=&quot;1&quot;/&gt;</span>
-<span class="s2">    &lt;assembly name=&quot;A2&quot; pos=&quot;2&quot;  ring=&quot;2&quot;/&gt;</span>
-<span class="s2">    &lt;assembly name=&quot;A3&quot; pos=&quot;1&quot;  ring=&quot;2&quot;/&gt;</span>
-<span class="s2">&lt;/reactor&gt;</span>
-<span class="s2">&quot;&quot;&quot;</span>
-<span class="c1"># This gets made into a StringIO multiple times because it gets read multiple times.</span>
 
 <span class="n">BLUEPRINT_INPUT</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
 <span class="s2">nuclide flags:</span>
@@ -170,10 +160,25 @@
 <span class="s2">            od: 1.1</span>
 <span class="s2">            material: SS316</span>
 <span class="s2">    fuel 2: *fuel_1</span>
-<span class="s2">    block 3: *fuel_1                                        # non-fuel blocks</span>
-<span class="s2">    block 4: {&lt;&lt;: *fuel_1}                                  # non-fuel blocks</span>
-<span class="s2">    block 5: {fuel: *fuel_1_fuel, clad: *fuel_1_clad}       # non-fuel blocks</span>
+<span class="s2">    block 3: *fuel_1                                   # non-fuel blocks</span>
+<span class="s2">    block 4: {&lt;&lt;: *fuel_1}                             # non-fuel blocks</span>
+<span class="s2">    block 5: {fuel: *fuel_1_fuel, clad: *fuel_1_clad}  # non-fuel blocks</span>
 <span class="s2">assemblies: </span><span class="si">{}</span>
+<span class="s2">systems:</span>
+<span class="s2">    core:</span>
+<span class="s2">        grid name: core</span>
+<span class="s2">        origin:</span>
+<span class="s2">            x: 0.0</span>
+<span class="s2">            y: 0.0</span>
+<span class="s2">            z: 0.0</span>
+<span class="s2">grids:</span>
+<span class="s2">    core:</span>
+<span class="s2">        geom: hex</span>
+<span class="s2">        symmetry: third core periodic</span>
+<span class="s2">        grid contents:</span>
+<span class="s2">            [0, 0]: A1</span>
+<span class="s2">            [1, 0]: A2</span>
+<span class="s2">            [1, 1]: A3</span>
 <span class="s2">&quot;&quot;&quot;</span>
 
 
@@ -186,12 +191,10 @@
 <a class="viewcode-back" href="../../../../.apidocs/armi.cases.tests.test_cases.html#armi.cases.tests.test_cases.TestArmiCase.test_independentVariables">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">test_independentVariables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure that independentVariables added to a case move with it.&quot;&quot;&quot;</span>
-        <span class="n">geom</span> <span class="o">=</span> <span class="n">systemLayoutInput</span><span class="o">.</span><span class="n">SystemLayoutInput</span><span class="p">()</span>
-        <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromStream</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">GEOM_INPUT</span><span class="p">))</span>
         <span class="n">bp</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">BLUEPRINT_INPUT</span><span class="p">)</span>
         <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(</span><span class="n">ARMI_RUN_PATH</span><span class="p">)</span>
         <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;verbosity&quot;</span><span class="p">:</span> <span class="s2">&quot;important&quot;</span><span class="p">})</span>
-        <span class="n">baseCase</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">Case</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="n">bp</span><span class="p">,</span> <span class="n">geom</span><span class="o">=</span><span class="n">geom</span><span class="p">)</span>
+        <span class="n">baseCase</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">Case</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="n">bp</span><span class="p">)</span>
         <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">():</span>
             <span class="n">vals</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cladThickness&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;control strat&quot;</span><span class="p">:</span> <span class="s2">&quot;good&quot;</span><span class="p">,</span> <span class="s2">&quot;enrich&quot;</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">}</span>
             <span class="n">case</span> <span class="o">=</span> <span class="n">baseCase</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
@@ -388,15 +391,13 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">suite</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">CaseSuite</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">())</span>
 
-        <span class="n">geom</span> <span class="o">=</span> <span class="n">systemLayoutInput</span><span class="o">.</span><span class="n">SystemLayoutInput</span><span class="p">()</span>
-        <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromStream</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">GEOM_INPUT</span><span class="p">))</span>
         <span class="n">bp</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">BLUEPRINT_INPUT</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">c1</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">Case</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(),</span> <span class="n">geom</span><span class="o">=</span><span class="n">geom</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="n">bp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c1</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">Case</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(),</span> <span class="n">bp</span><span class="o">=</span><span class="n">bp</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;c1.yaml&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">suite</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">c2</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">Case</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(),</span> <span class="n">geom</span><span class="o">=</span><span class="n">geom</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="n">bp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c2</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">Case</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(),</span> <span class="n">bp</span><span class="o">=</span><span class="n">bp</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">c2</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;c2.yaml&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">suite</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c2</span><span class="p">)</span>
 
@@ -586,15 +587,13 @@
             <span class="c1"># Build the cases</span>
             <span class="n">suite</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">CaseSuite</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">())</span>
 
-            <span class="n">geom</span> <span class="o">=</span> <span class="n">systemLayoutInput</span><span class="o">.</span><span class="n">SystemLayoutInput</span><span class="p">()</span>
-            <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromStream</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">GEOM_INPUT</span><span class="p">))</span>
             <span class="n">bp</span> <span class="o">=</span> <span class="n">blueprints</span><span class="o">.</span><span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">BLUEPRINT_INPUT</span><span class="p">)</span>
 
-            <span class="n">c1</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">Case</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(),</span> <span class="n">geom</span><span class="o">=</span><span class="n">geom</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="n">bp</span><span class="p">)</span>
+            <span class="n">c1</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">Case</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(),</span> <span class="n">bp</span><span class="o">=</span><span class="n">bp</span><span class="p">)</span>
             <span class="n">c1</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;c1.yaml&quot;</span>
             <span class="n">suite</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span>
 
-            <span class="n">c2</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">Case</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(),</span> <span class="n">geom</span><span class="o">=</span><span class="n">geom</span><span class="p">,</span> <span class="n">bp</span><span class="o">=</span><span class="n">bp</span><span class="p">)</span>
+            <span class="n">c2</span> <span class="o">=</span> <span class="n">cases</span><span class="o">.</span><span class="n">Case</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(),</span> <span class="n">bp</span><span class="o">=</span><span class="n">bp</span><span class="p">)</span>
             <span class="n">c2</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;c2.yaml&quot;</span>
             <span class="n">suite</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c2</span><span class="p">)</span>
 
@@ -612,9 +611,7 @@
                 <span class="c1"># validate the file exists, and force it to be readable again</span>
                 <span class="n">b</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">_fullPath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="p">[</span><span class="s2">&quot;inputs&quot;</span><span class="p">])</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span>
-                    <span class="nb">sorted</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;inputs&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="p">[</span><span class="s2">&quot;blueprints&quot;</span><span class="p">,</span> <span class="s2">&quot;geomFile&quot;</span><span class="p">,</span> <span class="s2">&quot;settings&quot;</span><span class="p">]</span>
-                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">&quot;inputs&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="p">[</span><span class="s2">&quot;blueprints&quot;</span><span class="p">,</span> <span class="s2">&quot;settings&quot;</span><span class="p">])</span>
                 <span class="n">b</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
                 <span class="c1"># append to lists</span>
@@ -1004,7 +1001,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-04-10.
+      <span class="lastupdated">Last updated on 2025-04-11.
       </span></p>
   </div>
 

@@ -168,7 +168,6 @@
 <span class="sd">text representations of input and objects in the code.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
@@ -188,7 +187,7 @@
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.nucDirectory</span><span class="w"> </span><span class="kn">import</span> <span class="n">nuclideBases</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.neutronics.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">CONF_LOADING_FILE</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">assemblies</span><span class="p">,</span> <span class="n">geometry</span><span class="p">,</span> <span class="n">systemLayoutInput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">assemblies</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.blueprints</span><span class="w"> </span><span class="kn">import</span> <span class="n">isotopicOptions</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.blueprints.assemblyBlueprint</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssemblyKeyedList</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.blueprints.blockBlueprint</span><span class="w"> </span><span class="kn">import</span> <span class="n">BlockKeyedList</span>
@@ -204,7 +203,6 @@
     <span class="n">CONF_ACCEPTABLE_BLOCK_AREA_ERROR</span><span class="p">,</span>
     <span class="n">CONF_ASSEM_FLAGS_SKIP_AXIAL_EXP</span><span class="p">,</span>
     <span class="n">CONF_DETAILED_AXIAL_EXPANSION</span><span class="p">,</span>
-    <span class="n">CONF_GEOM_FILE</span><span class="p">,</span>
     <span class="n">CONF_INPUT_HEIGHTS_HOT</span><span class="p">,</span>
     <span class="n">CONF_NON_UNIFORM_ASSEM_FLAGS</span><span class="p">,</span>
 <span class="p">)</span>
@@ -700,20 +698,8 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Apply migrations to the input structure.</span>
 
-<span class="sd">    This is a good place to perform migrations that address changes to the system design</span>
-<span class="sd">    description (settings, blueprints, geom file). We have access to all three here, so</span>
-<span class="sd">    we can even move stuff between files. Namely, this:</span>
-
-<span class="sd">     * creates a grid blueprint to represent the core layout from the old ``geomFile``</span>
-<span class="sd">       setting, and applies that grid to a ``core`` system.</span>
-<span class="sd">     * moves the radial and azimuthal submesh values from the ``geomFile`` to the</span>
-<span class="sd">       assembly designs, but only if they are uniform (this is limiting, but could be</span>
-<span class="sd">       made more sophisticated in the future, if there is need)</span>
-
-<span class="sd">    This allows settings-driven core map to still be used for backwards compatibility.</span>
-<span class="sd">    At some point once the input stabilizes, we may wish to move this out to the</span>
-<span class="sd">    dedicated migration portion of the code, and not perform the migration so</span>
-<span class="sd">    implicitly.</span>
+<span class="sd">    This is a good place to perform migrations that address changes to the system design description</span>
+<span class="sd">    (settings, blueprints). We have access both here, so we can even move stuff between files.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.blueprints</span><span class="w"> </span><span class="kn">import</span> <span class="n">gridBlueprint</span>
 
@@ -725,41 +711,11 @@
     <span class="k">if</span> <span class="s2">&quot;core&quot;</span> <span class="ow">in</span> <span class="p">[</span><span class="n">rd</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">]:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot auto-create a 2nd `core` grid. Adjust input.&quot;</span><span class="p">)</span>
 
-    <span class="n">geom</span> <span class="o">=</span> <span class="n">systemLayoutInput</span><span class="o">.</span><span class="n">SystemLayoutInput</span><span class="p">()</span>
-    <span class="n">geom</span><span class="o">.</span><span class="n">readGeomFromFile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">,</span> <span class="n">cs</span><span class="p">[</span><span class="n">CONF_GEOM_FILE</span><span class="p">]))</span>
-    <span class="n">gridDesigns</span> <span class="o">=</span> <span class="n">geom</span><span class="o">.</span><span class="n">toGridBlueprints</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">design</span> <span class="ow">in</span> <span class="n">gridDesigns</span><span class="p">:</span>
-        <span class="n">bp</span><span class="o">.</span><span class="n">gridDesigns</span><span class="p">[</span><span class="n">design</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">design</span>
-
     <span class="k">if</span> <span class="s2">&quot;core&quot;</span> <span class="ow">in</span> <span class="p">[</span><span class="n">rd</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">rd</span> <span class="ow">in</span> <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Core map is defined in both the ``geometry`` setting and in &quot;</span>
-            <span class="s2">&quot;the blueprints file. Only one definition may exist. &quot;</span>
-            <span class="s2">&quot;Update inputs.&quot;</span>
-        <span class="p">)</span>
-    <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">SystemBlueprint</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="n">Triplet</span><span class="p">())</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot auto-create a 2nd `core` grid. Adjust input.&quot;</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">geom</span><span class="o">.</span><span class="n">geomType</span> <span class="ow">in</span> <span class="p">(</span><span class="n">geometry</span><span class="o">.</span><span class="n">GeomType</span><span class="o">.</span><span class="n">RZT</span><span class="p">,</span> <span class="n">geometry</span><span class="o">.</span><span class="n">GeomType</span><span class="o">.</span><span class="n">RZ</span><span class="p">):</span>
-        <span class="n">aziMeshes</span> <span class="o">=</span> <span class="p">{</span><span class="n">indices</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="k">for</span> <span class="n">indices</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">geom</span><span class="o">.</span><span class="n">assemTypeByIndices</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-        <span class="n">radMeshes</span> <span class="o">=</span> <span class="p">{</span><span class="n">indices</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="k">for</span> <span class="n">indices</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">geom</span><span class="o">.</span><span class="n">assemTypeByIndices</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">bp</span><span class="o">.</span><span class="n">systemDesigns</span><span class="p">[</span><span class="s2">&quot;core&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">SystemBlueprint</span><span class="p">(</span><span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="s2">&quot;core&quot;</span><span class="p">,</span> <span class="n">Triplet</span><span class="p">())</span></div>
 
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">aziMeshes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">radMeshes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;The system layout described in </span><span class="si">{}</span><span class="s2"> has non-uniform &quot;</span>
-                <span class="s2">&quot;azimuthal and/or radial submeshing. This migration is currently &quot;</span>
-                <span class="s2">&quot;only smart enough to handle a single radial and single azimuthal &quot;</span>
-                <span class="s2">&quot;submesh for all assemblies.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_GEOM_FILE</span><span class="p">])</span>
-            <span class="p">)</span>
-        <span class="n">radMesh</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">radMeshes</span><span class="p">))</span>
-        <span class="n">aziMesh</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">aziMeshes</span><span class="p">))</span>
-
-        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">aDesign</span> <span class="ow">in</span> <span class="n">bp</span><span class="o">.</span><span class="n">assemDesigns</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">aDesign</span><span class="o">.</span><span class="n">radialMeshPoints</span> <span class="o">=</span> <span class="n">radMesh</span>
-            <span class="n">aDesign</span><span class="o">.</span><span class="n">azimuthalMeshPoints</span> <span class="o">=</span> <span class="n">aziMesh</span></div>
-
-
-    <span class="c1"># TODO: write out the migrated file. At the moment this messes up the case</span>
-    <span class="c1"># title and doesn&#39;t yet have the other systems in place so this isn&#39;t the right place.</span>
 </pre></div>
 
            </div>
@@ -770,7 +726,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-04-10.
+      <span class="lastupdated">Last updated on 2025-04-11.
       </span></p>
   </div>
 
