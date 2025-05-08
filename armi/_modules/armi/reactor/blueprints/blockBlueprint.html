@@ -249,6 +249,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkByComponentMaterialInput</span><span class="p">(</span><span class="n">materialInput</span><span class="p">)</span>
 
+        <span class="n">allLatticeIds</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">componentDesign</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
             <span class="n">filteredMaterialInput</span><span class="p">,</span> <span class="n">byComponentMatModKeys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filterMaterialInput</span><span class="p">(</span>
                 <span class="n">materialInput</span><span class="p">,</span> <span class="n">componentDesign</span>
@@ -292,6 +293,30 @@
                     <span class="k">elif</span> <span class="ow">not</span> <span class="n">mult</span> <span class="ow">or</span> <span class="n">mult</span> <span class="o">==</span> <span class="mf">1.0</span><span class="p">:</span>
                         <span class="c1"># learn mult from grid definition</span>
                         <span class="n">c</span><span class="o">.</span><span class="n">setDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">))</span>
+
+                <span class="n">idsInGrid</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">gridDesign</span><span class="o">.</span><span class="n">gridContents</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+                <span class="k">if</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">latticeIDs</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">latticeID</span> <span class="ow">in</span> <span class="n">componentDesign</span><span class="o">.</span><span class="n">latticeIDs</span><span class="p">:</span>
+                        <span class="n">allLatticeIds</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">latticeID</span><span class="p">))</span>
+                        <span class="c1"># the user has given this component latticeIDs. check that</span>
+                        <span class="c1"># each of the ids appears in the grid, otherwise</span>
+                        <span class="c1"># their blueprints are probably wrong</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">idsInGrid</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">latticeID</span><span class="p">)])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;latticeID </span><span class="si">{</span><span class="n">latticeID</span><span class="si">}</span><span class="s2"> in block blueprint &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; is expected &quot;</span>
+                                <span class="s2">&quot;to be present in the associated block grid. &quot;</span>
+                                <span class="s2">&quot;Check that the component&#39;s latticeIDs align with the block&#39;s grid.&quot;</span>
+                            <span class="p">)</span>
+
+        <span class="c1"># for every id in grid, confirm that at least one component had it</span>
+        <span class="k">if</span> <span class="n">gridDesign</span><span class="p">:</span>
+            <span class="n">idsInGrid</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">gridDesign</span><span class="o">.</span><span class="n">gridContents</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+            <span class="k">for</span> <span class="n">idInGrid</span> <span class="ow">in</span> <span class="n">idsInGrid</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">idInGrid</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allLatticeIds</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;ID </span><span class="si">{</span><span class="n">idInGrid</span><span class="si">}</span><span class="s2"> in grid </span><span class="si">{</span><span class="n">gridDesign</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not in any components of block </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">. &quot;</span>
+                        <span class="s2">&quot;All IDs in the grid must appear in at least one component.&quot;</span>
+                    <span class="p">)</span>
 
         <span class="c1"># check that the block level mat mods use valid options in the same way</span>
         <span class="c1"># as we did for the by-component mods above</span>
@@ -546,7 +571,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-05-01.
+      <span class="lastupdated">Last updated on 2025-05-08.
       </span></p>
   </div>
 
