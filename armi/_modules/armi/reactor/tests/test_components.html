@@ -121,6 +121,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">unittest.mock</span><span class="w"> </span><span class="kn">import</span> <span class="n">patch</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">numpy.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">assert_allclose</span><span class="p">,</span> <span class="n">assert_equal</span>
@@ -136,6 +137,7 @@
     <span class="n">Cube</span><span class="p">,</span>
     <span class="n">DerivedShape</span><span class="p">,</span>
     <span class="n">DifferentialRadialSegment</span><span class="p">,</span>
+    <span class="n">FilletedHexagon</span><span class="p">,</span>
     <span class="n">Helix</span><span class="p">,</span>
     <span class="n">Hexagon</span><span class="p">,</span>
     <span class="n">HexHoledCircle</span><span class="p">,</span>
@@ -247,30 +249,35 @@
 <span class="sd">            :tests: R_ARMI_COMP_DEF</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># populate the class/signature dict, and create a basis attrs</span>
-        <span class="n">attrs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCircleVoidDict</span><span class="p">()</span>
-        <span class="k">del</span> <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;shape&quot;</span><span class="p">]</span>
-        <span class="k">del</span> <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;od&quot;</span><span class="p">]</span>
-        <span class="k">del</span> <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
-        <span class="k">del</span> <span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;mult&quot;</span><span class="p">]</span>
+        <span class="n">attrs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;gap&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Tinput&quot;</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+            <span class="s2">&quot;Thot&quot;</span><span class="p">:</span> <span class="mi">600</span><span class="p">,</span>
+            <span class="s2">&quot;material&quot;</span><span class="p">:</span> <span class="s2">&quot;Void&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;isotopics&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
 
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">klass</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ComponentType</span><span class="o">.</span><span class="n">TYPES</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
             <span class="c1"># hack together a dictionary input</span>
             <span class="n">thisAttrs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="mf">1.0</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">klass</span><span class="o">.</span><span class="n">INIT_SIGNATURE</span><span class="p">)</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">attrs</span><span class="p">)}</span>
+            <span class="k">if</span> <span class="s2">&quot;oR&quot;</span> <span class="ow">in</span> <span class="n">thisAttrs</span><span class="p">:</span>
+                <span class="n">thisAttrs</span><span class="p">[</span><span class="s2">&quot;oR&quot;</span><span class="p">]</span> <span class="o">/=</span> <span class="mf">20.0</span>
+            <span class="k">if</span> <span class="s2">&quot;iR&quot;</span> <span class="ow">in</span> <span class="n">thisAttrs</span><span class="p">:</span>
+                <span class="n">thisAttrs</span><span class="p">[</span><span class="s2">&quot;iR&quot;</span><span class="p">]</span> <span class="o">/=</span> <span class="mf">20.0</span>
             <span class="k">del</span> <span class="n">thisAttrs</span><span class="p">[</span><span class="s2">&quot;components&quot;</span><span class="p">]</span>
             <span class="n">thisAttrs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">attrs</span><span class="p">)</span>
-            <span class="n">thisAttrs</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;banana</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">thisAttrs</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;banana</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="k">if</span> <span class="s2">&quot;modArea&quot;</span> <span class="ow">in</span> <span class="n">thisAttrs</span><span class="p">:</span>
                 <span class="n">thisAttrs</span><span class="p">[</span><span class="s2">&quot;modArea&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">component</span> <span class="o">=</span> <span class="n">components</span><span class="o">.</span><span class="n">factory</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">[],</span> <span class="n">thisAttrs</span><span class="p">)</span>
             <span class="n">duped</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">component</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">component</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;area&quot;</span><span class="p">,</span> <span class="s2">&quot;volume&quot;</span><span class="p">,</span> <span class="s2">&quot;serialNum&quot;</span><span class="p">]:</span>  <span class="c1"># they get recomputed</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;area&quot;</span><span class="p">,</span> <span class="s2">&quot;volume&quot;</span><span class="p">,</span> <span class="s2">&quot;serialNum&quot;</span><span class="p">]:</span>
+                    <span class="c1"># they get recomputed</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span>
                         <span class="n">val</span><span class="p">,</span>
                         <span class="n">duped</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>
-                        <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;Key: </span><span class="si">{}</span><span class="s2">, val1: </span><span class="si">{}</span><span class="s2">, val2: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                            <span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">duped</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-                        <span class="p">),</span>
+                        <span class="n">msg</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Key: </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">, val1: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">, val2: </span><span class="si">{</span><span class="n">duped</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
                     <span class="p">)</span></div>
 
 
@@ -1754,22 +1761,6 @@
     <span class="n">componentCls</span> <span class="o">=</span> <span class="n">Hexagon</span>
     <span class="n">componentDims</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Tinput&quot;</span><span class="p">:</span> <span class="mf">25.0</span><span class="p">,</span> <span class="s2">&quot;Thot&quot;</span><span class="p">:</span> <span class="mf">430.0</span><span class="p">,</span> <span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span> <span class="s2">&quot;ip&quot;</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">,</span> <span class="s2">&quot;mult&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
 
-<div class="viewcode-block" id="TestHexagon.test_getPerimeter">
-<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_components.html#armi.reactor.tests.test_components.TestHexagon.test_getPerimeter">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">test_getPerimeter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get perimeter of hexagon.</span>
-
-<span class="sd">        .. test:: Hexagon shaped component</span>
-<span class="sd">            :id: T_ARMI_COMP_SHAPES4</span>
-<span class="sd">            :tests: R_ARMI_COMP_SHAPES</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">ip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;ip&quot;</span><span class="p">)</span>
-        <span class="n">mult</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">)</span>
-        <span class="n">ref</span> <span class="o">=</span> <span class="mi">6</span> <span class="o">*</span> <span class="p">(</span><span class="n">ip</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span> <span class="o">*</span> <span class="n">mult</span>
-        <span class="n">cur</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getPerimeter</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span> <span class="n">ref</span><span class="p">)</span></div>
-
-
 <div class="viewcode-block" id="TestHexagon.test_getBoundingCircleOuterDiameter">
 <a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_components.html#armi.reactor.tests.test_components.TestHexagon.test_getBoundingCircleOuterDiameter">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">test_getBoundingCircleOuterDiameter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -1818,6 +1809,113 @@
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">expandedDims</span><span class="p">):</span>
             <span class="n">cur</span> <span class="o">=</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">THERMAL_EXPANSION_DIMS</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span> <span class="n">ref</span><span class="p">[</span><span class="n">i</span><span class="p">])</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="TestFilletedHexagon">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_components.html#armi.reactor.tests.test_components.TestFilletedHexagon">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TestFilletedHexagon</span><span class="p">(</span><span class="n">TestShapedComponent</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test FilletedHexagon shaped component.&quot;&quot;&quot;</span>
+
+    <span class="n">componentCls</span> <span class="o">=</span> <span class="n">FilletedHexagon</span>
+    <span class="n">componentDims</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;Tinput&quot;</span><span class="p">:</span> <span class="mf">25.0</span><span class="p">,</span>
+        <span class="s2">&quot;Thot&quot;</span><span class="p">:</span> <span class="mf">430.0</span><span class="p">,</span>
+        <span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>
+        <span class="s2">&quot;ip&quot;</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">,</span>
+        <span class="s2">&quot;mult&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;oR&quot;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="s2">&quot;iR&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="TestFilletedHexagon.test_getBoundingCircleOuterDiameter">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_components.html#armi.reactor.tests.test_components.TestFilletedHexagon.test_getBoundingCircleOuterDiameter">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_getBoundingCircleOuterDiameter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">ref</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="mi">10</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getBoundingCircleOuterDiameter</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">cur</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestFilletedHexagon.test_getCircleInnerDiameter">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_components.html#armi.reactor.tests.test_components.TestFilletedHexagon.test_getCircleInnerDiameter">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_getCircleInnerDiameter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">ref</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="mf">5.0</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getCircleInnerDiameter</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">cur</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestFilletedHexagon.test_getComponentArea">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_components.html#armi.reactor.tests.test_components.TestFilletedHexagon.test_getComponentArea">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_getComponentArea</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getComponentArea</span><span class="p">()</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;op&quot;</span><span class="p">)</span>
+        <span class="n">ip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;ip&quot;</span><span class="p">)</span>
+        <span class="n">oR</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;oR&quot;</span><span class="p">)</span>
+        <span class="n">iR</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;iR&quot;</span><span class="p">)</span>
+        <span class="n">mult</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">)</span>
+
+        <span class="n">ref</span> <span class="o">=</span> <span class="n">mult</span> <span class="o">*</span> <span class="p">(</span><span class="n">FilletedHexagon</span><span class="o">.</span><span class="n">_area</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">oR</span><span class="p">)</span> <span class="o">-</span> <span class="n">FilletedHexagon</span><span class="o">.</span><span class="n">_area</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">iR</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span> <span class="n">ref</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestFilletedHexagon.test_thermallyExpands">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_components.html#armi.reactor.tests.test_components.TestFilletedHexagon.test_thermallyExpands">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_thermallyExpands</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that ARMI can thermally expands a Hexagon.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">THERMAL_EXPANSION_DIMS</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestFilletedHexagon.test_dimensionThermallyExpands">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_components.html#armi.reactor.tests.test_components.TestFilletedHexagon.test_dimensionThermallyExpands">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_dimensionThermallyExpands</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expandedDims</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;op&quot;</span><span class="p">,</span> <span class="s2">&quot;ip&quot;</span><span class="p">,</span> <span class="s2">&quot;iR&quot;</span><span class="p">,</span> <span class="s2">&quot;oR&quot;</span><span class="p">,</span> <span class="s2">&quot;mult&quot;</span><span class="p">]</span>
+        <span class="n">ref</span> <span class="o">=</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">expandedDims</span><span class="p">):</span>
+            <span class="n">cur</span> <span class="o">=</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="o">.</span><span class="n">THERMAL_EXPANSION_DIMS</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span> <span class="n">ref</span><span class="p">[</span><span class="n">i</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="TestFilletedHexagon.test_filletedMatchesNormal">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_components.html#armi.reactor.tests.test_components.TestFilletedHexagon.test_filletedMatchesNormal">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_filletedMatchesNormal</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prove that if the radius of curvature is 0.0, FilletedHexagon is just a hexagon.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">ip</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">1.1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">):</span>
+                <span class="n">componentDims</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;Tinput&quot;</span><span class="p">:</span> <span class="mf">25.0</span><span class="p">,</span>
+                    <span class="s2">&quot;Thot&quot;</span><span class="p">:</span> <span class="mf">430.0</span><span class="p">,</span>
+                    <span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="n">op</span><span class="p">,</span>
+                    <span class="s2">&quot;ip&quot;</span><span class="p">:</span> <span class="n">ip</span><span class="p">,</span>
+                    <span class="s2">&quot;mult&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+                <span class="p">}</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">FilletedHexagon</span><span class="p">(</span><span class="s2">&quot;xyz&quot;</span><span class="p">,</span> <span class="s2">&quot;HT9&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">componentDims</span><span class="p">)</span>
+                <span class="n">h</span> <span class="o">=</span> <span class="n">Hexagon</span><span class="p">(</span><span class="s2">&quot;xyz&quot;</span><span class="p">,</span> <span class="s2">&quot;HT9&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">componentDims</span><span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">getComponentArea</span><span class="p">(),</span> <span class="n">h</span><span class="o">.</span><span class="n">getComponentArea</span><span class="p">(),</span> <span class="n">delta</span><span class="o">=</span><span class="mf">1e-7</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertGreaterEqual</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">getArea</span><span class="p">(),</span> <span class="n">f</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestFilletedHexagon.test_filletedBecomesACircle">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_components.html#armi.reactor.tests.test_components.TestFilletedHexagon.test_filletedBecomesACircle">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_filletedBecomesACircle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prove that as the radius of curvature becomes D/2, the shape becomes a circle.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">):</span>
+            <span class="n">componentDims</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;Tinput&quot;</span><span class="p">:</span> <span class="mf">425.0</span><span class="p">,</span>
+                <span class="s2">&quot;Thot&quot;</span><span class="p">:</span> <span class="mf">425.0</span><span class="p">,</span>
+                <span class="s2">&quot;op&quot;</span><span class="p">:</span> <span class="n">op</span><span class="p">,</span>
+                <span class="s2">&quot;ip&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">&quot;oR&quot;</span><span class="p">:</span> <span class="n">op</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span>
+                <span class="s2">&quot;iR&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">&quot;mult&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">FilletedHexagon</span><span class="p">(</span><span class="s2">&quot;circleHex&quot;</span><span class="p">,</span> <span class="s2">&quot;HT9&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">componentDims</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">getComponentArea</span><span class="p">(),</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">op</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">delta</span><span class="o">=</span><span class="mf">1e-7</span>
+            <span class="p">)</span></div>
 </div>
 
 
@@ -2568,7 +2666,7 @@
         <span class="n">assert_equal</span><span class="p">(</span><span class="n">pinMgFluxesGamma</span><span class="p">,</span> <span class="n">simPinMgFluxesGamma</span><span class="p">)</span>
 
         <span class="c1"># Mock the spatial locator of the component to raise error</span>
-        <span class="k">with</span> <span class="n">unittest</span><span class="o">.</span><span class="n">mock</span><span class="o">.</span><span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="n">fuelComponent</span><span class="p">,</span> <span class="s2">&quot;spatialLocator&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mockLocator</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="n">fuelComponent</span><span class="p">,</span> <span class="s2">&quot;spatialLocator&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mockLocator</span><span class="p">:</span>
             <span class="n">mockLocator</span><span class="o">.</span><span class="n">i</span> <span class="o">=</span> <span class="mi">111</span>
             <span class="n">mockLocator</span><span class="o">.</span><span class="n">j</span> <span class="o">=</span> <span class="mi">111</span>
             <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span>
