@@ -95,20 +95,19 @@
 <span class="sd">:py:mod:`terrapower.physics.neutronics/dragon.dragonInterface` in default runs, or</span>
 <span class="sd">in other apps.</span>
 <span class="sd">&quot;&quot;&quot;</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">directoryChangers</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">outputCache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics</span><span class="w"> </span><span class="kn">import</span> <span class="n">executers</span><span class="p">,</span> <span class="n">neutronics</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">blocks</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">caseSettings</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics</span><span class="w"> </span><span class="kn">import</span> <span class="n">executers</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics</span><span class="w"> </span><span class="kn">import</span> <span class="n">neutronics</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">directoryChangers</span><span class="p">,</span> <span class="n">outputCache</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">dragonWriter</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">terrapower.physics.neutronics.dragon</span><span class="w"> </span><span class="kn">import</span> <span class="n">dragonWriter</span><span class="p">,</span> <span class="n">settings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">terrapower.physics.neutronics.dragon.dragonFactory</span><span class="w"> </span><span class="kn">import</span> <span class="n">dragonFactory</span>
 
 <span class="c1"># DRAGON natively names the ISOTXS file &quot;ISOTXS000001&quot;.</span>
 <span class="n">ISOTXS_NAME</span> <span class="o">=</span> <span class="s2">&quot;ISOTXS</span><span class="si">{:06d}</span><span class="s2">&quot;</span>
@@ -140,7 +139,7 @@
 <div class="viewcode-block" id="DragonOptions.fromUserSettings">
 <a class="viewcode-back" href="../../../../../.apidocs/terrapower.physics.neutronics.dragon.dragonExecutor.html#terrapower.physics.neutronics.dragon.dragonExecutor.DragonOptions.fromUserSettings">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">fromUserSettings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">:</span> <span class="n">caseSettings</span><span class="o">.</span><span class="n">Settings</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load settings from a case settings object&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load settings from a case settings object.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">executablePath</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="n">settings</span><span class="o">.</span><span class="n">CONF_DRAGON_PATH</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setRunDirFromCaseTitle</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">libDataFile</span> <span class="o">=</span> <span class="n">cs</span><span class="p">[</span><span class="n">settings</span><span class="o">.</span><span class="n">CONF_DRAGON_DATA_PATH</span><span class="p">]</span>
@@ -183,15 +182,14 @@
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    DRAGON creates binary files during the run (for example _main001 and _DUMMY).</span>
-<span class="sd">    These files have the same name regardless of input name or settings so if more than</span>
-<span class="sd">    one run occurs simultaneously in a directory there will be naming collision issues.</span>
-<span class="sd">    Therefore, to execute in parallel, the execution occurs in a temporary directory.</span>
-<span class="sd">    After execution, the output file, and any ISOTXS files are copied to the location</span>
-<span class="sd">    of the ARMI run (where an input file already resided). The temporary directory is</span>
-<span class="sd">    also local to the machine, which can help for cluster execution speed.</span>
-<span class="sd">    Before execution the temporary directory has the input, nuclear data, and executable</span>
-<span class="sd">    copied over to it for fast execution.</span>
+<span class="sd">    DRAGON creates binary files during the run (for example _main001 and _DUMMY). These files have</span>
+<span class="sd">    the same name regardless of input name or settings so if more than one run occurs simultaneously</span>
+<span class="sd">    in a directory there will be naming collision issues. Therefore, to execute in parallel, the</span>
+<span class="sd">    execution occurs in a temporary directory. After execution, the output file, and any ISOTXS</span>
+<span class="sd">    files are copied to the location of the ARMI run (where an input file already resided). The</span>
+<span class="sd">    temporary directory is also local to the machine, which can help for cluster execution speed.</span>
+<span class="sd">    Before execution the temporary directory has the input, nuclear data, and executable copied over</span>
+<span class="sd">    to it for fast execution.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="n">DragonOptions</span><span class="p">,</span> <span class="n">block</span><span class="p">):</span>
@@ -247,8 +245,8 @@
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        This makes use of an output caching utility, which can make execution</span>
-<span class="sd">        nearly instantaneously if the input has been executed before.</span>
+<span class="sd">        This makes use of an output caching utility, which can make execution nearly instantaneously</span>
+<span class="sd">        if the input has been executed before.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Executing </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">executablePath</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -262,10 +260,8 @@
         <span class="n">outputPaths</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">outputFile</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">outputIsotxsName</span><span class="p">)</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">executeDragon</span><span class="p">():</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Helper function to work with output caching&quot;&quot;&quot;</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">outputFile</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outputF</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">inputFile</span>
-            <span class="p">)</span> <span class="k">as</span> <span class="n">inputF</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Helper function to work with output caching.&quot;&quot;&quot;</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">outputFile</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outputF</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">inputFile</span><span class="p">)</span> <span class="k">as</span> <span class="n">inputF</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">(</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="o">.</span><span class="n">executablePath</span><span class="p">,</span>
@@ -284,9 +280,6 @@
             <span class="n">executeDragon</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">.dragonFactory</span><span class="w"> </span><span class="kn">import</span> <span class="n">dragonFactory</span>
 </pre></div>
 
            </div>
