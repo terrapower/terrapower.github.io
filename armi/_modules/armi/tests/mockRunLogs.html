@@ -122,6 +122,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogRecord</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
 
@@ -139,9 +140,8 @@
         <span class="nb">super</span><span class="p">(</span><span class="n">BufferLog</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">originalLog</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_outputStream</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_singleMessageCounts</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_singleWarningMessageCounts</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_errStream</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deduplication</span> <span class="o">=</span> <span class="n">runLog</span><span class="o">.</span><span class="n">DeduplicationFilter</span><span class="p">()</span>
         <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_errStream</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
@@ -172,7 +172,10 @@
             <span class="k">return</span>
 
         <span class="c1"># Skip writing the message if it is single-print warning</span>
-        <span class="k">if</span> <span class="n">single</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_msgHasAlreadyBeenEmitted</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">msgType</span><span class="p">):</span>
+        <span class="n">record</span> <span class="o">=</span> <span class="n">LogRecord</span><span class="p">(</span><span class="s2">&quot;BufferLog&quot;</span><span class="p">,</span> <span class="n">msgVerbosity</span><span class="p">,</span> <span class="s2">&quot;pathname&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="p">{},</span> <span class="p">())</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">label</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">single</span> <span class="o">=</span> <span class="n">single</span>
+        <span class="k">if</span> <span class="n">single</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deduplication</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">record</span><span class="p">):</span>
             <span class="k">return</span>
 
         <span class="c1"># Do the actual logging, but add that custom indenting first</span>
@@ -180,27 +183,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_outputStream</span> <span class="o">+=</span> <span class="n">msg</span></div>
 
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_msgHasAlreadyBeenEmitted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">msgType</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if the count of the label is greater than 1.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">msgType</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="s2">&quot;critical&quot;</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_singleWarningMessageCounts</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_singleWarningMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_singleWarningMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_singleMessageCounts</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_singleMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_singleMessageCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">return</span> <span class="kc">False</span>
-
 <div class="viewcode-block" id="BufferLog.clearSingleLogs">
 <a class="viewcode-back" href="../../../.apidocs/armi.tests.mockRunLogs.html#armi.tests.mockRunLogs.BufferLog.clearSingleLogs">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">clearSingleLogs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the single warned list so we get messages again.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_singleMessageCounts</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_deduplication</span><span class="o">.</span><span class="n">singleMessageLabels</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="BufferLog.getStdout">
@@ -251,7 +238,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-06-09.
+      <span class="lastupdated">Last updated on 2025-06-12.
       </span></p>
   </div>
 
