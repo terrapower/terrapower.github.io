@@ -918,12 +918,11 @@
             <span class="n">CONF_CYCLES</span><span class="p">,</span>
             <span class="n">default</span><span class="o">=</span><span class="p">[],</span>
             <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Cycle information&quot;</span><span class="p">,</span>
-            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;YAML list defining the cycle history of the case. Options&quot;</span>
-            <span class="s2">&quot; at each cycle include: `name`, `cumulative days`, `step days`, `availability&quot;</span>
-            <span class="s2">&quot; factor`, `cycle length`, `burn steps`, and `power fractions`.&quot;</span>
-            <span class="s2">&quot; If specified, do not use any of the case settings `cycleLength(s)`,&quot;</span>
-            <span class="s2">&quot; `availabilityFactor(s)`, `powerFractions`, or `burnSteps`. Must also&quot;</span>
-            <span class="s2">&quot; specify `nCycles` and `power`.&quot;</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;YAML dict defining the cycle history of the case. Options at each cycle &quot;</span>
+            <span class="s2">&quot;include: `name`, `cumulative days`, `step days`, `availability factor`, &quot;</span>
+            <span class="s2">&quot;`cycle length`, `burn steps`, and `power fractions`. If specified, do not use any of &quot;</span>
+            <span class="s2">&quot;the case settings `cycleLength(s)`, `availabilityFactor(s)`, `powerFractions`, or &quot;</span>
+            <span class="s2">&quot;`burnSteps`. Must also specify `nCycles` and `power`.&quot;</span><span class="p">,</span>
             <span class="n">schema</span><span class="o">=</span><span class="n">vol</span><span class="o">.</span><span class="n">Schema</span><span class="p">(</span>
                 <span class="p">[</span>
                     <span class="n">vol</span><span class="o">.</span><span class="n">All</span><span class="p">(</span>
@@ -945,9 +944,9 @@
             <span class="n">CONF_USER_PLUGINS</span><span class="p">,</span>
             <span class="n">default</span><span class="o">=</span><span class="p">[],</span>
             <span class="n">label</span><span class="o">=</span><span class="n">CONF_USER_PLUGINS</span><span class="p">,</span>
-            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;YAML list defining the locations of UserPlugin subclasses. &quot;</span>
-            <span class="s2">&quot;You can enter the full armi import path: armi.test.test_what.MyPlugin, &quot;</span>
-            <span class="s2">&quot;or you can enter the full file path: /path/to/my/pluginz.py:MyPlugin &quot;</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">&quot;YAML list defining the locations of UserPlugin subclasses. You can enter &quot;</span>
+            <span class="s2">&quot;the full ARMI import path: armi.test.test_what.MyPlugin, or you can enter the full &quot;</span>
+            <span class="s2">&quot;file path: /path/to/my/pluginz.py:MyPlugin &quot;</span><span class="p">,</span>
             <span class="n">schema</span><span class="o">=</span><span class="n">vol</span><span class="o">.</span><span class="n">Any</span><span class="p">([</span><span class="n">vol</span><span class="o">.</span><span class="n">Coerce</span><span class="p">(</span><span class="nb">str</span><span class="p">)],</span> <span class="kc">None</span><span class="p">),</span>
         <span class="p">),</span>
         <span class="n">setting</span><span class="o">.</span><span class="n">Setting</span><span class="p">(</span>
@@ -969,6 +968,11 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_mutuallyExclusiveCyclesInputs</span><span class="p">(</span><span class="n">cycle</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper for `cycles` setting.</span>
+
+<span class="sd">    There are multiple different ways to define the time nodes of the simulation, but they are</span>
+<span class="sd">    exclusive, and you have to pick one. Here we verify it was done correcty.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cycleKeys</span> <span class="o">=</span> <span class="n">cycle</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
     <span class="k">if</span> <span class="p">(</span>
         <span class="nb">sum</span><span class="p">(</span>
@@ -981,13 +985,12 @@
         <span class="o">!=</span> <span class="mi">1</span>
     <span class="p">):</span>
         <span class="n">baseErrMsg</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="s2">&quot;Must have exactly one of either &#39;cumulative days&#39;, &#39;step days&#39;, or&quot;</span>
-            <span class="s2">&quot; &#39;cycle length&#39; + &#39;burn steps&#39; in each cycle definition.&quot;</span>
+            <span class="s2">&quot;Must have exactly one of either &#39;cumulative days&#39;, &#39;step days&#39;, or &#39;cycle length&#39; + &quot;</span>
+            <span class="s2">&quot;&#39;burn steps&#39; in each cycle definition.&quot;</span>
         <span class="p">)</span>
 
-        <span class="k">raise</span> <span class="n">vol</span><span class="o">.</span><span class="n">Invalid</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">baseErrMsg</span> <span class="o">+</span> <span class="s2">&quot; Check cycle </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cycle</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]))</span> <span class="k">if</span> <span class="s2">&quot;name&quot;</span> <span class="ow">in</span> <span class="n">cycleKeys</span> <span class="k">else</span> <span class="n">baseErrMsg</span>
-        <span class="p">)</span>
+        <span class="k">raise</span> <span class="n">vol</span><span class="o">.</span><span class="n">Invalid</span><span class="p">((</span><span class="n">baseErrMsg</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot; Check cycle </span><span class="si">{</span><span class="n">cycle</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;name&quot;</span> <span class="ow">in</span> <span class="n">cycleKeys</span> <span class="k">else</span> <span class="n">baseErrMsg</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">cycle</span>
 </pre></div>
 
@@ -999,7 +1002,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-06-13.
+      <span class="lastupdated">Last updated on 2025-06-16.
       </span></p>
   </div>
 
