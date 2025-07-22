@@ -15,11 +15,11 @@
       <link rel="stylesheet" type="text/css" href="../../../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
       <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
       <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
       <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_style.css?v=678fb11e" />
-      <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
       <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
       <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
+      <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
       <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-needs/modern.css?v=803738c0" />
       <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-test-results/common.css?v=9ec2c1d5" />
 
@@ -119,10 +119,11 @@
 
 <span class="sd">&quot;&quot;&quot;Tests for reactor blueprints.&quot;&quot;&quot;</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span><span class="p">,</span> <span class="n">settings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">blueprints</span><span class="p">,</span> <span class="n">reactors</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.blueprints</span><span class="w"> </span><span class="kn">import</span> <span class="n">gridBlueprint</span><span class="p">,</span> <span class="n">reactorBlueprint</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.blueprints.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">test_customIsotopics</span>
@@ -131,7 +132,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.reactors</span><span class="w"> </span><span class="kn">import</span> <span class="n">Core</span><span class="p">,</span> <span class="n">loadFromCs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.spentFuelPool</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpentFuelPool</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.settings.caseSettings</span><span class="w"> </span><span class="kn">import</span> <span class="n">Settings</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">TEST_ROOT</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">mockRunLogs</span>
 
 <span class="n">CORE_BLUEPRINT</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
 <span class="s2">core:</span>
@@ -367,7 +368,14 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">test_fullCoreAreNotConverted</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Prove that geometries aren&#39;t being converted when reading in a full-core BP.&quot;&quot;&quot;</span>
         <span class="n">cs</span> <span class="o">=</span> <span class="n">Settings</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="s2">&quot;smallHexReactor/smallHexReactor.yaml&quot;</span><span class="p">))</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="n">loadFromCs</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">log</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">log</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">loadFromCs</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
+            <span class="c1"># ensure that, for full core, only the correct parts of the geom modification are hit</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Applying Geometry Modifications&quot;</span><span class="p">,</span> <span class="n">log</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Updating spatial grid&quot;</span><span class="p">,</span> <span class="n">log</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="s2">&quot;Applying non-full core&quot;</span><span class="p">,</span> <span class="n">log</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
 
         <span class="n">a</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyWithStringLocation</span><span class="p">(</span><span class="s2">&quot;003-012&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;fuel assembly&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
@@ -387,7 +395,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-07-21.
+      <span class="lastupdated">Last updated on 2025-07-22.
       </span></p>
   </div>
 
