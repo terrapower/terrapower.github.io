@@ -343,10 +343,19 @@
         <span class="c1"># Compute component areas</span>
         <span class="n">cladID</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">([</span><span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">cold</span><span class="o">=</span><span class="n">cold</span><span class="p">)</span> <span class="k">for</span> <span class="n">clad</span> <span class="ow">in</span> <span class="n">clads</span><span class="p">])</span>
         <span class="n">innerCladdingArea</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">cladID</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">getNumComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
+        <span class="n">sortedCompsInsideClad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSortedComponentsInsideOfComponent</span><span class="p">(</span><span class="n">clads</span><span class="o">.</span><span class="n">pop</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">computeSmearDensity</span><span class="p">(</span><span class="n">innerCladdingArea</span><span class="p">,</span> <span class="n">sortedCompsInsideClad</span><span class="p">,</span> <span class="n">cold</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Block.computeSmearDensity">
+<a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.Block.computeSmearDensity">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">computeSmearDensity</span><span class="p">(</span><span class="n">innerCladdingArea</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sortedCompsInsideClad</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">components</span><span class="o">.</span><span class="n">Component</span><span class="p">],</span> <span class="n">cold</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
         <span class="n">fuelComponentArea</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">unmovableComponentArea</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="n">negativeArea</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">getSortedComponentsInsideOfComponent</span><span class="p">(</span><span class="n">clads</span><span class="o">.</span><span class="n">pop</span><span class="p">()):</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">sortedCompsInsideClad</span><span class="p">:</span>
             <span class="n">componentArea</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="n">cold</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">isFuel</span><span class="p">():</span>
                 <span class="n">fuelComponentArea</span> <span class="o">+=</span> <span class="n">componentArea</span>
@@ -369,10 +378,10 @@
                     <span class="n">negativeArea</span> <span class="o">+=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">componentArea</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">cold</span> <span class="ow">and</span> <span class="n">negativeArea</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Negative component areas exist on </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2">. Check that the cold dimensions are &quot;</span>
+                <span class="s2">&quot;Negative component areas exist. Check that the cold dimensions are &quot;</span>
                 <span class="s2">&quot;properly aligned and no components overlap.&quot;</span>
             <span class="p">)</span>
-        <span class="n">innerCladdingArea</span> <span class="o">+=</span> <span class="n">negativeArea</span>  <span class="c1"># See note 2</span>
+        <span class="n">innerCladdingArea</span> <span class="o">+=</span> <span class="n">negativeArea</span>  <span class="c1"># See note 2 of self.getSmearDensity</span>
         <span class="n">totalMovableArea</span> <span class="o">=</span> <span class="n">innerCladdingArea</span> <span class="o">-</span> <span class="n">unmovableComponentArea</span>
         <span class="n">smearDensity</span> <span class="o">=</span> <span class="n">fuelComponentArea</span> <span class="o">/</span> <span class="n">totalMovableArea</span>
 
@@ -2784,7 +2793,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-07-24.
+      <span class="lastupdated">Last updated on 2025-07-29.
       </span></p>
   </div>
 
