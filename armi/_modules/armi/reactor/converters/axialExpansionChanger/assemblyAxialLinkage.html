@@ -120,6 +120,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">textwrap</span><span class="w"> </span><span class="kn">import</span> <span class="n">dedent</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.blocks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Block</span>
@@ -127,6 +128,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.converters.axialExpansionChanger.expansionData</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">iterSolidComponents</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.grids</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiIndexLocation</span>
 
 <span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.assemblies</span><span class="w"> </span><span class="kn">import</span> <span class="n">Assembly</span>
@@ -137,14 +139,6 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">areAxiallyLinked</span><span class="p">(</span><span class="n">componentA</span><span class="p">:</span> <span class="n">Component</span><span class="p">,</span> <span class="n">componentB</span><span class="p">:</span> <span class="n">Component</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Determine axial component linkage for two components.</span>
 
-<span class="sd">    Components are considered linked if the following are found to be true:</span>
-
-<span class="sd">    1. Both contain solid materials.</span>
-<span class="sd">    2. They have identical types (e.g., ``Circle``).</span>
-<span class="sd">    3. Their multiplicities are the same.</span>
-<span class="sd">    4. The biggest inner bounding diameter of the two is less than the smallest outer</span>
-<span class="sd">       bounding diameter of the two.</span>
-
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    componentA : :py:class:`Component &lt;armi.reactor.components.component.Component&gt;`</span>
@@ -154,41 +148,68 @@
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    - Requires that shapes have the getCircleInnerDiameter and getBoundingCircleOuterDiameter</span>
-<span class="sd">      defined</span>
-<span class="sd">    - When component dimensions are retrieved, cold=True to ensure that dimensions are evaluated</span>
-<span class="sd">      at cold/input temperatures. At temperature, solid-solid interfaces in ARMI may produce</span>
-<span class="sd">      slight overlaps due to thermal expansion. Handling these potential overlaps are out of scope.</span>
+<span class="sd">    If componentA and componentB are both solids and the same type, geometric overlap can be checked via</span>
+<span class="sd">    getCircleInnerDiameter and getBoundingCircleOuterDiameter. Four different cases are accounted for.</span>
+<span class="sd">    If they do not meet these initial criteria, linkage is assumed to be False.</span>
+<span class="sd">    Case #1: Unshaped Components. There is no way to determine overlap so they&#39;re assumed to be not linked.</span>
+<span class="sd">    Case #2: Blocks with specified grids. If componentA and componentB have identical grid indices (cannot be a partial</span>
+<span class="sd">    case, ALL of the indices must be contained by one or the other), then overlap can be checked.</span>
+<span class="sd">    Case #3: If Component position is not specified via a grid, the multiplicity is checked. If consistent, they are</span>
+<span class="sd">    assumed to be in the same positions and their overlap is checked.</span>
+<span class="sd">    Case #4: Components are either not both solids, are not the same type, or Cases 1-3 are not True.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    linked : bool</span>
 <span class="sd">        status is componentA and componentB are axially linked to one another</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="p">(</span>
-        <span class="p">(</span><span class="n">componentA</span><span class="o">.</span><span class="n">containsSolidMaterial</span><span class="p">()</span> <span class="ow">and</span> <span class="n">componentB</span><span class="o">.</span><span class="n">containsSolidMaterial</span><span class="p">())</span>
-        <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">componentA</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">type</span><span class="p">(</span><span class="n">componentB</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="p">(</span><span class="n">componentA</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">componentB</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">))</span>
+    <span class="c1">## Cases 4</span>
+    <span class="n">linked</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">componentA</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">componentB</span><span class="p">))</span> <span class="ow">and</span> <span class="p">(</span>
+        <span class="n">componentA</span><span class="o">.</span><span class="n">containsSolidMaterial</span><span class="p">()</span> <span class="ow">and</span> <span class="n">componentB</span><span class="o">.</span><span class="n">containsSolidMaterial</span><span class="p">()</span>
     <span class="p">):</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">componentA</span><span class="p">,</span> <span class="n">UnshapedComponent</span><span class="p">):</span>
+            <span class="c1">## Case 1</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Components </span><span class="si">{</span><span class="n">componentA</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">componentB</span><span class="si">}</span><span class="s2"> are UnshapedComponents &quot;</span>
-                <span class="s2">&quot;and do not have &#39;getCircleInnerDiameter&#39; or getBoundingCircleOuterDiameter &quot;</span>
-                <span class="s2">&quot;methods; nor is it physical to do so. Instead of crashing and raising an error, &quot;</span>
+                <span class="s2">&quot;and do not have &#39;getCircleInnerDiameter&#39; or getBoundingCircleOuterDiameter methods; &quot;</span>
+                <span class="s2">&quot;nor is it physical to do so. Instead of crashing and raising an error, &quot;</span>
                 <span class="s2">&quot;they are going to be assumed to not be linked.&quot;</span><span class="p">,</span>
                 <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="k">return</span> <span class="kc">False</span>
-        <span class="c1"># Check if one component could fit within the other</span>
-        <span class="n">idA</span> <span class="o">=</span> <span class="n">componentA</span><span class="o">.</span><span class="n">getCircleInnerDiameter</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">odA</span> <span class="o">=</span> <span class="n">componentA</span><span class="o">.</span><span class="n">getBoundingCircleOuterDiameter</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">idB</span> <span class="o">=</span> <span class="n">componentB</span><span class="o">.</span><span class="n">getCircleInnerDiameter</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">odB</span> <span class="o">=</span> <span class="n">componentB</span><span class="o">.</span><span class="n">getBoundingCircleOuterDiameter</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">biggerID</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">idA</span><span class="p">,</span> <span class="n">idB</span><span class="p">)</span>
-        <span class="n">smallerOD</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">odA</span><span class="p">,</span> <span class="n">odB</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">biggerID</span> <span class="o">&lt;</span> <span class="n">smallerOD</span>
-    <span class="k">return</span> <span class="kc">False</span></div>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">componentA</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">,</span> <span class="n">MultiIndexLocation</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span>
+            <span class="n">componentB</span><span class="o">.</span><span class="n">spatialLocator</span><span class="p">,</span> <span class="n">MultiIndexLocation</span>
+        <span class="p">):</span>
+            <span class="c1">## Case 2</span>
+            <span class="n">fromA</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">index</span><span class="p">)</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">componentA</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span>
+            <span class="n">fromB</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">index</span><span class="p">)</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">componentB</span><span class="o">.</span><span class="n">spatialLocator</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">fromA</span> <span class="o">==</span> <span class="n">fromB</span><span class="p">:</span>
+                <span class="n">linked</span> <span class="o">=</span> <span class="n">_checkOverlap</span><span class="p">(</span><span class="n">componentA</span><span class="p">,</span> <span class="n">componentB</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">componentA</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">componentB</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">):</span>
+            <span class="c1">## Case 3</span>
+            <span class="n">linked</span> <span class="o">=</span> <span class="n">_checkOverlap</span><span class="p">(</span><span class="n">componentA</span><span class="p">,</span> <span class="n">componentB</span><span class="p">)</span>
 
+    <span class="k">return</span> <span class="n">linked</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_checkOverlap</span><span class="p">(</span><span class="n">componentA</span><span class="p">:</span> <span class="n">Component</span><span class="p">,</span> <span class="n">componentB</span><span class="p">:</span> <span class="n">Component</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check two components for geometric overlap by seeing if one can fit within the other.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    When component dimensions are retrieved, cold=True to ensure that dimensions are evaluated</span>
+<span class="sd">    at cold/input temperatures. At temperature, solid-solid interfaces in ARMI may produce</span>
+<span class="sd">    slight overlaps due to thermal expansion. Handling these potential overlaps are out of scope.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">idA</span> <span class="o">=</span> <span class="n">componentA</span><span class="o">.</span><span class="n">getCircleInnerDiameter</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">odA</span> <span class="o">=</span> <span class="n">componentA</span><span class="o">.</span><span class="n">getBoundingCircleOuterDiameter</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">idB</span> <span class="o">=</span> <span class="n">componentB</span><span class="o">.</span><span class="n">getCircleInnerDiameter</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">odB</span> <span class="o">=</span> <span class="n">componentB</span><span class="o">.</span><span class="n">getBoundingCircleOuterDiameter</span><span class="p">(</span><span class="n">cold</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">biggerID</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">idA</span><span class="p">,</span> <span class="n">idB</span><span class="p">)</span>
+    <span class="n">smallerOD</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">odA</span><span class="p">,</span> <span class="n">odB</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">biggerID</span> <span class="o">&lt;</span> <span class="n">smallerOD</span>
 
 
 <span class="c1"># Make a generic type so we can &quot;template&quot; the axial link class based on what could be above/below a thing</span>
@@ -202,17 +223,15 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Small class for named references to objects above and below a specific object.</span>
 
 <span class="sd">    Axial expansion in ARMI works by identifying what objects occupy the same axial space.</span>
-<span class="sd">    For components in blocks, identify which above and below axially align. This is used</span>
+<span class="sd">    For components in blocks, identify which below axially align. This is used</span>
 <span class="sd">    to determine what, if any, mass needs to be re-assigned across blocks during expansion.</span>
 <span class="sd">    For blocks, the linking determines what blocks need to move as a result of a specific block&#39;s</span>
 <span class="sd">    axial expansion.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
-<span class="sd">    lower : Composite or None</span>
+<span class="sd">    lower</span>
 <span class="sd">        Object below, if any.</span>
-<span class="sd">    upper : Composite or None</span>
-<span class="sd">        Object above, if any.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
@@ -226,8 +245,7 @@
 <span class="sd">    * :attr:`AxialAssemblyLinkage.linkedComponents`</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">lower</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Comp</span><span class="p">]</span> <span class="o">=</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-    <span class="n">upper</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Comp</span><span class="p">]</span> <span class="o">=</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
+    <span class="n">lower</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Comp</span><span class="p">]]</span> <span class="o">=</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
 
 
 
@@ -295,10 +313,9 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_getLinkedBlocks</span><span class="p">(</span><span class="n">blocks</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Block</span><span class="p">],</span> <span class="n">nBlocks</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Block</span><span class="p">,</span> <span class="n">AxialLink</span><span class="p">[</span><span class="n">Block</span><span class="p">]]:</span>
         <span class="c1"># Use islice to avoid making intermediate lists of subsequences of blocks</span>
         <span class="n">lower</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">((</span><span class="kc">None</span><span class="p">,),</span> <span class="n">itertools</span><span class="o">.</span><span class="n">islice</span><span class="p">(</span><span class="n">blocks</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">nBlocks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
-        <span class="n">upper</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">islice</span><span class="p">(</span><span class="n">blocks</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="p">(</span><span class="kc">None</span><span class="p">,))</span>
         <span class="n">links</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">low</span><span class="p">,</span> <span class="n">mid</span><span class="p">,</span> <span class="n">high</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">upper</span><span class="p">):</span>
-            <span class="n">links</span><span class="p">[</span><span class="n">mid</span><span class="p">]</span> <span class="o">=</span> <span class="n">AxialLink</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="n">low</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="n">high</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">low</span><span class="p">,</span> <span class="n">mid</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">blocks</span><span class="p">):</span>
+            <span class="n">links</span><span class="p">[</span><span class="n">mid</span><span class="p">]</span> <span class="o">=</span> <span class="n">AxialLink</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="n">low</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">links</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_determineAxialLinkage</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -317,14 +334,17 @@
             <span class="k">if</span> <span class="n">candidate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">candidate</span> <span class="o">=</span> <span class="n">otherComp</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">errMsg</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="s2">&quot;Multiple component axial linkages have been found for &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;Component </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> in Block </span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span><span class="s2"> in Assembly </span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span><span class="s2">. &quot;</span>
-                    <span class="s2">&quot;This is indicative of an error in the blueprints! Linked &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;components found are </span><span class="si">{</span><span class="n">candidate</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">otherComp</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">otherBlock</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="p">)</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="o">=</span><span class="n">errMsg</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">errMsg</span><span class="p">)</span>
+                <span class="n">errMsg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                    Multiple component axial linkages have been found for the following component!</span>
+<span class="s2">                        Component </span><span class="si">{</span><span class="n">c</span><span class="si">}</span>
+<span class="s2">                          -&gt; Block </span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span>
+<span class="s2">                          -&gt; Assembly </span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span>
+<span class="s2">                    This is indicative of an error in the blueprints! Candidate components in </span><span class="si">{</span><span class="n">otherBlock</span><span class="si">}</span><span class="s2">:</span>
+<span class="s2">                        </span><span class="si">{</span><span class="n">candidate</span><span class="si">}</span>
+<span class="s2">                        </span><span class="si">{</span><span class="n">otherComp</span><span class="si">}</span>
+<span class="s2">                &quot;&quot;&quot;</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="o">=</span><span class="n">dedent</span><span class="p">(</span><span class="n">errMsg</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">dedent</span><span class="p">(</span><span class="n">errMsg</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">candidate</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_getLinkedComponents</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">Block</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="n">Component</span><span class="p">):</span>
@@ -342,20 +362,13 @@
 <span class="sd">        RuntimeError</span>
 <span class="sd">            multiple candidate components are found to be axially linked to a component</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">linkedBlocks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
-        <span class="n">lowerC</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_findComponentLinkedTo</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">linkedBlocks</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span>
-        <span class="n">upperC</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_findComponentLinkedTo</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">linkedBlocks</span><span class="o">.</span><span class="n">upper</span><span class="p">)</span>
-        <span class="n">lstLinkedC</span> <span class="o">=</span> <span class="n">AxialLink</span><span class="p">(</span><span class="n">lowerC</span><span class="p">,</span> <span class="n">upperC</span><span class="p">)</span>
+        <span class="n">lowerC</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_findComponentLinkedTo</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span>
+        <span class="n">lstLinkedC</span> <span class="o">=</span> <span class="n">AxialLink</span><span class="p">(</span><span class="n">lowerC</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">linkedComponents</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">lstLinkedC</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">lstLinkedC</span><span class="o">.</span><span class="n">lower</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Assembly </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="si">}</span><span class="s2">, Block </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">, Component </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> has nothing linked below it!&quot;</span><span class="p">,</span>
-                <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">linkedBlocks</span><span class="p">[</span><span class="n">b</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">lstLinkedC</span><span class="o">.</span><span class="n">upper</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Assembly </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="si">}</span><span class="s2">, Block </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">, Component </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> has nothing linked above it!&quot;</span><span class="p">,</span>
                 <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
 
@@ -395,7 +408,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-07-29.
+      <span class="lastupdated">Last updated on 2025-07-30.
       </span></p>
   </div>
 

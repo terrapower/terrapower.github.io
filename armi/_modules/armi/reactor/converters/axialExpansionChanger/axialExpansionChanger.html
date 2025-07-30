@@ -122,6 +122,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">array</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.materials.material</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fluid</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.assemblies</span><span class="w"> </span><span class="kn">import</span> <span class="n">Assembly</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.converters.axialExpansionChanger.assemblyAxialLinkage</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AssemblyAxialLinkage</span><span class="p">,</span>
@@ -131,6 +132,7 @@
     <span class="n">iterSolidComponents</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.flags</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils.customExceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputError</span>
 
 
 <div class="viewcode-block" id="getDefaultReferenceAssem">
@@ -384,8 +386,28 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">linked</span> <span class="o">=</span> <span class="n">AssemblyAxialLinkage</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">expansionData</span> <span class="o">=</span> <span class="n">ExpansionData</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">setFuel</span><span class="o">=</span><span class="n">setFuel</span><span class="p">,</span> <span class="n">expandFromTinputToThot</span><span class="o">=</span><span class="n">expandFromTinputToThot</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_isTopDummyBlockPresent</span><span class="p">()</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkAssemblyConstructionIsValid</span><span class="p">()</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_checkAssemblyConstructionIsValid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_isTopDummyBlockPresent</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkForBlocksWithoutSolids</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_checkForBlocksWithoutSolids</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Makes sure that there aren&#39;t any blocks (other than the top-most dummy block)</span>
+<span class="sd">        that consist entirely of fluid components. The expansion changer doesn&#39;t know</span>
+<span class="sd">        what to do with such assemblies.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># skip top most dummy block since that is, by design, all fluid</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="p">,</span> <span class="n">Fluid</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">()):</span>
+                <span class="k">raise</span> <span class="n">InputError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Assembly </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="si">}</span><span class="s2"> is constructed improperly for use with the axial expansion changer &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;as block, </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">, consists of exclusively fluid component(s). If this is not a mistake, consider &quot;</span>
+                    <span class="s2">&quot;using the &#39;assemFlagsToSkipAxialExpansion&#39; case setting to bypass performing axial expansion &quot;</span>
+                    <span class="s2">&quot;on this assembly.&quot;</span>
+                <span class="p">)</span>
 
 <div class="viewcode-block" id="AxialExpansionChanger.applyColdHeightMassIncrease">
 <a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.AxialExpansionChanger.applyColdHeightMassIncrease">[docs]</a>
@@ -400,7 +422,7 @@
 <span class="sd">        called when the setting `inputHeightsConsideredHot` is used. This adjusts</span>
 <span class="sd">        the expansion factor applied during applyMaterialMassFracsToNumberDensities.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">getComponents</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">():</span>
             <span class="n">axialExpansionFactor</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">c</span><span class="o">.</span><span class="n">material</span><span class="o">.</span><span class="n">linearExpansionFactor</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">inputTemperatureInC</span><span class="p">)</span>
             <span class="n">c</span><span class="o">.</span><span class="n">changeNDensByFactor</span><span class="p">(</span><span class="n">axialExpansionFactor</span><span class="p">)</span></div>
 
@@ -538,16 +560,10 @@
 <span class="sd">    3cm is a presumptive lower threshold for DIF3D</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">3.0</span><span class="p">:</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="s2">&quot;Block </span><span class="si">{0:s}</span><span class="s2"> (</span><span class="si">{1:s}</span><span class="s2">) has a height less than 3.0 cm. (</span><span class="si">{2:.12e}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="n">b</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span><span class="p">),</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Block </span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span><span class="p">)</span><span class="si">}</span><span class="s2">) has a height less than 3.0 cm. (</span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span><span class="si">:</span><span class="s2">.12e</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ArithmeticError</span><span class="p">(</span>
-            <span class="s2">&quot;Block </span><span class="si">{0:s}</span><span class="s2"> (</span><span class="si">{1:s}</span><span class="s2">) has a negative height! (</span><span class="si">{2:.12e}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span><span class="p">),</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">())</span>
-        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ArithmeticError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Block </span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">flags</span><span class="p">)</span><span class="si">}</span><span class="s2">) has a negative height! (</span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span><span class="si">:</span><span class="s2">.12e</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 </pre></div>
 
            </div>
@@ -558,7 +574,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-07-29.
+      <span class="lastupdated">Last updated on 2025-07-30.
       </span></p>
   </div>
 

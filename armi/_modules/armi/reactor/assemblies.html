@@ -135,7 +135,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.materials.material</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fluid</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">assemblyParameters</span><span class="p">,</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">composites</span><span class="p">,</span> <span class="n">grids</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.flags</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flags</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.flags</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flags</span><span class="p">,</span> <span class="n">TypeSpec</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParamLocation</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.spentFuelPool</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpentFuelPool</span>
 
@@ -435,9 +435,9 @@
 
 <div class="viewcode-block" id="Assembly.getPinPlenumVolumeInCubicMeters">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.getPinPlenumVolumeInCubicMeters">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">getPinPlenumVolumeInCubicMeters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getPinPlenumVolumeInCubicMeters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return the volume of the plenum for a pin in an assembly.</span>
+<span class="sd">        Return the total volume of the plenum for an assembly in m^3.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -446,12 +446,19 @@
 <span class="sd">        Warning</span>
 <span class="sd">        -------</span>
 <span class="sd">        This is a bit design-specific for pinned assemblies.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        float: Total plenum volume for an assembly.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">plenumVolume</span> <span class="o">=</span> <span class="mf">0.0</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterChildrenWithFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">PLENUM</span><span class="p">):</span>
-            <span class="n">cladId</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getComponent</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
             <span class="n">length</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
-            <span class="n">plenumVolume</span> <span class="o">+=</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">cladId</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">**</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">length</span> <span class="o">*</span> <span class="mf">1e-6</span>  <span class="c1"># convert cm^3 to m^3</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">iterChildrenWithFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">):</span>
+                <span class="n">cladId</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
+                <span class="n">plenumVolume</span> <span class="o">+=</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">cladId</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">**</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">length</span>
+        <span class="c1"># convert vol from cm^3 to m^3</span>
+        <span class="n">plenumVolume</span> <span class="o">*=</span> <span class="mf">1e-6</span>
         <span class="k">return</span> <span class="n">plenumVolume</span></div>
 
 
@@ -1050,14 +1057,14 @@
 
 <div class="viewcode-block" id="Assembly.getFirstBlock">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.getFirstBlock">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">getFirstBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getFirstBlock</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeSpec</span><span class="p">:</span> <span class="n">TypeSpec</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">exact</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">blocks</span><span class="o">.</span><span class="n">Block</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Find the first block that matches the spec.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
-<span class="sd">        typeSpec : flag or list of flags, optional</span>
+<span class="sd">        typeSpec</span>
 <span class="sd">            Specification to require on the returned block.</span>
-<span class="sd">        exact : bool, optional</span>
+<span class="sd">        exact</span>
 <span class="sd">            Require block to exactly match ``typeSpec``</span>
 
 <span class="sd">        Returns</span>
@@ -1079,7 +1086,7 @@
 
 <div class="viewcode-block" id="Assembly.getFirstBlockByType">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.assemblies.html#armi.reactor.assemblies.Assembly.getFirstBlockByType">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">getFirstBlockByType</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeName</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getFirstBlockByType</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typeName</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">blocks</span><span class="o">.</span><span class="n">Block</span><span class="p">]:</span>
         <span class="n">blocks</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">b</span><span class="p">:</span> <span class="n">b</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="n">typeName</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span>
@@ -1590,7 +1597,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-07-29.
+      <span class="lastupdated">Last updated on 2025-07-30.
       </span></p>
   </div>
 
