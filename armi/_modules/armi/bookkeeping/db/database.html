@@ -1652,7 +1652,59 @@
             <span class="n">nuclides</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">ndensDict</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;S6&quot;</span><span class="p">)</span>
             <span class="n">numberDensities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">ndensDict</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
             <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;nuclides&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nuclides</span>
-            <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;numberDensities&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">numberDensities</span></div>
+            <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;numberDensities&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">numberDensities</span>
+
+<div class="viewcode-block" id="Database.getCycleNodeAtTime">
+<a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database.html#armi.bookkeeping.db.database.Database.getCycleNodeAtTime">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">getCycleNodeAtTime</span><span class="p">(</span><span class="n">dbPath</span><span class="p">,</span> <span class="n">startTime</span><span class="p">,</span> <span class="n">endTime</span><span class="p">,</span> <span class="n">errorIfNotExactlyOne</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Given the path to an ARMI database file and a start and end time (in years), return the full set of all time</span>
+<span class="sd">        nodes that correspond to that time period in the database.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        dbPath : str</span>
+<span class="sd">            File path to an ARMI database.</span>
+<span class="sd">        startTime : int</span>
+<span class="sd">            In years, start of the desired interval.</span>
+<span class="sd">        endTime : int</span>
+<span class="sd">            In years, end of the desired interval.</span>
+<span class="sd">        errorIfNotExactlyOne : boolean</span>
+<span class="sd">            Raise an error if more than one cycle/node combination is returned. Default is True.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of strings</span>
+<span class="sd">            A list of strings to the desired time interval, e.g.: [&quot;c01n08&quot;, &quot;c14n18EOL&quot;]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># basic sanity checks</span>
+        <span class="k">assert</span> <span class="n">startTime</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;The start time cannot be negative: </span><span class="si">{</span><span class="n">startTime</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="k">assert</span> <span class="n">endTime</span> <span class="o">&gt;=</span> <span class="n">startTime</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;The end time (</span><span class="si">{</span><span class="n">endTime</span><span class="si">}</span><span class="s2">) is not greater than the start time (</span><span class="si">{</span><span class="n">startTime</span><span class="si">}</span><span class="s2">).&quot;</span>
+
+        <span class="c1"># open the H5 file directly</span>
+        <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">dbPath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">h5</span><span class="p">:</span>
+            <span class="c1"># read time steps in H5 file</span>
+            <span class="n">thisTime</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">cycleNodes</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">h5Key</span> <span class="ow">in</span> <span class="n">h5</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">h5Key</span> <span class="o">==</span> <span class="s2">&quot;inputs&quot;</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="n">thisTime</span> <span class="o">=</span> <span class="n">h5</span><span class="p">[</span><span class="n">h5Key</span><span class="p">][</span><span class="s2">&quot;Reactor&quot;</span><span class="p">][</span><span class="s2">&quot;time&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">thisTime</span> <span class="o">&gt;=</span> <span class="n">endTime</span><span class="p">:</span>
+                    <span class="n">cycleNodes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">h5Key</span><span class="p">)</span>
+                    <span class="k">break</span>
+                <span class="k">elif</span> <span class="n">thisTime</span> <span class="o">&gt;=</span> <span class="n">startTime</span><span class="p">:</span>
+                    <span class="n">cycleNodes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">h5Key</span><span class="p">)</span>
+
+        <span class="c1"># more validation</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cycleNodes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Provided start time (</span><span class="si">{</span><span class="n">startTime</span><span class="si">}</span><span class="s2">) was greater than the modeled period: </span><span class="si">{</span><span class="n">thisTime</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">errorIfNotExactlyOne</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">cycleNodes</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Did not find exactly one cycle/node pair: </span><span class="si">{</span><span class="n">cycleNodes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cycleNodes</span></div>
+</div>
 
 
 
@@ -1865,7 +1917,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-08-20.
+      <span class="lastupdated">Last updated on 2025-08-21.
       </span></p>
   </div>
 
