@@ -143,6 +143,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.flags</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.tests.test_assemblies</span><span class="w"> </span><span class="kn">import</span> <span class="n">makeTestAssembly</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">loadTestReactor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.testing.singleMixedAssembly</span><span class="w"> </span><span class="kn">import</span> <span class="n">buildMixedPinAssembly</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">ISOAA_PATH</span><span class="p">,</span> <span class="n">TEST_ROOT</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">densityTools</span><span class="p">,</span> <span class="n">hexagon</span><span class="p">,</span> <span class="n">units</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils.directoryChangers</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
@@ -1263,6 +1264,33 @@
 
         <span class="c1"># test getWettedPerimeter</span>
         <span class="n">cur</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getWettedPerimeter</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span> <span class="n">ref</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Block_TestCase.test_getWettedPerimeterMultiPins">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.tests.test_blocks.html#armi.reactor.tests.test_blocks.Block_TestCase.test_getWettedPerimeterMultiPins">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_getWettedPerimeterMultiPins</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">assembly</span> <span class="o">=</span> <span class="n">buildMixedPinAssembly</span><span class="p">()</span>
+        <span class="n">block</span> <span class="o">=</span> <span class="n">assembly</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span>
+        <span class="c1"># calculate the reference value</span>
+        <span class="n">wires</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">WIRE</span><span class="p">)</span>
+        <span class="n">clads</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getComponents</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span>
+        <span class="n">ref</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">wire</span> <span class="ow">in</span> <span class="n">wires</span><span class="p">:</span>
+            <span class="n">mult</span> <span class="o">=</span> <span class="n">wire</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">)</span>
+            <span class="n">correctionFactor</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hypot</span><span class="p">(</span>
+                <span class="mf">1.0</span><span class="p">,</span>
+                <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">wire</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;helixDiameter&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="n">wire</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;axialPitch&quot;</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">wireDiam</span> <span class="o">=</span> <span class="n">wire</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span> <span class="o">*</span> <span class="n">correctionFactor</span>
+            <span class="n">ref</span> <span class="o">+=</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">wireDiam</span> <span class="o">*</span> <span class="n">mult</span>
+        <span class="n">ref</span> <span class="o">+=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;od&quot;</span><span class="p">)</span> <span class="o">*</span> <span class="n">clad</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">clad</span> <span class="ow">in</span> <span class="n">clads</span><span class="p">)</span>
+
+        <span class="n">ipDim</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getDim</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">DUCT</span><span class="p">,</span> <span class="s2">&quot;ip&quot;</span><span class="p">)</span>
+        <span class="n">ref</span> <span class="o">+=</span> <span class="mi">6</span> <span class="o">*</span> <span class="n">ipDim</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+
+        <span class="c1"># test getWettedPerimeter</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getWettedPerimeter</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">cur</span><span class="p">,</span> <span class="n">ref</span><span class="p">)</span></div>
 
 
@@ -3791,7 +3819,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-08-27.
+      <span class="lastupdated">Last updated on 2025-08-28.
       </span></p>
   </div>
 
