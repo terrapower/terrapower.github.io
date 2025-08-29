@@ -121,6 +121,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">unittest.mock</span><span class="w"> </span><span class="kn">import</span> <span class="n">patch</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -349,10 +350,9 @@
             <span class="n">srcData3</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">22</span>
             <span class="n">srcData3</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;numDens&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">a2</span>
 
-            <span class="c1"># there should a logged error, but no diff</span>
+            <span class="c1"># there should a logged error</span>
             <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
                 <span class="n">_diffSpecialData</span><span class="p">(</span><span class="n">refData</span><span class="p">,</span> <span class="n">srcData3</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">dr</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">dr</span><span class="o">.</span><span class="n">nDiffs</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Special formatting parameters for&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
 
             <span class="c1"># make an H5 datasets that will cause unpackSpecialData to fail</span>
@@ -446,6 +446,48 @@
             <span class="c1"># there should be no difference</span>
             <span class="n">_compareAuxData</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">refData</span><span class="p">,</span> <span class="n">srcData</span><span class="p">,</span> <span class="n">dr</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">dr</span><span class="o">.</span><span class="n">nDiffs</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestCompareDB3.test_differentlySizedSpecialData">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.db.tests.test_comparedb3.html#armi.bookkeeping.db.tests.test_comparedb3.TestCompareDB3.test_differentlySizedSpecialData">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_differentlySizedSpecialData</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure that special formatting data that are differently sized report a diff.&quot;&quot;&quot;</span>
+        <span class="n">differ</span> <span class="o">=</span> <span class="n">DiffResults</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span> <span class="o">+</span> <span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">,</span> <span class="n">OutputWriter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span> <span class="o">+</span> <span class="s2">&quot;.txt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out</span><span class="p">:</span>
+            <span class="c1"># Create two datasets with no data, but with different attributes</span>
+            <span class="c1"># The attributes are used in the special data checks</span>
+            <span class="n">short</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;short&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">short</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;offsets&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+            <span class="n">long</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;long&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">long</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;offsets&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="s2">&quot;writeln&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">writeln</span><span class="p">:</span>
+                <span class="n">_diffSpecialData</span><span class="p">(</span><span class="n">short</span><span class="p">,</span> <span class="n">long</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">differ</span><span class="p">)</span>
+        <span class="c1"># Ensure the user is alerted the datasets have different parameters</span>
+        <span class="n">writeln</span><span class="o">.</span><span class="n">assert_called_once</span><span class="p">()</span>
+        <span class="c1"># Ensure this is treated as a diff</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="n">differ</span><span class="o">.</span><span class="n">nDiffs</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestCompareDB3.test_nothingForDictionaries">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.bookkeeping.db.tests.test_comparedb3.html#armi.bookkeeping.db.tests.test_comparedb3.TestCompareDB3.test_nothingForDictionaries">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_nothingForDictionaries</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure we alert the user we do not perform diffs on dictionaries.&quot;&quot;&quot;</span>
+        <span class="n">differ</span> <span class="o">=</span> <span class="n">DiffResults</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span> <span class="o">+</span> <span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">,</span> <span class="n">OutputWriter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span> <span class="o">+</span> <span class="s2">&quot;.txt&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out</span><span class="p">:</span>
+            <span class="n">first</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;first_dictionary&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">first</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;dict&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">second</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;second_dictionary&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">second</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;dict&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">with</span> <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="s2">&quot;writeln&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">writeln</span><span class="p">:</span>
+                <span class="n">_diffSpecialData</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">differ</span><span class="p">)</span>
+            <span class="c1"># Not considered a diff</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">differ</span><span class="o">.</span><span class="n">nDiffs</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="c1"># But we&#39;ve let the user know</span>
+            <span class="n">writeln</span><span class="o">.</span><span class="n">assert_called_once</span><span class="p">()</span>
+            <span class="c1"># And the parameter is in the printed message</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="n">writeln</span><span class="o">.</span><span class="n">call_args</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="c1"># NOTE If you try to grab first.name on the closed DB, you get None which is not helpful</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="n">first</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span></div>
 </div>
 
 </pre></div>
