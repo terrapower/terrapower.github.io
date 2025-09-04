@@ -526,10 +526,73 @@ For instance, a run that originally had only neutronics may incorporate thermal 
 <p class="admonition-title">Note</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">skipCycles</span></code> setting is related to skipping the lattice physics calculation specifically, it is not required to do a restart run.</p>
 </div>
+</section>
+<section id="fuel-shuffling">
+<h4><span class="section-number">1.2.2.5. </span>Fuel Shuffling<a class="headerlink" href="#fuel-shuffling" title="Link to this heading"></a></h4>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The X-SHUFFLES.txt file is required to do explicit repeated fuel management.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">explicitRepeatShuffles</span></code> setting points to a <code class="docutils literal notranslate"><span class="pre">*-SHUFFLES.txt</span></code>
+file that records moves from a previous run for exact repetition.</p>
 </div>
+<p>Users may also define a custom shuffle plan in a YAML file referenced by the
+<code class="docutils literal notranslate"><span class="pre">shuffleSequenceFile</span></code> setting. The YAML format organizes data by cycle in a
+<code class="docutils literal notranslate"><span class="pre">sequence</span></code> mapping. Keys are the cycle where the shuffling should occur during
+the beginning-of-cycle step. The first available cycle where shuffling will occur
+is cycle 1. Each cycle contains a list of high-level actions. An action is a
+mapping containing one of the keys <code class="docutils literal notranslate"><span class="pre">cascade</span></code>, <code class="docutils literal notranslate"><span class="pre">misloadSwap</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">extraRotations</span></code>. <code class="docutils literal notranslate"><span class="pre">cascade</span></code> chains describe a sequence of assembly
+displacements beginning with a fresh fuel assembly and ending with the final
+location’s assembly being discharged. Optional <code class="docutils literal notranslate"><span class="pre">fuelEnrichment</span></code> lists
+specify the U235 weight fraction enrichment for each axial block in the fresh
+assembly, from bottom to top, including zeroes for non-fuel blocks.
+<code class="docutils literal notranslate"><span class="pre">misloadSwap</span></code> swaps the assemblies at two locations after all cascades are
+processed. <code class="docutils literal notranslate"><span class="pre">extraRotations</span></code> map final location labels to relative
+counterclockwise angles in degrees and are applied after all cascades,
+misload swaps, and any algorithmic rotation routines defined with the
+<code class="docutils literal notranslate"><span class="pre">assemblyRotationAlgorithm</span></code> setting. The angle is relative to the
+assembly’s current orientation and whatever assembly ends up at the given
+location is rotated. Valid angles depend on the assembly’s geometry.</p>
+<p>Extra rotations therefore:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>apply to whatever assembly resides at the specified location once all</dt><dd><p>cascades and misload swaps are complete;</p>
+</dd>
+</dl>
+</li>
+<li><p>rotate the assembly relative to its current orientation; and</p></li>
+<li><p>execute after any algorithmic rotation routines.</p></li>
+</ul>
+<p>A cascade with no final destination defaults to discharging the assembly to
+the spent fuel pool <code class="docutils literal notranslate"><span class="pre">SFP</span></code>. Assemblies can also be removed from the model
+entirely by ending with <code class="docutils literal notranslate"><span class="pre">ExCore</span></code>. When an assembly is sent to the <code class="docutils literal notranslate"><span class="pre">SFP</span></code> it
+is only retained in memory if the <code class="docutils literal notranslate"><span class="pre">trackAssems</span></code> setting is True; <code class="docutils literal notranslate"><span class="pre">ExCore</span></code> always
+deletes the assembly.
+For example</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sequence</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">1</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">cascade</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;outer</span><span class="nv"> </span><span class="s">fuel&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;009-045&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;008-004&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;SFP&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">fuelEnrichment</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.12</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.14</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.15</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># wt fraction U235 by block</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">misloadSwap</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;009-045&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;008-004&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">extraRotations</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="s">&quot;009-045&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="nv">60</span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">2</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">cascade</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;outer</span><span class="nv"> </span><span class="s">fuel&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;010-046&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;009-045&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;ExCore&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">fuelEnrichment</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.12</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.14</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.15</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Consider using yaml anchors <code class="docutils literal notranslate"><span class="pre">&amp;</span></code> and aliases <code class="docutils literal notranslate"><span class="pre">*</span></code> to reduce repetition.</p>
+</div>
+<p>For cycle 1 above, the actions execute in the following order:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>The assembly originally at <code class="docutils literal notranslate"><span class="pre">008-004</span></code> is discharged to the spent fuel pool <code class="docutils literal notranslate"><span class="pre">SFP</span></code>.</p></li>
+<li><p>The assembly originally at <code class="docutils literal notranslate"><span class="pre">009-045</span></code> moves to <code class="docutils literal notranslate"><span class="pre">008-004</span></code>.</p></li>
+<li><p>A fresh <code class="docutils literal notranslate"><span class="pre">outer</span> <span class="pre">fuel</span></code> assembly is created with the specified axial enrichment profile and inserted at <code class="docutils literal notranslate"><span class="pre">009-045</span></code>.</p></li>
+<li><p>The fresh assembly and the moved assembly at <code class="docutils literal notranslate"><span class="pre">008-004</span></code> are swapped, leaving the fresh assembly at <code class="docutils literal notranslate"><span class="pre">008-004</span></code> and the moved assembly back at <code class="docutils literal notranslate"><span class="pre">009-045</span></code>.</p></li>
+<li><p>The assembly now at <code class="docutils literal notranslate"><span class="pre">009-045</span></code> is rotated an additional 60 degrees counterclockwise.</p></li>
+</ol>
+</div></blockquote>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The restart.dat file is required to repeat the exact fuel management methods during a branch search. These can potentially modify the reactor state in ways that cannot be captures with the SHUFFLES.txt file.</p>
@@ -2363,142 +2426,147 @@ on the second key, holding the optimal first value constant, and so on.</p></li>
 <td></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>skipCycles</p></td>
+<tr class="row-even"><td><p>shuffleSequenceFile</p></td>
+<td><p>Path to a YAML file defining a custom shuffle sequence</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>skipCycles</p></td>
 <td><p>Number of cycles to be skipped during the calculation. Note: This is typically used when repeating only a portion of a calculation or repeating a run.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>sortReactor</p></td>
+<tr class="row-even"><td><p>sortReactor</p></td>
 <td><p>If unsorted, ArmiObject IDs will be by the order they were added to the Reactor.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>startCycle</p></td>
+<tr class="row-odd"><td><p>startCycle</p></td>
 <td><p>Cycle number to continue calculation from. Database will load from the time step just before. For snapshots use <cite>dumpSnapshot</cite>.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>startNode</p></td>
+<tr class="row-even"><td><p>startNode</p></td>
 <td><p>Timenode number (0 for BOC, etc.) to continue calculation from. Database will load from the time step just before.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>stationaryBlockFlags</p></td>
+<tr class="row-odd"><td><p>stationaryBlockFlags</p></td>
 <td><p>Blocks with these flags will not move in moves. Used for fuel management.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">['GRID_PLA</span></code> <code class="docutils literal notranslate"><span class="pre">TE']</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>summarizeAssemDesign</p></td>
+<tr class="row-even"><td><p>summarizeAssemDesign</p></td>
 <td><p>Print a summary of the assembly design details at BOL</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>syncDbAfterWrite</p></td>
+<tr class="row-odd"><td><p>syncDbAfterWrite</p></td>
 <td><p>Copy the output database from the fast scratch space to the shared network drive after each write.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>targetK</p></td>
+<tr class="row-even"><td><p>targetK</p></td>
 <td><p>Target criticality (k-effective) for cycle length, branch, and equilibrium search</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1.005</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>tempGroups</p></td>
+<tr class="row-odd"><td><p>tempGroups</p></td>
 <td><p>The range of fuel temperatures where cross- sections will be the same for a given cross section type (units of degrees C)</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>thKernel</p></td>
+<tr class="row-even"><td><p>thKernel</p></td>
 <td><p>Name of primary T/H solver in this run</p></td>
 <td></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>tightCoupling</p></td>
+<tr class="row-odd"><td><p>tightCoupling</p></td>
 <td><p>Boolean to turn on/off tight coupling</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>tightCouplingMaxNumIters</p></td>
+<tr class="row-even"><td><p>tightCouplingMaxNumIters</p></td>
 <td><p>Maximum number of iterations for tight coupling.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>tightCouplingSettings</p></td>
+<tr class="row-odd"><td><p>tightCouplingSettings</p></td>
 <td><p>Data structure defining the tight coupling parameters and convergence criteria for each interface.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&lt;TightCoup</span></code> <code class="docutils literal notranslate"><span class="pre">lingSettin</span></code> <code class="docutils literal notranslate"><span class="pre">gs</span> <span class="pre">with</span></code> <code class="docutils literal notranslate"><span class="pre">Interface</span></code> <code class="docutils literal notranslate"><span class="pre">functions</span> <span class="pre">``</span> <span class="pre">``dict_keys(</span></code> <code class="docutils literal notranslate"><span class="pre">[])&gt;</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>timelineInclusionCutoff</p></td>
+<tr class="row-even"><td><p>timelineInclusionCutoff</p></td>
 <td><p>Timers who are not active for this percent of the run will not be presented in the timeline graphic</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.03</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>tolerateBurnupChange</p></td>
+<tr class="row-odd"><td><p>tolerateBurnupChange</p></td>
 <td><p>Burnup window for computing cross sections. If the prior cross sections were computed within the window, new cross sections will not be generated and the prior calculated cross sections will be used.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>trace</p></td>
+<tr class="row-even"><td><p>trace</p></td>
 <td><p>Activate Python trace module to print out each line as it’s executed</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>trackAssems</p></td>
+<tr class="row-odd"><td><p>trackAssems</p></td>
 <td><p>Track assemblies for detailed fuel histories. For instance, assemblies are tracked after they come out of a reactor by putting them in a Spent Fuel Pool. This might be necessary for your work, but it certainly increases the memory usage of the program.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">False</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>uniformMeshMinimumSize</p></td>
+<tr class="row-even"><td><p>uniformMeshMinimumSize</p></td>
 <td><p>Minimum mesh size used when generating an axial mesh for the uniform mesh converter. Providing a value for this setting allows fuel and control material boundaries to be enforced better in uniform mesh.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>userPlugins</p></td>
+<tr class="row-odd"><td><p>userPlugins</p></td>
 <td><p>YAML list defining the locations of UserPlugin subclasses. You can enter the full ARMI import path: armi.test.test_wha t.MyPlugin, or you can enter the full file path: /path/to/my/pluginz.py:My Plugin</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>verbosity</p></td>
+<tr class="row-even"><td><p>verbosity</p></td>
 <td><p>How verbose the output will be</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">info</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">['debug',</span></code> <code class="docutils literal notranslate"><span class="pre">'extra',</span></code> <code class="docutils literal notranslate"><span class="pre">'info',</span> <span class="pre">'i</span></code> <code class="docutils literal notranslate"><span class="pre">mportant',</span></code> <code class="docutils literal notranslate"><span class="pre">'prompt',</span></code> <code class="docutils literal notranslate"><span class="pre">'warning',</span></code> <code class="docutils literal notranslate"><span class="pre">'error']</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>versions</p></td>
+<tr class="row-odd"><td><p>versions</p></td>
 <td><p>Versions of ARMI, and any Apps or Plugins that register a version here.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">{}</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>xsBlockRepresentation</p></td>
+<tr class="row-even"><td><p>xsBlockRepresentation</p></td>
 <td><p>The type of averaging to perform when creating cross sections for a group of blocks</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">Average</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">['Median',</span></code> <code class="docutils literal notranslate"><span class="pre">'Average',</span></code> <code class="docutils literal notranslate"><span class="pre">'FluxWeigh</span></code> <code class="docutils literal notranslate"><span class="pre">tedAverage</span></code> <code class="docutils literal notranslate"><span class="pre">',</span> <span class="pre">'Compon</span></code> <code class="docutils literal notranslate"><span class="pre">entAverage</span></code> <code class="docutils literal notranslate"><span class="pre">1DSlab']</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>xsBucklingConvergence</p></td>
+<tr class="row-odd"><td><p>xsBucklingConvergence</p></td>
 <td><p>Convergence criteria for the buckling iteration if it is available in the lattice physics solver</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1e-05</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>xsEigenvalueConvergence</p></td>
+<tr class="row-even"><td><p>xsEigenvalueConvergence</p></td>
 <td><p>Convergence criteria for the eigenvalue in the lattice physics kernel</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1e-05</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>xsKernel</p></td>
+<tr class="row-odd"><td><p>xsKernel</p></td>
 <td><p>Method to determine broad group cross sections for assemblies</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">MC2v3</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">['',</span></code> <code class="docutils literal notranslate"><span class="pre">'MC2v2',</span></code> <code class="docutils literal notranslate"><span class="pre">'MC2v3',</span> <span class="pre">'</span></code> <code class="docutils literal notranslate"><span class="pre">MC2v3-</span></code> <code class="docutils literal notranslate"><span class="pre">PARTISN',</span></code> <code class="docutils literal notranslate"><span class="pre">'SERPENT']</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>xsScatteringOrder</p></td>
+<tr class="row-even"><td><p>xsScatteringOrder</p></td>
 <td><p>Scattering order for the lattice physics calculation</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>zoneDefinitions</p></td>
+<tr class="row-odd"><td><p>zoneDefinitions</p></td>
 <td><p>Manual definitions of zones as lists of assembly locations (e.g. ‘zoneName: loc1, loc2, loc3’) . Zones are groups of assemblies used by various summary and calculation routines. See also zonesFile for an alternative method of specifying zones.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p>zonesFile</p></td>
+<tr class="row-even"><td><p>zonesFile</p></td>
 <td><p>Input file containing the definition of Zones to be applied to the reactor. See also zoneDefinitions for an alternative method of specifying zones.</p></td>
 <td></td>
 <td></td>

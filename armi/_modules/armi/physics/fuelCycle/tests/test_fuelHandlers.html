@@ -125,17 +125,20 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">collections</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">unittest.mock</span><span class="w"> </span><span class="kn">import</span> <span class="n">PropertyMock</span><span class="p">,</span> <span class="n">patch</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.fuelCycle</span><span class="w"> </span><span class="kn">import</span> <span class="n">fuelHandlers</span><span class="p">,</span> <span class="n">settings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.fuelCycle.fuelHandlers</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssemblyMove</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.fuelCycle.settings</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">CONF_ASSEM_ROTATION_STATIONARY</span><span class="p">,</span>
     <span class="n">CONF_ASSEMBLY_ROTATION_ALG</span><span class="p">,</span>
     <span class="n">CONF_PLOT_SHUFFLE_ARROWS</span><span class="p">,</span>
     <span class="n">CONF_RUN_LATTICE_BEFORE_SHUFFLING</span><span class="p">,</span>
+    <span class="n">CONF_SHUFFLE_SEQUENCE_FILE</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.neutronics.crossSectionGroupManager</span><span class="w"> </span><span class="kn">import</span> <span class="n">CrossSectionGroupManager</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.neutronics.latticePhysics.latticePhysicsInterface</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -149,6 +152,151 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">caseSettings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">ArmiTestHelper</span><span class="p">,</span> <span class="n">mockRunLogs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">directoryChangers</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils.customExceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputError</span>
+
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TestReadMovesYamlErrors</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ensure malformed YAML inputs raise informative ``InputError``.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.yaml&quot;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">tf</span><span class="p">:</span>
+            <span class="n">tf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+            <span class="n">fname</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">fuelHandlers</span><span class="o">.</span><span class="n">FuelHandler</span><span class="o">.</span><span class="n">readMovesYaml</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors.test_missingSequence">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors.test_missingSequence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_missingSequence</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">yaml_text</span> <span class="o">=</span> <span class="s2">&quot;foo: []</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="n">InputError</span><span class="p">,</span> <span class="s2">&quot;sequence&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors.test_duplicateCycle">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors.test_duplicateCycle">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_duplicateCycle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">yaml_text</span> <span class="o">=</span> <span class="s2">&quot;sequence:</span><span class="se">\n</span><span class="s2">  1: []</span><span class="se">\n</span><span class="s2">  1: []</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="n">InputError</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;(?i)\bduplicate key\b&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors.test_unknownActionKey">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors.test_unknownActionKey">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_unknownActionKey</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">yaml_text</span> <span class="o">=</span> <span class="s2">&quot;sequence:</span><span class="se">\n</span><span class="s2">  1:</span><span class="se">\n</span><span class="s2">    - badAction: []</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="n">InputError</span><span class="p">,</span> <span class="s2">&quot;Unknown action&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors.test_badCascade">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors.test_badCascade">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_badCascade</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">cases</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;sequence:</span><span class="se">\n</span><span class="s2">  1:</span><span class="se">\n</span><span class="s2">    - cascade: [&#39;only&#39;]</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;cascade&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;sequence:</span><span class="se">\n</span><span class="s2">  1:</span><span class="se">\n</span><span class="s2">    - cascade: [&#39;outer fuel&#39;, 1]</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;cascade&quot;</span><span class="p">),</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">yaml_text</span><span class="p">,</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">cases</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">subTest</span><span class="p">(</span><span class="n">yaml_text</span><span class="o">=</span><span class="n">yaml_text</span><span class="p">):</span>
+                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="n">InputError</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors.test_badMisloadSwap">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors.test_badMisloadSwap">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_badMisloadSwap</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">yaml_text</span> <span class="o">=</span> <span class="s2">&quot;sequence:</span><span class="se">\n</span><span class="s2">  1:</span><span class="se">\n</span><span class="s2">    - misloadSwap: [&#39;009-045&#39;]</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="n">InputError</span><span class="p">,</span> <span class="s2">&quot;misloadSwap&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors.test_badFuelEnrichment">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors.test_badFuelEnrichment">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_badFuelEnrichment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">cases</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;sequence:\n  1:\n    - cascade: [&#39;outer fuel&#39;, &#39;009-045&#39;]\n      fuelEnrichment: [&#39;a&#39;]\n&quot;&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;fuelEnrichment&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="p">(</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;sequence:\n  1:\n    - cascade: [&#39;outer fuel&#39;, &#39;009-045&#39;]\n      fuelEnrichment: [-1]\n&quot;&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;fuelEnrichment&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="p">(</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;sequence:\n  1:\n    - cascade: [&#39;outer fuel&#39;, &#39;009-045&#39;]\n      fuelEnrichment: [101]\n&quot;&quot;&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;fuelEnrichment&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">yaml_text</span><span class="p">,</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">cases</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">subTest</span><span class="p">(</span><span class="n">yaml_text</span><span class="o">=</span><span class="n">yaml_text</span><span class="p">):</span>
+                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="n">InputError</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors.test_rotationInvalidLocation">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors.test_rotationInvalidLocation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_rotationInvalidLocation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">yaml_text</span> <span class="o">=</span> <span class="s2">&quot;sequence:</span><span class="se">\n</span><span class="s2">  1:</span><span class="se">\n</span><span class="s2">    - extraRotations: {&#39;badLoc&#39;: 30}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="n">InputError</span><span class="p">,</span> <span class="s2">&quot;Invalid location&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors.test_duplicateCascadeLocation">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors.test_duplicateCascadeLocation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_duplicateCascadeLocation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">yaml_text</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;sequence:</span><span class="se">\n</span><span class="s2">  1:</span><span class="se">\n</span><span class="s2">    - cascade: [&#39;outer&#39;, &#39;009-045&#39;, &#39;008-001&#39;]</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="s2">&quot;    - cascade: [&#39;outer&#39;, &#39;009-045&#39;, &#39;007-002&#39;]</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="n">InputError</span><span class="p">,</span> <span class="s2">&quot;009-045&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors.test_invalidCascadeLocation">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors.test_invalidCascadeLocation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_invalidCascadeLocation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">yaml_text</span> <span class="o">=</span> <span class="s2">&quot;sequence:</span><span class="se">\n</span><span class="s2">  1:</span><span class="se">\n</span><span class="s2">    - cascade: [&#39;outer&#39;, &#39;badLoc&#39;]</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="n">InputError</span><span class="p">,</span> <span class="s2">&quot;Invalid location&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestReadMovesYamlErrors.test_missingCycle">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlErrors.test_missingCycle">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_missingCycle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">yaml_text</span> <span class="o">=</span> <span class="s2">&quot;sequence:</span><span class="se">\n</span><span class="s2">  1: []</span><span class="se">\n</span><span class="s2">  3: []</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="n">InputError</span><span class="p">,</span> <span class="s2">&quot;Missing cycle 2&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="TestReadMovesYamlFeatures">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlFeatures">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TestReadMovesYamlFeatures</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Miscellaneous behavior of :meth:`FuelHandler.readMovesYaml`.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.yaml&quot;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">tf</span><span class="p">:</span>
+            <span class="n">tf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+            <span class="n">fname</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">moves</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fuelHandlers</span><span class="o">.</span><span class="n">FuelHandler</span><span class="o">.</span><span class="n">readMovesYaml</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">moves</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TestReadMovesYamlFeatures.test_cyclesOutOfOrder">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestReadMovesYamlFeatures.test_cyclesOutOfOrder">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_cyclesOutOfOrder</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">yaml_text</span> <span class="o">=</span> <span class="s2">&quot;sequence:</span><span class="se">\n</span><span class="s2">  1: []</span><span class="se">\n</span><span class="s2">  2: []</span><span class="se">\n</span><span class="s2">  4: []</span><span class="se">\n</span><span class="s2">  3: []</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">moves</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">moves</span><span class="p">),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span></div>
+</div>
+
 
 
 <div class="viewcode-block" id="FuelHandlerTestHelper">
@@ -704,21 +852,107 @@
         <span class="n">moves</span> <span class="o">=</span> <span class="n">fh</span><span class="o">.</span><span class="n">readMoves</span><span class="p">(</span><span class="s2">&quot;armiRun-SHUFFLES.txt&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">moves</span><span class="p">),</span> <span class="mi">3</span><span class="p">)</span>
         <span class="n">firstMove</span> <span class="o">=</span> <span class="n">moves</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">firstMove</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;002-001&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">firstMove</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;SFP&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">firstMove</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="n">numblocks</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">firstMove</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="s2">&quot;igniter fuel&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">firstMove</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">firstMove</span><span class="o">.</span><span class="n">fromLoc</span><span class="p">,</span> <span class="s2">&quot;002-001&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">firstMove</span><span class="o">.</span><span class="n">toLoc</span><span class="p">,</span> <span class="s2">&quot;SFP&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">firstMove</span><span class="o">.</span><span class="n">enrichList</span><span class="p">),</span> <span class="n">numblocks</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">firstMove</span><span class="o">.</span><span class="n">assemType</span><span class="p">,</span> <span class="s2">&quot;igniter fuel&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">firstMove</span><span class="o">.</span><span class="n">nameAtDischarge</span><span class="p">)</span>
 
         <span class="c1"># check the move that came back out of the SFP</span>
         <span class="n">sfpMove</span> <span class="o">=</span> <span class="n">moves</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">sfpMove</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;SFP&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">sfpMove</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;005-003&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">sfpMove</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;A0073&quot;</span><span class="p">)</span>  <span class="c1"># name of assem in SFP</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">sfpMove</span><span class="o">.</span><span class="n">fromLoc</span><span class="p">,</span> <span class="s2">&quot;SFP&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">sfpMove</span><span class="o">.</span><span class="n">toLoc</span><span class="p">,</span> <span class="s2">&quot;005-003&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">sfpMove</span><span class="o">.</span><span class="n">nameAtDischarge</span><span class="p">,</span> <span class="s2">&quot;A0073&quot;</span><span class="p">)</span>  <span class="c1"># name of assem in SFP</span>
 
         <span class="c1"># make sure we fail hard if the file doesn&#39;t exist</span>
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
             <span class="n">fh</span><span class="o">.</span><span class="n">readMoves</span><span class="p">(</span><span class="s2">&quot;totall_fictional_file.txt&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestFuelHandler.test_readMovesYaml">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestFuelHandler.test_readMovesYaml">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_readMovesYaml</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fh</span> <span class="o">=</span> <span class="n">fuelHandlers</span><span class="o">.</span><span class="n">FuelHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">)</span>
+        <span class="n">moves</span><span class="p">,</span> <span class="n">swaps</span> <span class="o">=</span> <span class="n">fh</span><span class="o">.</span><span class="n">readMovesYaml</span><span class="p">(</span><span class="s2">&quot;armiRun-SHUFFLES.yaml&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maxDiff</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="mi">1</span><span class="p">:</span> <span class="p">[</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;LoadQueue&quot;</span><span class="p">,</span> <span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.12</span><span class="p">,</span> <span class="mf">0.14</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="s2">&quot;outer fuel&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="s2">&quot;008-004&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;008-004&quot;</span><span class="p">,</span> <span class="s2">&quot;007-001&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;007-001&quot;</span><span class="p">,</span> <span class="s2">&quot;006-005&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;006-005&quot;</span><span class="p">,</span> <span class="s2">&quot;SFP&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mf">60.0</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;LoadQueue&quot;</span><span class="p">,</span> <span class="s2">&quot;010-046&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.12</span><span class="p">,</span> <span class="mf">0.14</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="s2">&quot;outer fuel&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;010-046&quot;</span><span class="p">,</span> <span class="s2">&quot;011-046&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;011-046&quot;</span><span class="p">,</span> <span class="s2">&quot;012-046&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;012-046&quot;</span><span class="p">,</span> <span class="s2">&quot;ExCore&quot;</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="mi">2</span><span class="p">:</span> <span class="p">[</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;LoadQueue&quot;</span><span class="p">,</span> <span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.12</span><span class="p">,</span> <span class="mf">0.14</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="s2">&quot;outer fuel&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="s2">&quot;008-004&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;008-004&quot;</span><span class="p">,</span> <span class="s2">&quot;007-001&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;007-001&quot;</span><span class="p">,</span> <span class="s2">&quot;006-005&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;006-005&quot;</span><span class="p">,</span> <span class="s2">&quot;SFP&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mf">60.0</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;LoadQueue&quot;</span><span class="p">,</span> <span class="s2">&quot;010-046&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.12</span><span class="p">,</span> <span class="mf">0.14</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="s2">&quot;outer fuel&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;010-046&quot;</span><span class="p">,</span> <span class="s2">&quot;011-046&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;011-046&quot;</span><span class="p">,</span> <span class="s2">&quot;012-046&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;012-046&quot;</span><span class="p">,</span> <span class="s2">&quot;ExCore&quot;</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="mi">3</span><span class="p">:</span> <span class="p">[</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;LoadQueue&quot;</span><span class="p">,</span> <span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.12</span><span class="p">,</span> <span class="mf">0.14</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="s2">&quot;outer fuel&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="s2">&quot;008-004&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;008-004&quot;</span><span class="p">,</span> <span class="s2">&quot;007-001&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;007-001&quot;</span><span class="p">,</span> <span class="s2">&quot;006-005&quot;</span><span class="p">),</span>
+                <span class="n">AssemblyMove</span><span class="p">(</span><span class="s2">&quot;006-005&quot;</span><span class="p">,</span> <span class="s2">&quot;SFP&quot;</span><span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">moves</span><span class="p">,</span> <span class="n">expected</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">swaps</span><span class="p">,</span> <span class="p">{</span><span class="mi">3</span><span class="p">:</span> <span class="p">[(</span><span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="s2">&quot;008-004&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;007-001&quot;</span><span class="p">,</span> <span class="s2">&quot;006-005&quot;</span><span class="p">)]})</span></div>
+
+
+<div class="viewcode-block" id="TestFuelHandler.test_performShuffleYamlIntegration">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestFuelHandler.test_performShuffleYamlIntegration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_performShuffleYamlIntegration</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fh</span> <span class="o">=</span> <span class="n">fuelHandlers</span><span class="o">.</span><span class="n">FuelHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">)</span>
+        <span class="n">yaml_text</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">        sequence:</span>
+<span class="s2">            1:</span>
+<span class="s2">                - misloadSwap: [&quot;009-045&quot;, &quot;008-004&quot;]</span>
+<span class="s2">                - cascade: [&quot;igniter fuel&quot;, &quot;009-045&quot;, &quot;008-004&quot;, &quot;007-001&quot;, &quot;006-005&quot;]</span>
+<span class="s2">                  fuelEnrichment: [0, 0.12, 0.14, 0.15, 0]</span>
+<span class="s2">                - extraRotations: {&quot;009-045&quot;: 60}</span>
+<span class="s2">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.yaml&quot;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">tf</span><span class="p">:</span>
+            <span class="n">tf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">yaml_text</span><span class="p">)</span>
+            <span class="n">fname</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">locs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;009-045&quot;</span><span class="p">,</span> <span class="s2">&quot;008-004&quot;</span><span class="p">,</span> <span class="s2">&quot;007-001&quot;</span><span class="p">,</span> <span class="s2">&quot;006-005&quot;</span><span class="p">]</span>
+            <span class="n">before</span> <span class="o">=</span> <span class="p">{</span><span class="n">loc</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyWithStringLocation</span><span class="p">(</span><span class="n">loc</span><span class="p">)</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span> <span class="k">for</span> <span class="n">loc</span> <span class="ow">in</span> <span class="n">locs</span><span class="p">}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{</span><span class="n">CONF_SHUFFLE_SEQUENCE_FILE</span><span class="p">:</span> <span class="n">fname</span><span class="p">})</span>
+            <span class="n">fh</span><span class="o">.</span><span class="n">outage</span><span class="p">()</span>
+
+            <span class="n">fresh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyWithStringLocation</span><span class="p">(</span><span class="s2">&quot;008-004&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">fresh</span><span class="o">.</span><span class="n">getType</span><span class="p">(),</span> <span class="s2">&quot;igniter fuel&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="n">fresh</span><span class="o">.</span><span class="n">getName</span><span class="p">(),</span> <span class="n">before</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+            <span class="n">rotated</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyWithStringLocation</span><span class="p">(</span><span class="s2">&quot;009-045&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">rotated</span><span class="o">.</span><span class="n">getName</span><span class="p">(),</span> <span class="n">before</span><span class="p">[</span><span class="s2">&quot;009-045&quot;</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">rotated</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">orientation</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="mf">60.0</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyWithStringLocation</span><span class="p">(</span><span class="s2">&quot;007-001&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">getName</span><span class="p">(),</span>
+                <span class="n">before</span><span class="p">[</span><span class="s2">&quot;008-004&quot;</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyWithStringLocation</span><span class="p">(</span><span class="s2">&quot;006-005&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">getName</span><span class="p">(),</span>
+                <span class="n">before</span><span class="p">[</span><span class="s2">&quot;007-001&quot;</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNotNone</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">excore</span><span class="p">[</span><span class="s2">&quot;sfp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">getAssembly</span><span class="p">(</span><span class="n">before</span><span class="p">[</span><span class="s2">&quot;006-005&quot;</span><span class="p">]))</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="TestFuelHandler.test_processMoveList">
@@ -732,13 +966,26 @@
             <span class="n">_</span><span class="p">,</span>
             <span class="n">_</span><span class="p">,</span>
             <span class="n">loadNames</span><span class="p">,</span>
+            <span class="n">rotations</span><span class="p">,</span>
             <span class="n">_</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">=</span> <span class="n">fh</span><span class="o">.</span><span class="n">processMoveList</span><span class="p">(</span><span class="n">moves</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;A0073&quot;</span><span class="p">,</span> <span class="n">loadNames</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">loadNames</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="s2">&quot;SFP&quot;</span><span class="p">,</span> <span class="n">loadChains</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertNotIn</span><span class="p">(</span><span class="s2">&quot;LoadQueue&quot;</span><span class="p">,</span> <span class="n">loadChains</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">loopChains</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">loopChains</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">rotations</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestFuelHandler.test_processMoveList_yaml">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.physics.fuelCycle.tests.test_fuelHandlers.html#armi.physics.fuelCycle.tests.test_fuelHandlers.TestFuelHandler.test_processMoveList_yaml">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_processMoveList_yaml</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fh</span> <span class="o">=</span> <span class="n">fuelHandlers</span><span class="o">.</span><span class="n">FuelHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">)</span>
+        <span class="n">moves</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fh</span><span class="o">.</span><span class="n">readMovesYaml</span><span class="p">(</span><span class="s2">&quot;armiRun-SHUFFLES.yaml&quot;</span><span class="p">)</span>
+        <span class="n">loadChains</span><span class="p">,</span> <span class="n">loopChains</span><span class="p">,</span> <span class="n">enriches</span><span class="p">,</span> <span class="n">loadTypes</span><span class="p">,</span> <span class="n">loadNames</span><span class="p">,</span> <span class="n">rotations</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fh</span><span class="o">.</span><span class="n">processMoveList</span><span class="p">(</span><span class="n">moves</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">loadChains</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="nb">any</span><span class="p">(</span><span class="n">enriches</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">rotations</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="TestFuelHandler.test_getFactorList">
