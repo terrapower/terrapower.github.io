@@ -135,6 +135,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">operator</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
@@ -160,6 +161,11 @@
     <span class="n">ParamLocation</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">hexagon</span><span class="p">,</span> <span class="n">plotting</span><span class="p">,</span> <span class="n">units</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">Core</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.assemblies</span><span class="w"> </span><span class="kn">import</span> <span class="n">Assembly</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.blocks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Block</span>
 
 <span class="n">BLOCK_AXIAL_MESH_SPACING</span> <span class="o">=</span> <span class="mi">20</span>  <span class="c1"># Block axial mesh spacing set for nodal diffusion calculation (cm)</span>
 <span class="n">STR_SPACE</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span>
@@ -1260,26 +1266,28 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">GeometryChanger</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">listOfVolIntegratedParamsToScale</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">listOfAssemblyVolIntegratedParamsToScale</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">listOfBlockVolIntegratedParamsToScale</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_scaleBlockVolIntegratedParams</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">direction</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_scaleVolIntegratedParams</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">paramList</span><span class="p">,</span> <span class="n">direction</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">direction</span> <span class="o">==</span> <span class="s2">&quot;up&quot;</span><span class="p">:</span>
             <span class="n">op</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">mul</span>
         <span class="k">elif</span> <span class="n">direction</span> <span class="o">==</span> <span class="s2">&quot;down&quot;</span><span class="p">:</span>
             <span class="n">op</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">truediv</span>
 
-        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">listOfVolIntegratedParamsToScale</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">paramList</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">continue</span>
-            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">])</span> <span class="ow">is</span> <span class="nb">list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">])</span> <span class="ow">is</span> <span class="nb">list</span><span class="p">:</span>
                 <span class="c1"># some params like volume-integrated mg flux are lists</span>
-                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">op</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]]</span>
+                <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">op</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]]</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">op</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">],</span> <span class="mi">3</span><span class="p">)</span>
+                <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">op</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">param</span><span class="p">],</span> <span class="mi">3</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ThirdCoreHexToFullCoreChanger.convert">
 <a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.geometryConverters.html#armi.reactor.converters.geometryConverters.ThirdCoreHexToFullCoreChanger.convert">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Reactor</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run the conversion.</span>
 
@@ -1356,15 +1364,19 @@
             <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">getLocation</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;001-001&quot;</span><span class="p">:</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Modifying parameters in central assembly </span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2"> to convert from 1/3 to full core&quot;</span><span class="p">)</span>
 
-                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">listOfVolIntegratedParamsToScale</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">listOfBlockVolIntegratedParamsToScale</span><span class="p">:</span>
                     <span class="c1"># populate the list with all parameters that are VOLUME_INTEGRATED</span>
                     <span class="p">(</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">listOfVolIntegratedParamsToScale</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">listOfBlockVolIntegratedParamsToScale</span><span class="p">,</span>
                         <span class="n">_</span><span class="p">,</span>
-                    <span class="p">)</span> <span class="o">=</span> <span class="n">_generateListOfParamsToScale</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="p">,</span> <span class="n">paramsToScaleSubset</span><span class="o">=</span><span class="p">[])</span>
-
+                    <span class="p">)</span> <span class="o">=</span> <span class="n">_generateListOfParamsToScale</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">(),</span> <span class="n">paramsToScaleSubset</span><span class="o">=</span><span class="p">[])</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">listOfAssemblyVolIntegratedParamsToScale</span><span class="p">:</span>
+                    <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">listOfAssemblyVolIntegratedParamsToScale</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="o">=</span> <span class="n">_generateListOfParamsToScale</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_sourceReactor</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstAssembly</span><span class="p">(),</span> <span class="n">paramsToScaleSubset</span><span class="o">=</span><span class="p">[]</span>
+                    <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scaleVolIntegratedParams</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">listOfAssemblyVolIntegratedParamsToScale</span><span class="p">,</span> <span class="s2">&quot;up&quot;</span><span class="p">)</span>
                 <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_scaleBlockVolIntegratedParams</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;up&quot;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_scaleVolIntegratedParams</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">listOfBlockVolIntegratedParamsToScale</span><span class="p">,</span> <span class="s2">&quot;up&quot;</span><span class="p">)</span>
 
         <span class="c1"># set domain after expanding, because it isn&#39;t actually full core until it&#39;s</span>
         <span class="c1"># full core; setting the domain causes the core to clear its caches.</span>
@@ -1399,8 +1411,9 @@
             <span class="c1"># change the central assembly params back to 1/3</span>
             <span class="n">a</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">getAssemblyWithStringLocation</span><span class="p">(</span><span class="s2">&quot;001-001&quot;</span><span class="p">)</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Modifying parameters in central assembly </span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2"> to revert from full to 1/3 core&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scaleVolIntegratedParams</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">listOfAssemblyVolIntegratedParamsToScale</span><span class="p">,</span> <span class="s2">&quot;down&quot;</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_scaleBlockVolIntegratedParams</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;down&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scaleVolIntegratedParams</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">listOfBlockVolIntegratedParamsToScale</span><span class="p">,</span> <span class="s2">&quot;down&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span></div>
 </div>
 
@@ -1534,7 +1547,7 @@
 <div class="viewcode-block" id="EdgeAssemblyChanger.scaleParamsRelatedToSymmetry">
 <a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.geometryConverters.html#armi.reactor.converters.geometryConverters.EdgeAssemblyChanger.scaleParamsRelatedToSymmetry">[docs]</a>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">scaleParamsRelatedToSymmetry</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">paramsToScaleSubset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scaleParamsRelatedToSymmetry</span><span class="p">(</span><span class="n">core</span><span class="p">:</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Core</span><span class="p">,</span> <span class="n">paramsToScaleSubset</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Scale volume-dependent params like power to account for cut-off edges.</span>
 
@@ -1548,7 +1561,7 @@
 <span class="sd">        armi.reactor.blocks.HexBlock.getSymmetryFactor</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Scaling edge-assembly parameters to account for full hexes instead of two halves&quot;</span><span class="p">)</span>
-        <span class="n">completeListOfParamsToScale</span> <span class="o">=</span> <span class="n">_generateListOfParamsToScale</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">paramsToScaleSubset</span><span class="p">)</span>
+        <span class="n">completeListOfBlockParamsToScale</span> <span class="o">=</span> <span class="n">_generateListOfParamsToScale</span><span class="p">(</span><span class="n">core</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">(),</span> <span class="n">paramsToScaleSubset</span><span class="p">)</span>
         <span class="n">symmetricAssems</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">core</span><span class="o">.</span><span class="n">getAssembliesOnSymmetryLine</span><span class="p">(</span><span class="n">grids</span><span class="o">.</span><span class="n">BOUNDARY_0_DEGREES</span><span class="p">),</span>
             <span class="n">core</span><span class="o">.</span><span class="n">getAssembliesOnSymmetryLine</span><span class="p">(</span><span class="n">grids</span><span class="o">.</span><span class="n">BOUNDARY_120_DEGREES</span><span class="p">),</span>
@@ -1558,22 +1571,17 @@
 
         <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">aSymmetric</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">symmetricAssems</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">bSymmetric</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">aSymmetric</span><span class="p">):</span>
-                <span class="n">_scaleParamsInBlock</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">bSymmetric</span><span class="p">,</span> <span class="n">completeListOfParamsToScale</span><span class="p">)</span></div>
+                <span class="n">_scaleParamsInBlock</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">bSymmetric</span><span class="p">,</span> <span class="n">completeListOfBlockParamsToScale</span><span class="p">)</span></div>
 </div>
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_generateListOfParamsToScale</span><span class="p">(</span><span class="n">core</span><span class="p">,</span> <span class="n">paramsToScaleSubset</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_generateListOfParamsToScale</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s2">&quot;Core&quot;</span><span class="p">,</span> <span class="s2">&quot;Assembly&quot;</span><span class="p">,</span> <span class="s2">&quot;Block&quot;</span><span class="p">],</span> <span class="n">paramsToScaleSubset</span><span class="p">):</span>
     <span class="n">fluxParamsToScale</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">core</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">()</span>
-        <span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span><span class="n">Category</span><span class="o">.</span><span class="n">fluxQuantities</span><span class="p">)</span>
-        <span class="o">.</span><span class="n">inCategory</span><span class="p">(</span><span class="n">Category</span><span class="o">.</span><span class="n">multiGroupQuantities</span><span class="p">)</span>
-        <span class="o">.</span><span class="n">names</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span><span class="n">Category</span><span class="o">.</span><span class="n">fluxQuantities</span><span class="p">)</span><span class="o">.</span><span class="n">inCategory</span><span class="p">(</span><span class="n">Category</span><span class="o">.</span><span class="n">multiGroupQuantities</span><span class="p">)</span><span class="o">.</span><span class="n">names</span>
     <span class="p">)</span>
-    <span class="n">listOfVolumeIntegratedParamsToScale</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">core</span><span class="o">.</span><span class="n">getFirstBlock</span><span class="p">()</span>
-        <span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">VOLUME_INTEGRATED</span><span class="p">)</span>
-        <span class="o">.</span><span class="n">since</span><span class="p">(</span><span class="n">SINCE_LAST_GEOMETRY_TRANSFORMATION</span><span class="p">)</span>
+    <span class="n">listOfVolumeIntegratedParamsToScale</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">paramDefs</span><span class="o">.</span><span class="n">atLocation</span><span class="p">(</span><span class="n">ParamLocation</span><span class="o">.</span><span class="n">VOLUME_INTEGRATED</span><span class="p">)</span><span class="o">.</span><span class="n">since</span><span class="p">(</span>
+        <span class="n">SINCE_LAST_GEOMETRY_TRANSFORMATION</span>
     <span class="p">)</span>
     <span class="n">listOfVolumeIntegratedParamsToScale</span> <span class="o">=</span> <span class="n">listOfVolumeIntegratedParamsToScale</span><span class="o">.</span><span class="n">names</span>
     <span class="k">if</span> <span class="n">paramsToScaleSubset</span><span class="p">:</span>
