@@ -118,6 +118,9 @@
 
 <span class="sd">&quot;&quot;&quot;factory for the FuelHandler.&quot;&quot;&quot;</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.fuelCycle</span><span class="w"> </span><span class="kn">import</span> <span class="n">fuelHandlers</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.fuelCycle.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">CONF_FUEL_HANDLER_NAME</span><span class="p">,</span> <span class="n">CONF_SHUFFLE_LOGIC</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">directoryChangers</span><span class="p">,</span> <span class="n">pathTools</span>
@@ -147,7 +150,11 @@
     <span class="c1"># from the input directory.</span>
     <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">DirectoryChanger</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">,</span> <span class="n">dumpOnException</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">module</span> <span class="o">=</span> <span class="n">pathTools</span><span class="o">.</span><span class="n">importCustomPyModule</span><span class="p">(</span><span class="n">fuelHandlerModulePath</span><span class="p">)</span>
+            <span class="n">modulePath</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">fuelHandlerModulePath</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">modulePath</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">modulePath</span><span class="o">.</span><span class="n">suffix</span> <span class="o">==</span> <span class="s2">&quot;.py&quot;</span><span class="p">:</span>
+                <span class="n">module</span> <span class="o">=</span> <span class="n">pathTools</span><span class="o">.</span><span class="n">importCustomPyModule</span><span class="p">(</span><span class="n">modulePath</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">fuelHandlerModulePath</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">fuelHandlerClassName</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
@@ -169,7 +176,7 @@
                 <span class="c1"># The __get__ pulls the actual function out from the descriptor.</span>
                 <span class="n">fuelHandler</span><span class="o">.</span><span class="n">getFactorList</span> <span class="o">=</span> <span class="nb">staticmethod</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">getFactorList</span><span class="p">)</span><span class="o">.</span><span class="fm">__get__</span><span class="p">(</span><span class="n">fuelHandlerCls</span><span class="p">)</span>
 
-        <span class="k">except</span> <span class="ne">IOError</span><span class="p">:</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">ImportError</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Either the file specified in the `shuffleLogic` setting (</span><span class="si">{}</span><span class="s2">) or the &quot;</span>
                 <span class="s2">&quot;fuel handler class name specified in the `fuelHandlerName` setting (</span><span class="si">{}</span><span class="s2">) &quot;</span>
