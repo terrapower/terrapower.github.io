@@ -117,13 +117,10 @@
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;Enable component-wise axial expansion for assemblies and/or a reactor.&quot;&quot;&quot;</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">isclose</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">textwrap</span><span class="w"> </span><span class="kn">import</span> <span class="n">dedent</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">array</span><span class="p">,</span> <span class="nb">sum</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">brentq</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">array</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.materials.material</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fluid</span>
@@ -135,8 +132,8 @@
     <span class="n">ExpansionData</span><span class="p">,</span>
     <span class="n">iterSolidComponents</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.converters.axialExpansionChanger.redistributeMass</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedistributeMass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.flags</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flags</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">densityTools</span><span class="p">,</span> <span class="n">units</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils.customExceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">InputError</span>
 
 <span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
@@ -205,6 +202,9 @@
     <span class="c1"># that otherwise have a negliglble impact on the assembly post-axial expansion. Anything larger than this value is</span>
     <span class="c1"># presumed to be valid of a warning that may warrant further investigation.</span>
     <span class="n">COMP_BLOCK_HEIGHT_DIFF_THRESHOLD</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-12</span>
+
+    <span class="c1"># Establish the class used to redistribute mass between components.</span>
+    <span class="n">MASS_REDISTRIBUTOR</span> <span class="o">=</span> <span class="n">RedistributeMass</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">detailedAxialExpansion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -556,11 +556,11 @@
                         <span class="n">deltaZTop</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span> <span class="o">-</span> <span class="n">c</span><span class="o">.</span><span class="n">ztop</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_checkComponentHeight</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
                         <span class="k">if</span> <span class="n">deltaZTop</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-                            <span class="n">RedistributeMass</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">MASS_REDISTRIBUTOR</span><span class="p">(</span>
                                 <span class="n">fromComp</span><span class="o">=</span><span class="n">cAbove</span><span class="p">,</span> <span class="n">toComp</span><span class="o">=</span><span class="n">c</span><span class="p">,</span> <span class="n">assemName</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="p">),</span> <span class="n">deltaZTop</span><span class="o">=</span><span class="n">deltaZTop</span>
                             <span class="p">)</span>
                         <span class="k">elif</span> <span class="n">deltaZTop</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-                            <span class="n">RedistributeMass</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">MASS_REDISTRIBUTOR</span><span class="p">(</span>
                                 <span class="n">fromComp</span><span class="o">=</span><span class="n">c</span><span class="p">,</span> <span class="n">toComp</span><span class="o">=</span><span class="n">cAbove</span><span class="p">,</span> <span class="n">assemName</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="p">),</span> <span class="n">deltaZTop</span><span class="o">=</span><span class="n">deltaZTop</span>
                             <span class="p">)</span>
 
@@ -580,6 +580,7 @@
                     <span class="n">c</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">ztop</span> <span class="o">-</span> <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_checkBlockHeight</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">recalculateBurnup</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
             <span class="c1"># redo mesh -- functionality based on assembly.calculateZCoords()</span>
             <span class="n">mesh</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span><span class="p">)</span>
             <span class="n">b</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ib</span><span class="p">]</span>
@@ -587,6 +588,18 @@
         <span class="n">bounds</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">_bounds</span><span class="p">)</span>
         <span class="n">bounds</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">_bounds</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AxialExpansionChanger.recalculateBurnup">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.AxialExpansionChanger.recalculateBurnup">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">recalculateBurnup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="s2">&quot;Block&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Post axial-expansion, heavy metal may have moved between blocks; recalculate burnup.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Since burnup can be calculated differently, this is meant to be populated in a downstream application subclass.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_shiftLinkedCompsForDelta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="s2">&quot;Component&quot;</span><span class="p">,</span> <span class="n">cAbove</span><span class="p">:</span> <span class="s2">&quot;Component&quot;</span><span class="p">,</span> <span class="n">deltaZTop</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
@@ -678,259 +691,6 @@
                     <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="p">)</span></div>
 
-
-
-<div class="viewcode-block" id="RedistributeMass">
-<a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.RedistributeMass">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">RedistributeMass</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given ``deltaZTop``, add mass from ``fromComp`` and give it to ``toComp``.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    fromComp</span>
-<span class="sd">        Component which is going to give mass to toComp</span>
-<span class="sd">    toComp</span>
-<span class="sd">        Component that is recieving mass from fromComp</span>
-<span class="sd">    deltaZTop</span>
-<span class="sd">        The length, in cm, of fromComp being given to toComp</span>
-<span class="sd">    initOnly</span>
-<span class="sd">        Optional parameter to only initialize the class and not perform the redistribution. If True, the redistribution</span>
-<span class="sd">        can be executed by calling :py:meth:`performRedistribution`.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">fromComp</span><span class="p">:</span> <span class="s2">&quot;Component&quot;</span><span class="p">,</span> <span class="n">toComp</span><span class="p">:</span> <span class="s2">&quot;Component&quot;</span><span class="p">,</span> <span class="n">deltaZTop</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">assemName</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">initOnly</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span> <span class="o">=</span> <span class="n">fromComp</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span> <span class="o">=</span> <span class="n">toComp</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assemblyName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">assemName</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">deltaZTop</span> <span class="o">=</span> <span class="n">deltaZTop</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">massFrom</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">massTo</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">initOnly</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">performRedistribution</span><span class="p">()</span>
-
-<div class="viewcode-block" id="RedistributeMass.performRedistribution">
-<a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.RedistributeMass.performRedistribution">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">performRedistribution</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform the mass redistribution between two compatible components.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compatabilityCheck</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setNewToCompNDens</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setNewToCompTemperature</span><span class="p">()</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNuclidesBOL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNuclidesBOL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">updateBOLParams</span><span class="p">()</span></div>
-
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">fromCompVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">deltaZTop</span><span class="p">)</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">toCompVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">height</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">newVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute and return the new post-redistribution volume of toComp.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">toCompVolume</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromCompVolume</span>
-
-<div class="viewcode-block" id="RedistributeMass.compatabilityCheck">
-<a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.RedistributeMass.compatabilityCheck">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">compatabilityCheck</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure fromComp and toComp are the same material.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        If the linked components are not the same material, we cannot transfer mass between materials because then the</span>
-<span class="sd">        resulting material has unknown properties.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        False if incompatible; true otherwise.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">material</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">material</span><span class="p">):</span>
-            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
-<span class="s2">            Cannot redistribute mass between components that are different materials!</span>
-<span class="s2">                Trying to redistribute mass between the following components in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">assemblyName</span><span class="si">}</span><span class="s2">:</span>
-<span class="s2">                    from --&gt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">material</span><span class="p">)</span><span class="si">}</span>
-<span class="s2">                      to --&gt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">material</span><span class="p">)</span><span class="si">}</span>
-
-<span class="s2">                Instead, mass will be removed from (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">material</span><span class="p">)</span><span class="si">}</span><span class="s2">) and</span>
-<span class="s2">                (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">material</span><span class="p">)</span><span class="si">}</span><span class="s2"> will be artificially expanded. The consequence is that</span>
-<span class="s2">                mass conservation is no longer guaranteed for the </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span><span class="si">}</span><span class="s2"> component type on this</span>
-<span class="s2">                assembly!</span>
-<span class="s2">            &quot;&quot;&quot;</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">dedent</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Cannot redistribute mass between different materials.&quot;</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">return</span> <span class="kc">False</span>
-        <span class="k">return</span> <span class="kc">True</span></div>
-
-
-<div class="viewcode-block" id="RedistributeMass.setNewToCompNDens">
-<a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.RedistributeMass.setNewToCompNDens">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">setNewToCompNDens</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the post-redistribution number densities for toComp and determine how much mass is in play for</span>
-<span class="sd">        fromComp and toComp.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        Only the mass of ``toComp`` is changed in this method. The mass of ``fromComp`` is changed separately by</span>
-<span class="sd">        changing the height of ``fromComp`` -- the number densities of ``fromComp`` are not modified. When</span>
-<span class="sd">        redistributing mass, if ``fromComp`` and ``toComp`` are different temperatures, the temperature of</span>
-<span class="sd">        ``toComp`` will change. See :py:meth:`setNewToCompTemperature`.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># calculate the mass of each nuclide and then the ndens for the new mass</span>
-        <span class="n">newNDens</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">nucs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAllNucs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">())</span>
-        <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nucs</span><span class="p">:</span>
-            <span class="n">massByNucFrom</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">getMassInGrams</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromCompVolume</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">))</span>
-            <span class="n">massByNucTo</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">getMassInGrams</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">toCompVolume</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">getNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">))</span>
-            <span class="n">newNDens</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">calculateNumberDensity</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">massByNucFrom</span> <span class="o">+</span> <span class="n">massByNucTo</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">newVolume</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">massFrom</span> <span class="o">+=</span> <span class="n">massByNucFrom</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">massTo</span> <span class="o">+=</span> <span class="n">massByNucTo</span>
-
-        <span class="c1"># Set newNDens on toComp</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">setNumberDensities</span><span class="p">(</span><span class="n">newNDens</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="RedistributeMass.setNewToCompTemperature">
-<a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.RedistributeMass.setNewToCompTemperature">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">setNewToCompTemperature</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Calculate and set the post-redistribution temperature of toComp.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        Calculating this new temperature is non trivial due to thermal expansion. The following defines what the area</span>
-<span class="sd">        of ``toComp`` is post-redistribution,</span>
-
-<span class="sd">        .. math::</span>
-
-<span class="sd">            A_1(\hat{T}) \left( H_1 + \delta \right) &amp;= A_1(T_1) H_1 + A_2(T_2)\delta,\\</span>
-<span class="sd">            A_1(\hat{T}) &amp;= \frac{A_1(T_1) H_1 + A_2(T_2)\delta}{H_1 + \delta}.</span>
-
-<span class="sd">        Where, :math:`A_1, T_1, H_1`, are the area, temperature, and height of ``toComp``, :math:`A_2, T_2`, are the</span>
-<span class="sd">        area and temparature of ``fromComp``, :math:`\delta` is the parameter ``deltaZTop``, and :math:`\hat{T}` is</span>
-<span class="sd">        the new temperature of ``toComp`` post-redistribution. :func:`scipy.optimize.brentq` is used to</span>
-<span class="sd">        find the root of the above equation, indicating the value for :math:`\hat{T}`</span>
-<span class="sd">        that finds the desired area, post-redistribution of mass.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">isclose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span> <span class="n">rel_tol</span><span class="o">=</span><span class="mf">1e-09</span><span class="p">):</span>
-            <span class="c1"># per isclose documentation, rel_tol of 1e-09 is roughly equivaluent to ensuring the temps are</span>
-            <span class="c1"># the same to roughly 9 digits.</span>
-            <span class="n">newToCompTemp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">temperatureInC</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">targetArea</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">newVolume</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">height</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">deltaZTop</span><span class="p">))</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">newToCompTemp</span> <span class="o">=</span> <span class="n">brentq</span><span class="p">(</span>
-                    <span class="n">f</span><span class="o">=</span><span class="k">lambda</span> <span class="n">T</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="n">T</span><span class="p">)</span> <span class="o">-</span> <span class="n">targetArea</span><span class="p">,</span>
-                    <span class="n">a</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span>
-                    <span class="n">b</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                <span class="n">totalMass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">massFrom</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">massTo</span>
-                <span class="n">newToCompTemp</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">massFrom</span> <span class="o">/</span> <span class="n">totalMass</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">temperatureInC</span>
-                    <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">massTo</span> <span class="o">/</span> <span class="n">totalMass</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">temperatureInC</span>
-                <span class="p">)</span>
-                <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">))</span> <span class="ow">or</span> <span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">)</span>
-                <span class="p">):</span>
-                    <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
-<span class="s2">                    Temperature search algorithm in axial expansion has failed in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">assemblyName</span><span class="si">}</span>
-<span class="s2">                    Trying to search for new temp between</span>
-<span class="s2">                        from --&gt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">material</span><span class="p">)</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="si">}</span><span class="s2"> C</span>
-<span class="s2">                        to --&gt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">material</span><span class="p">)</span><span class="si">}</span><span class="s2"> at </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="si">}</span><span class="s2"> C</span>
-
-<span class="s2">                    f(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="si">}</span><span class="s2">) = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">targetArea</span><span class="si">}</span>
-<span class="s2">                    f(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="si">}</span><span class="s2">) = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">targetArea</span><span class="si">}</span>
-
-<span class="s2">                    Instead, a mass weighted average temperature of </span><span class="si">{</span><span class="n">newToCompTemp</span><span class="si">}</span><span class="s2"> will be used. The consequence is that</span>
-<span class="s2">                    mass conservation is no longer guaranteed for this component type on this assembly!</span>
-<span class="s2">                    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">dedent</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Temp Search Failure&quot;</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ee</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">ee</span>
-
-        <span class="c1"># Do not use component.setTemperature as this mucks with the number densities we just calculated.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">temperatureInC</span> <span class="o">=</span> <span class="n">newToCompTemp</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">clearCache</span><span class="p">()</span></div>
-
-
-<div class="viewcode-block" id="RedistributeMass.updateBOLParams">
-<a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.RedistributeMass.updateBOLParams">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">updateBOLParams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the BOL molesHmBOL and massHmBOL to stay consistent with the change in mass.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        Unlike the non-BOL information determined in py:meth:`setNewToCompNDens` and :py:meth:`setNewToCompTemperature`,</span>
-<span class="sd">        a new BOL temperature is not neccessary to be calculated here since we do not compute the ``massHmBOL`` or</span>
-<span class="sd">        ``moledHmBOL`` information on-the-fly; this allows us to directly set the new values. However, we do need to</span>
-<span class="sd">        compute the number densities and manually shift mass to account for the possibility of varying temperatures</span>
-<span class="sd">        between toComp and fromComp at BOL.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># build the BOL HM NDens dictionary</span>
-        <span class="n">fromCompBOLNucs</span> <span class="o">=</span> <span class="p">[</span><span class="n">nucName</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span> <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNuclidesBOL</span><span class="p">]</span>
-        <span class="n">toCompBOLNucs</span> <span class="o">=</span> <span class="p">[</span><span class="n">nucName</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span> <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNuclidesBOL</span><span class="p">]</span>
-        <span class="n">fromCompNDensBOL</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">fromCompBOLNucs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNumberDensitiesBOL</span><span class="p">))</span>
-        <span class="n">toCompNDensBOL</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">toCompBOLNucs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNumberDensitiesBOL</span><span class="p">))</span>
-
-        <span class="c1"># calculate the new BOL volume</span>
-        <span class="n">toCompVolBOL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">temperatureInCBOL</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">heightBOL</span>
-        <span class="n">fromCompVolBOL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">temperatureInCBOL</span><span class="p">)</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">deltaZTop</span><span class="p">)</span>
-        <span class="n">newBOLVol</span> <span class="o">=</span> <span class="n">toCompVolBOL</span> <span class="o">+</span> <span class="n">fromCompVolBOL</span>
-
-        <span class="c1"># calculate new molesHmBOL and massHmBOL for toComp</span>
-        <span class="n">newHMNDensBOL</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">hmNucsBOL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAllNucs</span><span class="p">(</span><span class="n">fromCompBOLNucs</span><span class="p">,</span> <span class="n">toCompBOLNucs</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">hmNucsBOL</span><span class="p">:</span>
-            <span class="n">hmMassBOLByNucFromComp</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">getMassInGrams</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">fromCompVolBOL</span><span class="p">,</span> <span class="n">fromCompNDensBOL</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
-            <span class="n">hmMassBOLByNucToComp</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">getMassInGrams</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">toCompVolBOL</span><span class="p">,</span> <span class="n">toCompNDensBOL</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
-            <span class="n">newHMNDensBOL</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">calculateNumberDensity</span><span class="p">(</span>
-                <span class="n">nuc</span><span class="p">,</span> <span class="n">hmMassBOLByNucFromComp</span> <span class="o">+</span> <span class="n">hmMassBOLByNucToComp</span><span class="p">,</span> <span class="n">newBOLVol</span>
-            <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">sum</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">newHMNDensBOL</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span> <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">MOLES_PER_CC_TO_ATOMS_PER_BARN_CM</span> <span class="o">*</span> <span class="n">newBOLVol</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">calculateMassDensity</span><span class="p">(</span><span class="n">newHMNDensBOL</span><span class="p">)</span> <span class="o">*</span> <span class="n">newBOLVol</span>
-
-        <span class="c1"># update BOL Params for fromComp</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="o">*=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">deltaZTop</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">heightBOL</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span> <span class="o">*=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">deltaZTop</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">heightBOL</span><span class="p">)</span></div>
-
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_sortKey</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Break isotope string down by element, atomic weight, and metastable state for sorting. Raises a RuntimeError</span>
-<span class="sd">        if the string does not match the expected pattern.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
-<span class="w">            </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">            ([a-zA-Z]{1,2}) # Element</span>
-<span class="sd">            (\d{1,3})?      # atomic weight (optional, e.g., &quot;C&quot;)</span>
-<span class="sd">            ([a-zA-Z])?     # metastable state (optional, e.g., Am242M or Am242)</span>
-<span class="sd">            &quot;&quot;&quot;</span><span class="p">,</span>
-            <span class="n">re</span><span class="o">.</span><span class="n">VERBOSE</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">item</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
-            <span class="c1"># Convert numeric parts to int for correct numerical sorting</span>
-            <span class="n">element</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">atomicWeight</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="k">if</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
-            <span class="n">metastable</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
-            <span class="k">return</span> <span class="p">(</span><span class="n">atomicWeight</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">metastable</span><span class="p">)</span>
-        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown isotope! - </span><span class="si">{</span><span class="n">item</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_getAllNucs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nucsA</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">nucsB</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a list that contains all of the nuclides in nucsA and nucsB.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        The returned list is sorted by :py:meth:`sortKey`. Isotopes are sorted based on 1) atomic weight, 2) element,</span>
-<span class="sd">        and 3) metastable state.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">nucsToAdd</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">nucsA</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">nucsB</span><span class="p">))</span>
-        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">nucsToAdd</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_sortKey</span><span class="p">)</span></div>
-
 </pre></div>
 
            </div>
@@ -941,7 +701,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-09-19.
+      <span class="lastupdated">Last updated on 2025-09-22.
       </span></p>
   </div>
 
