@@ -169,11 +169,13 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">ordered_set</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">yamlize</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">yamlize.objects</span>
@@ -222,19 +224,32 @@
     <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">directoryChangers</span>
 
     <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">DirectoryChanger</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">,</span> <span class="n">dumpOnException</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_LOADING_FILE</span><span class="p">],</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">bpYaml</span><span class="p">:</span>
-            <span class="n">root</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_LOADING_FILE</span><span class="p">])</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span>
-            <span class="n">bpYaml</span> <span class="o">=</span> <span class="n">textProcessors</span><span class="o">.</span><span class="n">resolveMarkupInclusions</span><span class="p">(</span><span class="n">bpYaml</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+        <span class="n">bpPath</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_LOADING_FILE</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">bpPath</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;.hdf5&quot;</span><span class="p">):</span>
+            <span class="c1"># This is a case settings from a database so the blueprints are also in the database.</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">bp</span> <span class="o">=</span> <span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">bpYaml</span><span class="p">,</span> <span class="n">roundTrip</span><span class="o">=</span><span class="n">roundTrip</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">yamlizing_error</span><span class="o">.</span><span class="n">YamlizingError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-                <span class="k">if</span> <span class="s2">&quot;cross sections&quot;</span> <span class="ow">in</span> <span class="n">err</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
-                        <span class="s2">&quot;The loading file </span><span class="si">{}</span><span class="s2"> contains invalid `cross sections` input. &quot;</span>
-                        <span class="s2">&quot;Please run the `modify` entry point on this case to automatically convert.&quot;</span>
-                        <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_LOADING_FILE</span><span class="p">])</span>
-                    <span class="p">)</span>
-                <span class="k">raise</span>
+                <span class="n">db</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">bpPath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span>
+                <span class="n">bpString</span> <span class="o">=</span> <span class="n">db</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">asstr</span><span class="p">()[()]</span>
+                <span class="n">stream</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">bpString</span><span class="p">)</span>
+                <span class="n">stream</span> <span class="o">=</span> <span class="n">Blueprints</span><span class="o">.</span><span class="n">migrate</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
+                <span class="n">bp</span> <span class="o">=</span> <span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="c1"># not all reactors need to be created from blueprints, so they may not exist</span>
+                <span class="n">bp</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_LOADING_FILE</span><span class="p">],</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">bpYaml</span><span class="p">:</span>
+                <span class="n">root</span> <span class="o">=</span> <span class="n">bpPath</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span>
+                <span class="n">bpYaml</span> <span class="o">=</span> <span class="n">textProcessors</span><span class="o">.</span><span class="n">resolveMarkupInclusions</span><span class="p">(</span><span class="n">bpYaml</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">bp</span> <span class="o">=</span> <span class="n">Blueprints</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">bpYaml</span><span class="p">,</span> <span class="n">roundTrip</span><span class="o">=</span><span class="n">roundTrip</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">yamlize</span><span class="o">.</span><span class="n">yamlizing_error</span><span class="o">.</span><span class="n">YamlizingError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="s2">&quot;cross sections&quot;</span> <span class="ow">in</span> <span class="n">err</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                            <span class="s2">&quot;The loading file </span><span class="si">{}</span><span class="s2"> contains invalid `cross sections` input. &quot;</span>
+                            <span class="s2">&quot;Please run the `modify` entry point on this case to automatically convert.&quot;</span>
+                            <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_LOADING_FILE</span><span class="p">])</span>
+                        <span class="p">)</span>
+                    <span class="k">raise</span>
     <span class="k">return</span> <span class="n">bp</span></div>
 
 
@@ -677,7 +692,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-09-22.
+      <span class="lastupdated">Last updated on 2025-09-23.
       </span></p>
   </div>
 

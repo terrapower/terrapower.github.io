@@ -520,7 +520,7 @@
 <span class="sd">        custom Application you do not have access to, the DB may not be usable.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()</span>
-        <span class="n">cs</span><span class="o">.</span><span class="n">caseTitle</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fileName</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">cs</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fileName</span>
         <span class="n">cs</span><span class="o">.</span><span class="n">loadFromString</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/settings&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">asstr</span><span class="p">()[()],</span> <span class="n">handleInvalids</span><span class="o">=</span><span class="n">handleInvalids</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">cs</span></div>
@@ -528,7 +528,7 @@
 
 <div class="viewcode-block" id="Database.loadBlueprints">
 <a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database.html#armi.bookkeeping.db.database.Database.loadBlueprints">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">loadBlueprints</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loadBlueprints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Attempt to load reactor blueprints from the database file.</span>
 
 <span class="sd">        Notes</span>
@@ -546,6 +546,12 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">bpString</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">asstr</span><span class="p">()[()]</span>
+            <span class="c1"># Need to update the blueprint file to be the database so that its not pointing at a source</span>
+            <span class="c1"># that doesn&#39;t exist anymore (the original blueprints yaml).</span>
+
+            <span class="k">if</span> <span class="n">cs</span><span class="p">:</span>
+                <span class="c1"># Update the settings to point at where the file was actually read from</span>
+                <span class="n">cs</span><span class="p">[</span><span class="n">CONF_LOADING_FILE</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fileName</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="c1"># not all reactors need to be created from blueprints, so they may not exist</span>
             <span class="k">pass</span>
@@ -605,12 +611,22 @@
 
         <span class="k">if</span> <span class="n">bpString</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">bpPath</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">)</span> <span class="o">/</span> <span class="n">cs</span><span class="p">[</span><span class="n">CONF_LOADING_FILE</span><span class="p">]</span>
-            <span class="c1"># only store blueprints if we actually loaded from them</span>
-            <span class="k">if</span> <span class="n">bpPath</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">bpPath</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-                <span class="c1"># Ensure that the input as stored in the DB is complete</span>
-                <span class="n">bpString</span> <span class="o">=</span> <span class="n">resolveMarkupInclusions</span><span class="p">(</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">)</span> <span class="o">/</span> <span class="n">cs</span><span class="p">[</span><span class="n">CONF_LOADING_FILE</span><span class="p">])</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">bpPath</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;.hdf5&quot;</span><span class="p">):</span>
+                <span class="c1"># The blueprints are in a database file, they need to be read</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">db</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">bpPath</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span>
+                    <span class="n">bpString</span> <span class="o">=</span> <span class="n">db</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">asstr</span><span class="p">()[()]</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="c1"># not all reactors need to be created from blueprints, so they may not exist</span>
+                    <span class="n">bpString</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">bpString</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+                <span class="c1"># The blueprints are a standard blueprints yaml that can be read.</span>
+                <span class="k">if</span> <span class="n">bpPath</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">bpPath</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+                    <span class="c1"># only store blueprints if we actually loaded from them</span>
+                    <span class="c1"># Ensure that the input as stored in the DB is complete</span>
+                    <span class="n">bpString</span> <span class="o">=</span> <span class="n">resolveMarkupInclusions</span><span class="p">(</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">cs</span><span class="o">.</span><span class="n">inputDirectory</span><span class="p">)</span> <span class="o">/</span> <span class="n">cs</span><span class="p">[</span><span class="n">CONF_LOADING_FILE</span><span class="p">])</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">bpString</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/settings&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">csString</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="p">[</span><span class="s2">&quot;inputs/blueprints&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bpString</span></div>
@@ -883,7 +899,7 @@
         <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading reactor state for time node (</span><span class="si">{}</span><span class="s2">, </span><span class="si">{}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">))</span>
 
         <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">loadCS</span><span class="p">(</span><span class="n">handleInvalids</span><span class="o">=</span><span class="n">handleInvalids</span><span class="p">)</span>
-        <span class="n">bp</span> <span class="o">=</span> <span class="n">bp</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">loadBlueprints</span><span class="p">()</span>
+        <span class="n">bp</span> <span class="o">=</span> <span class="n">bp</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">loadBlueprints</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">callReactorConstructionHook</span><span class="p">:</span>
             <span class="n">getPluginManagerOrFail</span><span class="p">()</span><span class="o">.</span><span class="n">hook</span><span class="o">.</span><span class="n">beforeReactorConstruction</span><span class="p">(</span><span class="n">cs</span><span class="o">=</span><span class="n">cs</span><span class="p">)</span>
@@ -1917,7 +1933,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-09-22.
+      <span class="lastupdated">Last updated on 2025-09-23.
       </span></p>
   </div>
 
