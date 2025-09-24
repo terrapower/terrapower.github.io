@@ -189,6 +189,9 @@
 <span class="sd">    - Is designed to work with general, vertically oriented, pin-type assembly designs. It is not set up to account</span>
 <span class="sd">      for any other assembly type.</span>
 <span class="sd">    - Useful for fuel performance, thermal expansion, reactivity coefficients, etc.</span>
+<span class="sd">    - The axial expansion changer does not consider the expansion or contraction of fluids and therefore their</span>
+<span class="sd">      conservation is not guarunteed. The conservation of fluid mass is expected only if each component type on a</span>
+<span class="sd">      block has 1) uniform expansion rates and 2) axially isothermal fluid temperatures.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">linked</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">AssemblyAxialLinkage</span><span class="p">]</span>
@@ -277,7 +280,7 @@
             <span class="n">axialExpChanger</span><span class="o">.</span><span class="n">setAssembly</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">expandFromTinputToThot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">axialExpChanger</span><span class="o">.</span><span class="n">applyColdHeightMassIncrease</span><span class="p">()</span>
             <span class="n">axialExpChanger</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">computeThermalExpansionFactors</span><span class="p">()</span>
-            <span class="n">axialExpChanger</span><span class="o">.</span><span class="n">axiallyExpandAssembly</span><span class="p">()</span>
+            <span class="n">axialExpChanger</span><span class="o">.</span><span class="n">axiallyExpandAssembly</span><span class="p">(</span><span class="n">recalculateBurnup</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">isDetailedAxialExpansion</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">:</span>
                 <span class="n">a</span><span class="o">.</span><span class="n">setBlockMesh</span><span class="p">(</span><span class="n">referenceAssembly</span><span class="o">.</span><span class="n">getAxialMesh</span><span class="p">())</span>
@@ -285,7 +288,8 @@
         <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">assems</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">:</span>
                 <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">heightBOL</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getHeight</span><span class="p">()</span>
-                <span class="n">b</span><span class="o">.</span><span class="n">completeInitialLoading</span><span class="p">()</span></div>
+                <span class="n">b</span><span class="o">.</span><span class="n">completeInitialLoading</span><span class="p">()</span>
+                <span class="n">axialExpChanger</span><span class="o">.</span><span class="n">recalculateBurnup</span><span class="p">(</span><span class="n">b</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="AxialExpansionChanger.performPrescribedAxialExpansion">
@@ -469,8 +473,13 @@
 
 <div class="viewcode-block" id="AxialExpansionChanger.axiallyExpandAssembly">
 <a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.AxialExpansionChanger.axiallyExpandAssembly">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">axiallyExpandAssembly</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">axiallyExpandAssembly</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recalculateBurnup</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Utilizes assembly linkage to do axial expansion.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        recalculateBurnup</span>
+<span class="sd">            Optional parameter to skip the recalculate burnup step.</span>
 
 <span class="sd">        .. impl:: Preserve the total height of an ARMI assembly, during expansion.</span>
 <span class="sd">            :id: I_ARMI_ASSEM_HEIGHT_PRES</span>
@@ -580,15 +589,32 @@
                     <span class="n">c</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">ztop</span> <span class="o">-</span> <span class="n">c</span><span class="o">.</span><span class="n">zbottom</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_checkBlockHeight</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">recalculateBurnup</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_recomputeBlockMassParams</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
             <span class="c1"># redo mesh -- functionality based on assembly.calculateZCoords()</span>
             <span class="n">mesh</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ztop</span><span class="p">)</span>
             <span class="n">b</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ib</span><span class="p">]</span>
 
         <span class="n">bounds</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">_bounds</span><span class="p">)</span>
         <span class="n">bounds</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">array</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">_bounds</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">spatialGrid</span><span class="o">.</span><span class="n">_bounds</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">recalculateBurnup</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">iterBlocks</span><span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">recalculateBurnup</span><span class="p">(</span><span class="n">b</span><span class="p">)</span></div>
 
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_recomputeBlockMassParams</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="s2">&quot;Block&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        After component initial mass parameters have been adjusted for expansion,</span>
+<span class="sd">        recompute block parameters that are derived from children.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">paramsToMove</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;massHmBOL&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;molesHmBOL&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">paramsToMove</span><span class="p">:</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">sum</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">iterComponents</span><span class="p">()</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="o">/</span> <span class="n">b</span><span class="o">.</span><span class="n">getSymmetryFactor</span><span class="p">()</span>
+            <span class="p">)</span>
 
 <div class="viewcode-block" id="AxialExpansionChanger.recalculateBurnup">
 <a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.AxialExpansionChanger.recalculateBurnup">[docs]</a>
@@ -701,7 +727,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-09-23.
+      <span class="lastupdated">Last updated on 2025-09-24.
       </span></p>
   </div>
 

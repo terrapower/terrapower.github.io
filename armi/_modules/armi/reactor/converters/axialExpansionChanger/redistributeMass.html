@@ -121,12 +121,11 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">isclose</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">textwrap</span><span class="w"> </span><span class="kn">import</span> <span class="n">dedent</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="nb">sum</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">brentq</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.flags</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flags</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">densityTools</span><span class="p">,</span> <span class="n">units</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">densityTools</span>
 
 <span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.components.component</span><span class="w"> </span><span class="kn">import</span> <span class="n">Component</span>
@@ -169,8 +168,8 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compatabilityCheck</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">setNewToCompNDens</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">setNewToCompTemperature</span><span class="p">()</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNuclidesBOL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNuclidesBOL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">updateBOLParams</span><span class="p">()</span></div>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_adjustMassParams</span><span class="p">()</span></div>
 
 
     <span class="nd">@property</span>
@@ -307,49 +306,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">clearCache</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="RedistributeMass.updateBOLParams">
-<a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.redistributeMass.html#armi.reactor.converters.axialExpansionChanger.redistributeMass.RedistributeMass.updateBOLParams">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">updateBOLParams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the BOL molesHmBOL and massHmBOL to stay consistent with the change in mass.</span>
-
-<span class="sd">        Notes</span>
-<span class="sd">        -----</span>
-<span class="sd">        Unlike the non-BOL information determined in py:meth:`setNewToCompNDens` and :py:meth:`setNewToCompTemperature`,</span>
-<span class="sd">        a new BOL temperature is not neccessary to be calculated here since we do not compute the ``massHmBOL`` or</span>
-<span class="sd">        ``moledHmBOL`` information on-the-fly; this allows us to directly set the new values. However, we do need to</span>
-<span class="sd">        compute the number densities and manually shift mass to account for the possibility of varying temperatures</span>
-<span class="sd">        between toComp and fromComp at BOL.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># build the BOL HM NDens dictionary</span>
-        <span class="n">fromCompBOLNucs</span> <span class="o">=</span> <span class="p">[</span><span class="n">nucName</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span> <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNuclidesBOL</span><span class="p">]</span>
-        <span class="n">toCompBOLNucs</span> <span class="o">=</span> <span class="p">[</span><span class="n">nucName</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span> <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNuclidesBOL</span><span class="p">]</span>
-        <span class="n">fromCompNDensBOL</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">fromCompBOLNucs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNumberDensitiesBOL</span><span class="p">))</span>
-        <span class="n">toCompNDensBOL</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">toCompBOLNucs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">hmNumberDensitiesBOL</span><span class="p">))</span>
-
-        <span class="c1"># calculate the new BOL volume</span>
-        <span class="n">toCompVolBOL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">temperatureInCBOL</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">heightBOL</span>
-        <span class="n">fromCompVolBOL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">getArea</span><span class="p">(</span><span class="n">Tc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">temperatureInCBOL</span><span class="p">)</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">deltaZTop</span><span class="p">)</span>
-        <span class="n">newBOLVol</span> <span class="o">=</span> <span class="n">toCompVolBOL</span> <span class="o">+</span> <span class="n">fromCompVolBOL</span>
-
-        <span class="c1"># calculate new molesHmBOL and massHmBOL for toComp</span>
-        <span class="n">newHMNDensBOL</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">hmNucsBOL</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getAllNucs</span><span class="p">(</span><span class="n">fromCompBOLNucs</span><span class="p">,</span> <span class="n">toCompBOLNucs</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">hmNucsBOL</span><span class="p">:</span>
-            <span class="n">hmMassBOLByNucFromComp</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">getMassInGrams</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">fromCompVolBOL</span><span class="p">,</span> <span class="n">fromCompNDensBOL</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
-            <span class="n">hmMassBOLByNucToComp</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">getMassInGrams</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="n">toCompVolBOL</span><span class="p">,</span> <span class="n">toCompNDensBOL</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nuc</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
-            <span class="n">newHMNDensBOL</span><span class="p">[</span><span class="n">nuc</span><span class="p">]</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">calculateNumberDensity</span><span class="p">(</span>
-                <span class="n">nuc</span><span class="p">,</span> <span class="n">hmMassBOLByNucFromComp</span> <span class="o">+</span> <span class="n">hmMassBOLByNucToComp</span><span class="p">,</span> <span class="n">newBOLVol</span>
-            <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">sum</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">newHMNDensBOL</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span> <span class="o">/</span> <span class="n">units</span><span class="o">.</span><span class="n">MOLES_PER_CC_TO_ATOMS_PER_BARN_CM</span> <span class="o">*</span> <span class="n">newBOLVol</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span> <span class="o">=</span> <span class="n">densityTools</span><span class="o">.</span><span class="n">calculateMassDensity</span><span class="p">(</span><span class="n">newHMNDensBOL</span><span class="p">)</span> <span class="o">*</span> <span class="n">newBOLVol</span>
-
-        <span class="c1"># update BOL Params for fromComp</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="o">*=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">deltaZTop</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">heightBOL</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span> <span class="o">*=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">deltaZTop</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">heightBOL</span><span class="p">)</span></div>
-
-
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_sortKey</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Break isotope string down by element, atomic weight, and metastable state for sorting. Raises a RuntimeError</span>
@@ -381,7 +337,20 @@
 <span class="sd">        and 3) metastable state.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">nucsToAdd</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">nucsA</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">nucsB</span><span class="p">))</span>
-        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">nucsToAdd</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_sortKey</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">nucsToAdd</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_sortKey</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_adjustMassParams</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Adjust massHmBOL and molesHmBOL on fromComp and toComp.&quot;&quot;&quot;</span>
+        <span class="n">paramsToMove</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;massHmBOL&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;molesHmBOL&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">removalFrac</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">deltaZTop</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">height</span>
+        <span class="k">for</span> <span class="n">paramName</span> <span class="ow">in</span> <span class="n">paramsToMove</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">amountMoved</span> <span class="o">=</span> <span class="n">removalFrac</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">+</span> <span class="n">amountMoved</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">-</span> <span class="n">amountMoved</span></div>
 
 </pre></div>
 
@@ -393,7 +362,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-09-23.
+      <span class="lastupdated">Last updated on 2025-09-24.
       </span></p>
   </div>
 
