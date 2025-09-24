@@ -2535,35 +2535,41 @@
         <span class="c1"># Flags for components that we want to set this parameter</span>
         <span class="c1"># Usually things are linked to one of these &quot;important&quot; flags, like</span>
         <span class="c1"># a cladding component having linked dimensions to a fuel component</span>
-        <span class="n">targetFlags</span> <span class="o">=</span> <span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">SHIELD</span><span class="p">)</span>
-        <span class="n">found</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assignPinIndices</span><span class="p">(</span><span class="n">ijGetter</span><span class="p">,</span> <span class="n">allIJ</span><span class="p">,</span> <span class="n">targetFlags</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">found</span><span class="p">:</span>
-            <span class="k">return</span>
-        <span class="c1"># If we didn&#39;t find any &quot;important&quot; components, but we have pins, we need to</span>
-        <span class="c1"># provide some information about where the pins live still. Fall back to</span>
-        <span class="c1"># assigning on the cladding components</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_assignPinIndices</span><span class="p">(</span><span class="n">ijGetter</span><span class="p">,</span> <span class="n">allIJ</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CLAD</span><span class="p">)</span></div>
-
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_assignPinIndices</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">ijGetter</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">grids</span><span class="o">.</span><span class="n">IndexLocation</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
-        <span class="n">allIJ</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
-        <span class="n">targetFlags</span><span class="p">:</span> <span class="n">Flags</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterChildren</span><span class="p">(</span><span class="n">predicate</span><span class="o">=</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span><span class="o">.</span><span class="n">hasFlags</span><span class="p">(</span><span class="n">targetFlags</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Circle</span><span class="p">)):</span>
-            <span class="n">localLocations</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">localLocations</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">MultiIndexLocation</span><span class="p">):</span>
-                <span class="n">localIJ</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">ijGetter</span><span class="p">,</span> <span class="n">localLocations</span><span class="p">))</span>
-            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">localLocations</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">IndexLocation</span><span class="p">):</span>
-                <span class="n">localIJ</span> <span class="o">=</span> <span class="p">[</span><span class="n">ijGetter</span><span class="p">(</span><span class="n">localLocations</span><span class="p">)]</span>
-            <span class="k">else</span><span class="p">:</span>
+        <span class="n">primaryFlags</span> <span class="o">=</span> <span class="p">(</span><span class="n">Flags</span><span class="o">.</span><span class="n">FUEL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">,</span> <span class="n">Flags</span><span class="o">.</span><span class="n">SHIELD</span><span class="p">)</span>
+        <span class="n">withPinIndices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">components</span><span class="o">.</span><span class="n">Component</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iterChildrenWithFlags</span><span class="p">(</span><span class="n">primaryFlags</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_setPinIndices</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ijGetter</span><span class="p">,</span> <span class="n">allIJ</span><span class="p">):</span>
+                <span class="n">withPinIndices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="c1"># Iterate over every other thing on the grid and make sure</span>
+        <span class="c1"># 1) it share a lattice site with something that has pin indices, or</span>
+        <span class="c1"># 2) it itself declares the pin indices</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinIndices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">continue</span>
-            <span class="n">localIndices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">allIJ</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">localIJ</span><span class="p">))</span>
-            <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinIndices</span> <span class="o">=</span> <span class="n">localIndices</span>
-            <span class="n">found</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="k">return</span> <span class="n">found</span>
+            <span class="c1"># Does anything with pin indices share this lattice site?</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="o">==</span> <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span> <span class="k">for</span> <span class="n">other</span> <span class="ow">in</span> <span class="n">withPinIndices</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_setPinIndices</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ijGetter</span><span class="p">,</span> <span class="n">allIJ</span><span class="p">):</span>
+                <span class="n">withPinIndices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span></div>
+
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_setPinIndices</span><span class="p">(</span>
+        <span class="n">c</span><span class="p">:</span> <span class="n">components</span><span class="o">.</span><span class="n">Component</span><span class="p">,</span> <span class="n">ijGetter</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">grids</span><span class="o">.</span><span class="n">IndexLocation</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span> <span class="n">allIJ</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+    <span class="p">):</span>
+        <span class="n">localLocations</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">spatialLocator</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">localLocations</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">MultiIndexLocation</span><span class="p">):</span>
+            <span class="n">localIJ</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">ijGetter</span><span class="p">,</span> <span class="n">localLocations</span><span class="p">))</span>
+        <span class="c1"># CoordinateLocations do not live on the grid, by definition</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">localLocations</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">CoordinateLocation</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">localLocations</span><span class="p">,</span> <span class="n">grids</span><span class="o">.</span><span class="n">IndexLocation</span><span class="p">):</span>
+            <span class="n">localIJ</span> <span class="o">=</span> <span class="p">[</span><span class="n">ijGetter</span><span class="p">(</span><span class="n">localLocations</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">localIndices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">allIJ</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">localIJ</span><span class="p">))</span>
+        <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinIndices</span> <span class="o">=</span> <span class="n">localIndices</span>
+        <span class="k">return</span> <span class="kc">True</span>
 
 <div class="viewcode-block" id="HexBlock.getPinCenterFlatToFlat">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.blocks.html#armi.reactor.blocks.HexBlock.getPinCenterFlatToFlat">[docs]</a>
