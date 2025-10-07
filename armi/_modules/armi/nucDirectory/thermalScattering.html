@@ -115,23 +115,11 @@
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Handle awareness of Thermal Scattering Laws.</span>
+<span class="sd">Handle awareness of Thermal Scattering labels for ENDF/B-VIII and ACE.</span>
 
-<span class="sd">Scattering characteristics of thermal neutrons are often significantly different between a free atom and one bound in a</span>
-<span class="sd">particular molecule. Nuclear data libraries often have special tables to account for the bound states. These data are</span>
-<span class="sd">commonly represented as S(alpha, beta) tables.</span>
+<span class="sd">The information below is based on Parsons, LA-UR-18-25096, https://mcnp.lanl.gov/pdf_files/la-ur-18-25096.pdf</span>
 
-<span class="sd">Here we provide objects representing the thermal scattering law (TSL) information. We expect them to be most useful as</span>
-<span class="sd">class attributes on :py:class:`~armi.materials.material.Material` subclasses to inform physics solvers that support</span>
-<span class="sd">thermal scattering of the TSLs. See :py:class:`~armi.materials.graphite.Graphite` for an example.</span>
-
-<span class="sd">We do not provide special versions of various NuclideBases like C12 because of potential errors in choosing one over the</span>
-<span class="sd">other</span>
-
-<span class="sd">The information contained in here is based on Parsons, LA-UR-18-25096,</span>
-<span class="sd">https://mcnp.lanl.gov/pdf_files/la-ur-18-25096.pdf</span>
-
-<span class="sd">Scattering law data are currently available for a variety of classifications:</span>
+<span class="sd">Scattering law labels are currently available for a variety of classifications:</span>
 
 <span class="sd">* Element in Compound (H in H2O, Be in BeO)</span>
 <span class="sd">* Element in structure (C in Graphite, Be in metal)</span>
@@ -145,239 +133,99 @@
 
 <span class="sd">The labels for these vary across evaluations (e.g. ENDF/B-VII, ENDF/B-VIII, etc.). We provide ENDF/B-III.0 and ACE</span>
 <span class="sd">labels. Other physics kernels will have to derive their own labels as appropriate in client code.</span>
-
-<span class="sd">Like NuclideBase and Element, we want to have only one ThermalScattering instance for each TSL, so we use a module-level</span>
-<span class="sd">directory called ``byNbAndCompound``. This improves efficiency and allows better cross-referencing when thousands of</span>
-<span class="sd">material instances would otherwise have identical instances of these.</span>
-
-<span class="sd">Thus, in practice, users should rarely instantiate these on their own.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.nucDirectory</span><span class="w"> </span><span class="kn">import</span> <span class="n">elements</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.nucDirectory</span><span class="w"> </span><span class="kn">import</span> <span class="n">nuclideBases</span> <span class="k">as</span> <span class="n">nb</span>
-
+<span class="c1"># strings that users might want to reference downstream</span>
 <span class="n">BE_METAL</span> <span class="o">=</span> <span class="s2">&quot;Be-metal&quot;</span>
 <span class="n">BEO</span> <span class="o">=</span> <span class="s2">&quot;BeO&quot;</span>
-<span class="n">SIC</span> <span class="o">=</span> <span class="s2">&quot;SiC&quot;</span>
+<span class="n">CRYSTALLINE_GRAPHITE</span> <span class="o">=</span> <span class="s2">&quot;crystalline-graphite&quot;</span>
 <span class="n">D2O</span> <span class="o">=</span> <span class="s2">&quot;D2O&quot;</span>
+<span class="n">GRAPHITE_10P</span> <span class="o">=</span> <span class="s2">&quot;reactor-graphite-10P&quot;</span>
+<span class="n">GRAPHITE_30P</span> <span class="o">=</span> <span class="s2">&quot;reactor-graphite-30P&quot;</span>
 <span class="n">H2O</span> <span class="o">=</span> <span class="s2">&quot;H2O&quot;</span>
+<span class="n">SIC</span> <span class="o">=</span> <span class="s2">&quot;SiC&quot;</span>
 <span class="n">UN</span> <span class="o">=</span> <span class="s2">&quot;UN&quot;</span>
 <span class="n">UO2</span> <span class="o">=</span> <span class="s2">&quot;UO2&quot;</span>
 <span class="n">ZRH</span> <span class="o">=</span> <span class="s2">&quot;ZrH&quot;</span>
-<span class="n">CRYSTALLINE_GRAPHITE</span> <span class="o">=</span> <span class="s2">&quot;crystalline-graphite&quot;</span>
-<span class="n">GRAPHITE_10P</span> <span class="o">=</span> <span class="s2">&quot;reactor-graphite-10P&quot;</span>
-<span class="n">GRAPHITE_30P</span> <span class="o">=</span> <span class="s2">&quot;reactor-graphite-30P&quot;</span>
+
+<span class="c1"># thermal scattering label data</span>
+<span class="n">BY_NAME_AND_COMPOUND</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="p">(</span><span class="s2">&quot;AL27&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-013_Al_027.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;al-27&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;BE&quot;</span><span class="p">,</span> <span class="n">BE_METAL</span><span class="p">):</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="n">BE_METAL</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;be-met&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;BE&quot;</span><span class="p">,</span> <span class="n">BEO</span><span class="p">):</span> <span class="p">(</span><span class="n">BEO</span><span class="p">,</span> <span class="s2">&quot;be-beo&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">CRYSTALLINE_GRAPHITE</span><span class="p">):</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="n">CRYSTALLINE_GRAPHITE</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;grph&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">GRAPHITE_10P</span><span class="p">):</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="n">GRAPHITE_10P</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;grph10&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">GRAPHITE_30P</span><span class="p">):</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="n">GRAPHITE_30P</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;grph30&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="n">SIC</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-CinSiC.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;c-sic&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;FE56&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-026_Fe_056.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;fe-56&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">H2O</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-HinH2O.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;h-h2o&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">ZRH</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-HinZrH.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;h-zrh&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;H2&quot;</span><span class="p">,</span> <span class="n">D2O</span><span class="p">):</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tsl-Din</span><span class="si">{</span><span class="n">D2O</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;d-d2o&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;N&quot;</span><span class="p">,</span> <span class="n">UN</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-NinUN.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;n-un&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;O&quot;</span><span class="p">,</span> <span class="n">BEO</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-OinBeO.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;o-beo&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;O&quot;</span><span class="p">,</span> <span class="n">D2O</span><span class="p">):</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tsl-Oin</span><span class="si">{</span><span class="n">D2O</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;o-d2o&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;O&quot;</span><span class="p">,</span> <span class="n">UO2</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-OinUO2.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;o-uo2&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;SI&quot;</span><span class="p">,</span> <span class="n">SIC</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-SIinSiC.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;si-sic&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="n">UN</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-UinUN.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;u-un&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="n">UO2</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-UinUO2.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;u-uo2&quot;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;ZR&quot;</span><span class="p">,</span> <span class="n">ZRH</span><span class="p">):</span> <span class="p">(</span><span class="s2">&quot;tsl-ZRinZrH.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;zr-zrh&quot;</span><span class="p">),</span>
+<span class="p">}</span>
 
 
-<span class="n">byNbAndCompound</span> <span class="o">=</span> <span class="p">{}</span>
+<div class="viewcode-block" id="ThermalScatteringLabels">
+<a class="viewcode-back" href="../../../.apidocs/armi.nucDirectory.thermalScattering.html#armi.nucDirectory.thermalScattering.ThermalScatteringLabels">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ThermalScatteringLabels</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Container for the labels for a particular nuclide/compound combination.</span>
 
-
-<div class="viewcode-block" id="ThermalScattering">
-<a class="viewcode-back" href="../../../.apidocs/armi.nucDirectory.thermalScattering.html#armi.nucDirectory.thermalScattering.ThermalScattering">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">ThermalScattering</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Thermal Scattering data.</span>
-
-<span class="sd">    Parameters</span>
+<span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
-<span class="sd">    nuclideBases : INuclide or tuple of INuclide</span>
-<span class="sd">        One or more nuclide bases whose existence would trigger the inclusion of the TSL. Generally items here will be a</span>
-<span class="sd">        NaturalNuclideBase like ``nb.byName[&quot;C&quot;]`` for Carbon but it is a tuple to capture, e.g. the C and H in methane.</span>
-<span class="sd">    compoundName : str, optional</span>
+<span class="sd">    name: str</span>
+<span class="sd">        Name of the nuclide. This should match the string in the &quot;byName&quot; field in nuclideBases.</span>
+<span class="sd">    compound: str</span>
 <span class="sd">        Label indicating what the subjects are in (e.g. ``&quot;Graphite&quot;`` or ``&quot;H2O&quot;``. Can be left off for, e.g. Fe56.</span>
-<span class="sd">    endf8Label : str, optional</span>
-<span class="sd">        Label for endf8 evaluation</span>
-<span class="sd">    aceLabel: str, optional</span>
-<span class="sd">        ace label</span>
+<span class="sd">    endf8Label: str</span>
+<span class="sd">        Label for ENDF/B-VIII evaluation.</span>
+<span class="sd">    aceLabel: str</span>
+<span class="sd">        Lavel for ACE.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">nuclideBases</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">nb</span><span class="o">.</span><span class="n">INuclide</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">nb</span><span class="o">.</span><span class="n">INuclide</span><span class="p">]],</span>
-        <span class="n">compoundName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">endf8Label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">aceLabel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nuclideBases</span><span class="p">,</span> <span class="n">nb</span><span class="o">.</span><span class="n">INuclide</span><span class="p">):</span>
-            <span class="c1"># handle common single entry for convenience</span>
-            <span class="n">nuclideBases</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">nbs</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">nuclideBases</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">compoundName</span> <span class="o">=</span> <span class="n">compoundName</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">endf8Label</span> <span class="o">=</span> <span class="n">endf8Label</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_genENDFB8Label</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">aceLabel</span> <span class="o">=</span> <span class="n">aceLabel</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_genACELabel</span><span class="p">()</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;ThermalScatteringLaw - Compound: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">compoundName</span><span class="si">}</span><span class="s2">, Nuclides: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs</span><span class="si">}</span><span class="s2">&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">hash</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">compoundName</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nbs</span><span class="p">))</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="nb">hash</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-
-<div class="viewcode-block" id="ThermalScattering.getSubjectNuclideBases">
-<a class="viewcode-back" href="../../../.apidocs/armi.nucDirectory.thermalScattering.html#armi.nucDirectory.thermalScattering.ThermalScattering.getSubjectNuclideBases">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">getSubjectNuclideBases</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return all nuclide bases that could be subject to this law.</span>
-
-<span class="sd">        In cases where the law is defined by a NaturalNuclideBase, all potential isotopes of the element as well as the</span>
-<span class="sd">        element it self should trigger it. This helps handle cases where, for example, C or C12 is present.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">subjectNbs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">nbi</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nbs</span><span class="p">:</span>
-            <span class="n">subjectNbs</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">nbi</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nbi</span><span class="p">,</span> <span class="n">nb</span><span class="o">.</span><span class="n">NaturalNuclideBase</span><span class="p">):</span>
-                <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">nbi</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">nuclides</span><span class="p">:</span>
-                    <span class="n">subjectNbs</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">nuc</span><span class="p">)</span>
-        <span class="n">subjectNbs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">subjectNbs</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">subjectNbs</span></div>
-
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_genENDFB8Label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Generate the ENDF/B-VIII.0 label.</span>
-
-<span class="sd">        Several ad-hoc assumptions are made in converting this object to a ENDF/B-VIII label which may not apply in all</span>
-<span class="sd">        cases.</span>
-
-<span class="sd">        It is believed that these rules cover most ENDF TSLs listed in Parsons, LA-UR-18-25096,</span>
-<span class="sd">        https://mcnp.lanl.gov/pdf_files/la-ur-18-25096.pdf</span>
-
-<span class="sd">        Unfortunately, the ace labels are not as easily derived.</span>
-
-<span class="sd">        * If nuclideBases is length one and contains a ``NaturalNuclideBase``, then the name will be assumed to be</span>
-<span class="sd">          ``Element_in_compoundName``</span>
-<span class="sd">        * If nuclideBases is length one and is a NuclideBase, it is assumed to be an isotope like Fe-56 and  the label</span>
-<span class="sd">          will be (for example) 026_Fe_056</span>
-<span class="sd">        * If nuclideBases has length greater than one, the compoundName will form the entire of the label. So, if Si and</span>
-<span class="sd">          O are in the bases, the compoundName must be ``SiO2-alpha`` in order to get ``tsl-SiO2-alpha.endf`` as a endf8</span>
-<span class="sd">          label.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">first</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs</span><span class="p">))</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="c1"># just compound (like SiO2)</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">compoundName</span><span class="si">}</span><span class="s2">.endf&quot;</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">nb</span><span class="o">.</span><span class="n">NaturalNuclideBase</span><span class="p">):</span>
-            <span class="c1"># element in compound</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="n">first</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="si">}</span><span class="s2">in</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">compoundName</span><span class="si">}</span><span class="s2">.endf&quot;</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">nb</span><span class="o">.</span><span class="n">NuclideBase</span><span class="p">):</span>
-            <span class="c1"># just isotope</span>
-            <span class="n">element</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">byZ</span><span class="p">[</span><span class="n">first</span><span class="o">.</span><span class="n">z</span><span class="p">]</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="n">first</span><span class="o">.</span><span class="n">z</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">first</span><span class="o">.</span><span class="n">a</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">.endf&quot;</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> label cannot be generated&quot;</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">label</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_genACELabel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Attempt to derive the ACE label of a TSL.</span>
-
-<span class="sd">        There are certain exceptions that cannot be derived and must be provided by the user upon instantiation, for</span>
-<span class="sd">        example:</span>
-
-<span class="sd">        * ``grph10``</span>
-<span class="sd">        * ``grph30``</span>
-<span class="sd">        * ``grph``</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">first</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs</span><span class="p">))</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nbs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="c1"># just compound (like SiO2)</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">compoundName</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">nb</span><span class="o">.</span><span class="n">NaturalNuclideBase</span><span class="p">):</span>
-            <span class="c1"># element in compound</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">first</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">compoundName</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">nb</span><span class="o">.</span><span class="n">NuclideBase</span><span class="p">):</span>
-            <span class="c1"># just isotope</span>
-            <span class="n">element</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="n">byZ</span><span class="p">[</span><span class="n">first</span><span class="o">.</span><span class="n">z</span><span class="p">]</span>
-            <span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">symbol</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">first</span><span class="o">.</span><span class="n">a</span><span class="si">:</span><span class="s2">d</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> label cannot be generated&quot;</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">label</span></div>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">compound</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">endf8Label</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">aceLabel</span><span class="p">:</span> <span class="nb">str</span></div>
 
 
 
-<div class="viewcode-block" id="factory">
-<a class="viewcode-back" href="../../../.apidocs/armi.nucDirectory.thermalScattering.html#armi.nucDirectory.thermalScattering.factory">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">factory</span><span class="p">(</span><span class="n">byName</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Generate the :class:`ThermalScattering` instances.</span>
-
-<span class="sd">    The logic for these is a bit complex so we skip reading a text file and code it up here.</span>
-
-<span class="sd">    This is called by the nuclideBases factory since it must ALWAYS be re-run when the nuclideBases are rebuilt.</span>
+<div class="viewcode-block" id="fromNameAndCompound">
+<a class="viewcode-back" href="../../../.apidocs/armi.nucDirectory.thermalScattering.html#armi.nucDirectory.thermalScattering.fromNameAndCompound">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fromNameAndCompound</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">compound</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The standard interface for getting ENDF/B-VIII and ACE labels for a given nuclide.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    byName: dict[str, INuclide]</span>
-<span class="sd">        A dictionary of the nuclides in this class, keyed by name, e.g., &quot;U235&quot;.</span>
+<span class="sd">    name: str</span>
+<span class="sd">        Name of the nuclide.</span>
+<span class="sd">    compound: str</span>
+<span class="sd">        Name of the compound (can be None).</span>
 
-<span class="sd">    See Also</span>
-<span class="sd">    --------</span>
-<span class="sd">    armi.nucDirectory.nuclideBases.factory</span>
-<span class="sd">        Calls this during ARMI initialization.</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ThermalScatteringLabels</span>
+<span class="sd">        An instance of the data class used to contain the ENDF/ACE labels for this nuclide/componound combination.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        ARMI does not store a large data set of labels. If the user requests one ARMI does not have, they get an error.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">global</span> <span class="n">byNbAndCompound</span>
-    <span class="n">byNbAndCompound</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-
-    <span class="k">if</span> <span class="s2">&quot;AL27&quot;</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
-        <span class="n">al27</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;AL27&quot;</span><span class="p">]</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">al27</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">al27</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="s2">&quot;BE&quot;</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
-        <span class="n">be</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;BE&quot;</span><span class="p">]</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">be</span><span class="p">,</span> <span class="n">BE_METAL</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span>
-            <span class="n">be</span><span class="p">,</span> <span class="n">BE_METAL</span><span class="p">,</span> <span class="n">endf8Label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="n">BE_METAL</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="n">aceLabel</span><span class="o">=</span><span class="s2">&quot;be-met&quot;</span>
-        <span class="p">)</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">be</span><span class="p">,</span> <span class="n">BEO</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">be</span><span class="p">,</span> <span class="n">BEO</span><span class="p">,</span> <span class="n">endf8Label</span><span class="o">=</span><span class="n">BEO</span><span class="p">,</span> <span class="n">aceLabel</span><span class="o">=</span><span class="s2">&quot;be-beo&quot;</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="s2">&quot;C&quot;</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">]</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">c</span><span class="p">,</span> <span class="n">SIC</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">SIC</span><span class="p">)</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">c</span><span class="p">,</span> <span class="n">GRAPHITE_10P</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">GRAPHITE_10P</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="n">GRAPHITE_10P</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;grph10&quot;</span><span class="p">)</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">c</span><span class="p">,</span> <span class="n">GRAPHITE_30P</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">GRAPHITE_30P</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="n">GRAPHITE_30P</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;grph30&quot;</span><span class="p">)</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">c</span><span class="p">,</span> <span class="n">CRYSTALLINE_GRAPHITE</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span>
-            <span class="n">c</span><span class="p">,</span> <span class="n">CRYSTALLINE_GRAPHITE</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tsl-</span><span class="si">{</span><span class="n">CRYSTALLINE_GRAPHITE</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;grph&quot;</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="s2">&quot;FE56&quot;</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
-        <span class="n">fe56</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;FE56&quot;</span><span class="p">]</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">fe56</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">fe56</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="s2">&quot;H2&quot;</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
-        <span class="n">h</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;H&quot;</span><span class="p">]</span>
-        <span class="n">d</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;H2&quot;</span><span class="p">]</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">d</span><span class="p">,</span> <span class="n">D2O</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">D2O</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tsl-Din</span><span class="si">{</span><span class="n">D2O</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;d-d2o&quot;</span><span class="p">)</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">h</span><span class="p">,</span> <span class="n">H2O</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">H2O</span><span class="p">)</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">h</span><span class="p">,</span> <span class="n">ZRH</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">ZRH</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="s2">&quot;N&quot;</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
-        <span class="n">n</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;N&quot;</span><span class="p">]</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">UN</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">UN</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="s2">&quot;O&quot;</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
-        <span class="n">o</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;O&quot;</span><span class="p">]</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">BEO</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">BEO</span><span class="p">)</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">D2O</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">D2O</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;tsl-Oin</span><span class="si">{</span><span class="n">D2O</span><span class="si">}</span><span class="s2">.endf&quot;</span><span class="p">,</span> <span class="s2">&quot;o-d2o&quot;</span><span class="p">)</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">o</span><span class="p">,</span> <span class="n">UO2</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">UO2</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="s2">&quot;SI&quot;</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
-        <span class="n">si</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;SI&quot;</span><span class="p">]</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">si</span><span class="p">,</span> <span class="n">SIC</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">si</span><span class="p">,</span> <span class="n">SIC</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="s2">&quot;U&quot;</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
-        <span class="n">u</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;U&quot;</span><span class="p">]</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="n">UO2</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">UO2</span><span class="p">)</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="n">UN</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">UN</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="s2">&quot;ZR&quot;</span> <span class="ow">in</span> <span class="n">byName</span><span class="p">:</span>
-        <span class="n">zr</span> <span class="o">=</span> <span class="n">byName</span><span class="p">[</span><span class="s2">&quot;ZR&quot;</span><span class="p">]</span>
-        <span class="n">byNbAndCompound</span><span class="p">[</span><span class="n">zr</span><span class="p">,</span> <span class="n">ZRH</span><span class="p">]</span> <span class="o">=</span> <span class="n">ThermalScattering</span><span class="p">(</span><span class="n">zr</span><span class="p">,</span> <span class="n">ZRH</span><span class="p">)</span></div>
+    <span class="k">if</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">compound</span><span class="p">)</span> <span class="ow">in</span> <span class="n">BY_NAME_AND_COMPOUND</span><span class="p">:</span>
+        <span class="n">endf</span><span class="p">,</span> <span class="n">ace</span> <span class="o">=</span> <span class="n">BY_NAME_AND_COMPOUND</span><span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="n">compound</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">ThermalScatteringLabels</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">compound</span><span class="p">,</span> <span class="n">endf</span><span class="p">,</span> <span class="n">ace</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No thermal scattering labels are known for name/compound: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">compound</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 </pre></div>
 
@@ -389,7 +237,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-10-03.
+      <span class="lastupdated">Last updated on 2025-10-07.
       </span></p>
   </div>
 
