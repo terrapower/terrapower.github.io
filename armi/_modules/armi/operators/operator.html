@@ -130,10 +130,10 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">context</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">,</span> <span class="n">runLog</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.bookkeeping</span><span class="w"> </span><span class="kn">import</span> <span class="n">memoryProfiler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.bookkeeping</span><span class="w"> </span><span class="kn">import</span> <span class="n">db</span><span class="p">,</span> <span class="n">memoryProfiler</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.bookkeeping.report</span><span class="w"> </span><span class="kn">import</span> <span class="n">reportingUtils</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.operators.runTypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">RunTypes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.fuelCycle.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">CONF_SHUFFLE_LOGIC</span>
@@ -156,6 +156,7 @@
     <span class="n">getCycleNames</span><span class="p">,</span>
     <span class="n">getMaxBurnSteps</span><span class="p">,</span>
     <span class="n">getPowerFractions</span><span class="p">,</span>
+    <span class="n">getPreviousTimeNode</span><span class="p">,</span>
     <span class="n">getStepLengths</span><span class="p">,</span>
     <span class="n">pathTools</span><span class="p">,</span>
     <span class="n">units</span><span class="p">,</span>
@@ -464,6 +465,11 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_mainOperate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Main loop for a standard ARMI run. Steps through time interacting with the interfaces.&quot;&quot;&quot;</span>
+        <span class="n">dbi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;database&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dbi</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">dbi</span><span class="o">.</span><span class="n">enabled</span><span class="p">():</span>
+            <span class="n">dbi</span><span class="o">.</span><span class="n">initDB</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;loadStyle&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;fromInput&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;runType&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">RunTypes</span><span class="o">.</span><span class="n">SNAPSHOTS</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interactAllRestart</span><span class="p">(</span><span class="n">dbi</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interactAllBOL</span><span class="p">()</span>
         <span class="n">startingCycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span>  <span class="c1"># may be starting at t != 0 in restarts</span>
         <span class="k">for</span> <span class="n">cycle</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">startingCycle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;nCycles&quot;</span><span class="p">]):</span>
@@ -471,6 +477,40 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="n">keepGoing</span><span class="p">:</span>
                 <span class="k">break</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interactAllEOL</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Operator.interactAllRestart">
+<a class="viewcode-back" href="../../../.apidocs/armi.operators.operator.html#armi.operators.operator.Operator.interactAllRestart">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interactAllRestart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dbi</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">db</span><span class="o">.</span><span class="n">DatabaseInterface</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare for a restart simulation.</span>
+
+<span class="sd">        Some steps are necessary to be taken after interfaces are constructed but before we</span>
+<span class="sd">        start the real simulation. Crucially, we need to load the previous time point from the</span>
+<span class="sd">        database. The previous time node is chosen because that is the last point where we are</span>
+<span class="sd">        certain we have valid data and can safely recover.</span>
+
+<span class="sd">        If restarting at BOC, trigger the EOC actions from the previous cycle. This is necessary to</span>
+<span class="sd">        perform any fuel management operations that would have happened at the end of the previous cycle.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">startCycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startCycle&quot;</span><span class="p">]</span>
+        <span class="n">startNode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;startNode&quot;</span><span class="p">]</span>
+        <span class="n">prevTimeNode</span> <span class="o">=</span> <span class="n">getPreviousTimeNode</span><span class="p">(</span><span class="n">startCycle</span><span class="p">,</span> <span class="n">startNode</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dbi</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dbi</span><span class="o">.</span><span class="n">prepRestartRun</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No database interface means nothing is responsible for restarting from DB&quot;</span><span class="p">)</span>
+
+        <span class="n">activeInterfaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getActiveInterfaces</span><span class="p">(</span><span class="s2">&quot;Restart&quot;</span><span class="p">,</span> <span class="n">excludedInterfaceNames</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;database&quot;</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_interactAll</span><span class="p">(</span><span class="s2">&quot;Restart&quot;</span><span class="p">,</span> <span class="n">activeInterfaces</span><span class="p">,</span> <span class="p">(</span><span class="n">startCycle</span><span class="p">,</span> <span class="n">startNode</span><span class="p">),</span> <span class="n">prevTimeNode</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">startNode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">&quot;Calling `o.interactAllEOC` due to loading the last time node of the previous cycle.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interactAllEOC</span><span class="p">(</span><span class="n">prevTimeNode</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="c1"># advance time time since we loaded the previous time step</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span> <span class="o">=</span> <span class="n">startCycle</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span> <span class="o">=</span> <span class="n">startNode</span></div>
+
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_cycleLoop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cycle</span><span class="p">,</span> <span class="n">startingCycle</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the portion of the main loop that happens each cycle.&quot;&quot;&quot;</span>
@@ -1074,7 +1114,7 @@
         <span class="k">if</span> <span class="n">excludedInterfaceNames</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">excludedInterfaceNames</span> <span class="o">=</span> <span class="p">()</span>
 
-        <span class="k">if</span> <span class="n">interactState</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;BOL&quot;</span><span class="p">,</span> <span class="s2">&quot;BOC&quot;</span><span class="p">,</span> <span class="s2">&quot;EveryNode&quot;</span><span class="p">,</span> <span class="s2">&quot;EOC&quot;</span><span class="p">,</span> <span class="s2">&quot;EOL&quot;</span><span class="p">,</span> <span class="s2">&quot;Coupled&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">interactState</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;BOL&quot;</span><span class="p">,</span> <span class="s2">&quot;BOC&quot;</span><span class="p">,</span> <span class="s2">&quot;EveryNode&quot;</span><span class="p">,</span> <span class="s2">&quot;EOC&quot;</span><span class="p">,</span> <span class="s2">&quot;EOL&quot;</span><span class="p">,</span> <span class="s2">&quot;Coupled&quot;</span><span class="p">,</span> <span class="s2">&quot;Restart&quot;</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">interactState</span><span class="si">}</span><span class="s2"> is an unknown interaction state!&quot;</span><span class="p">)</span>
 
         <span class="c1"># Ensure the interface is enabled.</span>
@@ -1314,7 +1354,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-10-08.
+      <span class="lastupdated">Last updated on 2025-10-09.
       </span></p>
   </div>
 

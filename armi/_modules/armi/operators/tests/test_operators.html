@@ -123,6 +123,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">unittest.mock</span><span class="w"> </span><span class="kn">import</span> <span class="n">patch</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">settings</span>
@@ -800,6 +801,103 @@
         <span class="p">)</span></div>
 </div>
 
+
+
+<div class="viewcode-block" id="OperatorRestartTests">
+<a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorRestartTests">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">OperatorRestartTests</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Tests on the behavior of the interactAllRestart hook.&quot;&quot;&quot;</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">START_CYCLE</span> <span class="o">=</span> <span class="mi">4</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">START_NODE</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">r</span> <span class="o">=</span> <span class="n">test_reactors</span><span class="o">.</span><span class="n">loadTestReactor</span><span class="p">(</span>
+            <span class="n">inputFileName</span><span class="o">=</span><span class="s2">&quot;smallestTestReactor/armiRunSmallest.yaml&quot;</span><span class="p">,</span>
+            <span class="n">customSettings</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;loadStyle&quot;</span><span class="p">:</span> <span class="s2">&quot;fromDB&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;startCycle&quot;</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">START_CYCLE</span><span class="p">,</span>
+                <span class="s2">&quot;startNode&quot;</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">START_NODE</span><span class="p">,</span>
+                <span class="c1"># Need more cycles than we&#39;re restarting</span>
+                <span class="s2">&quot;nCycles&quot;</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">START_CYCLE</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dbi</span><span class="p">:</span> <span class="n">DatabaseInterface</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="s2">&quot;database&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNotNone</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dbi</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;Database interface required for test.&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OperatorRestartTests.test_nominalRestart">
+<a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorRestartTests.test_nominalRestart">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_nominalRestart</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Make sure the database interface is uniquely called and the interactRestart is not called for DB.</span>
+
+<span class="sd">        We need to make sure the database interface loads the reactor before every other interface goes first.</span>
+<span class="sd">        But then, when all the interfaces get their chance to ``interactRestart``, the database interface</span>
+<span class="sd">        does not. Since it did it&#39;s work already.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mainInterface</span><span class="p">:</span> <span class="n">Interface</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNotNone</span><span class="p">(</span><span class="n">mainInterface</span><span class="p">)</span>
+        <span class="k">with</span> <span class="p">(</span>
+            <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dbi</span><span class="p">,</span> <span class="s2">&quot;interactRestart&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">dbInteractRestart</span><span class="p">,</span>
+            <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dbi</span><span class="p">,</span> <span class="s2">&quot;prepRestartRun&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">dbPrepRestart</span><span class="p">,</span>
+            <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="n">mainInterface</span><span class="p">,</span> <span class="s2">&quot;interactRestart&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mainIfcRestart</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">interactAllRestart</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dbi</span><span class="p">)</span>
+        <span class="n">dbPrepRestart</span><span class="o">.</span><span class="n">assert_called_once</span><span class="p">()</span>
+        <span class="c1"># Skip DatabaseInterface.interactRestart since we jumped ahead and &quot;restarted&quot; with prepRestartRun</span>
+        <span class="n">dbInteractRestart</span><span class="o">.</span><span class="n">assert_not_called</span><span class="p">()</span>
+
+        <span class="c1"># Ensure we called other interfaces restarts at the previous node</span>
+        <span class="n">mainIfcRestart</span><span class="o">.</span><span class="n">assert_called_once_with</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">START_CYCLE</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">START_NODE</span><span class="p">),</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">START_CYCLE</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">START_NODE</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">START_CYCLE</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">timeNode</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">START_NODE</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OperatorRestartTests.patchCS">
+<a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorRestartTests.patchCS">[docs]</a>
+    <span class="nd">@contextmanager</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">patchCS</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Patch the case settings, restoring at the end of the context block.</span>
+
+<span class="sd">        Kwargs are key: value pairs for settings to be modified.</span>
+
+<span class="sd">        Can&#39;t use ``patch.dict`` because case settings don&#39;t have at least a ``.copy``</span>
+<span class="sd">        method that ``patch.dict`` expects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span>
+        <span class="n">old</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">cs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">cs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">yield</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">old</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">cs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span></div>
+
+
+<div class="viewcode-block" id="OperatorRestartTests.test_callPreviousEOC">
+<a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorRestartTests.test_callPreviousEOC">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_callPreviousEOC</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;When restarting at the start of the cycle, make sure we call the previous interactEOC for all interfaces.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">patchCS</span><span class="p">(</span><span class="n">startNode</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+            <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="s2">&quot;interactAllEOC&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">patchEOC</span><span class="p">,</span>
+            <span class="c1"># Don&#39;t want to attempt to load a ficticious DB</span>
+            <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dbi</span><span class="p">,</span> <span class="s2">&quot;prepRestartRun&quot;</span><span class="p">),</span>
+        <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">interactAllRestart</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dbi</span><span class="p">)</span>
+        <span class="n">patchEOC</span><span class="o">.</span><span class="n">assert_called_once_with</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">START_CYCLE</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OperatorRestartTests.test_noDatabaseNoRestart">
+<a class="viewcode-back" href="../../../../.apidocs/armi.operators.tests.test_operators.html#armi.operators.tests.test_operators.OperatorRestartTests.test_noDatabaseNoRestart">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_noDatabaseNoRestart</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure there must be a database interface responsible for loading from database.&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="s2">&quot;No database interface&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">interactAllRestart</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span></div>
+</div>
+
 </pre></div>
 
            </div>
@@ -810,7 +908,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-10-08.
+      <span class="lastupdated">Last updated on 2025-10-09.
       </span></p>
   </div>
 
