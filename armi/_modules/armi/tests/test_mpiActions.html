@@ -130,6 +130,7 @@
     <span class="n">_disableForExclusiveTasks</span><span class="p">,</span>
     <span class="n">_makeQueue</span><span class="p">,</span>
     <span class="n">runActions</span><span class="p">,</span>
+    <span class="n">runBatchedActions</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">test_reactors</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">mockRunLogs</span>
@@ -184,16 +185,22 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">MockMpiAction</span><span class="p">(</span><span class="n">MpiAction</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mock MPI Action, to simplify tests.&quot;&quot;&quot;</span>
 
+    <span class="n">runActionExclusive</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">broadcastResult</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">invokeResult</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">7</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">broadcastResult</span> <span class="o">=</span> <span class="n">broadcastResult</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">invokeResult</span> <span class="o">=</span> <span class="n">invokeResult</span>
+
 <div class="viewcode-block" id="MockMpiAction.broadcast">
 <a class="viewcode-back" href="../../../.apidocs/armi.tests.test_mpiActions.html#armi.tests.test_mpiActions.MockMpiAction.broadcast">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">return</span> <span class="mi">3</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">broadcastResult</span></div>
 
 
 <div class="viewcode-block" id="MockMpiAction.invoke">
 <a class="viewcode-back" href="../../../.apidocs/armi.tests.test_mpiActions.html#armi.tests.test_mpiActions.MockMpiAction.invoke">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">invoke</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
-        <span class="k">return</span> <span class="mi">7</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">invokeResult</span></div>
 </div>
 
 
@@ -322,6 +329,35 @@
         <span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;verbosity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;debug&quot;</span>
         <span class="n">res</span> <span class="o">=</span> <span class="n">act</span><span class="o">.</span><span class="n">invokeHook</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">res</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MpiIterTests.test_runBatchedActions">
+<a class="viewcode-back" href="../../../.apidocs/armi.tests.test_mpiActions.html#armi.tests.test_mpiActions.MpiIterTests.test_runBatchedActions">[docs]</a>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.context.MPI_COMM&quot;</span><span class="p">,</span> <span class="n">MockMpiComm</span><span class="p">())</span>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.context.MPI_SIZE&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.context.MPI_NODENAMES&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;node0&quot;</span><span class="p">,</span> <span class="s2">&quot;node0&quot;</span><span class="p">,</span> <span class="s2">&quot;node1&quot;</span><span class="p">,</span> <span class="s2">&quot;node1&quot;</span><span class="p">])</span>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.context.MPI_DISTRIBUTABLE&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_runBatchedActions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">o</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">test_reactors</span><span class="o">.</span><span class="n">loadTestReactor</span><span class="p">(</span><span class="n">inputFileName</span><span class="o">=</span><span class="s2">&quot;smallestTestReactor/armiRunSmallest.yaml&quot;</span><span class="p">)</span>
+
+        <span class="n">actionsByNode</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="mi">0</span><span class="p">:</span> <span class="p">[</span><span class="n">MockMpiAction</span><span class="p">(</span><span class="n">invokeResult</span><span class="o">=</span><span class="mi">1</span><span class="p">)],</span>
+            <span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="n">MockMpiAction</span><span class="p">(</span><span class="n">invokeResult</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="n">MockMpiAction</span><span class="p">(</span><span class="n">invokeResult</span><span class="o">=</span><span class="mi">11</span><span class="p">)],</span>
+        <span class="p">}</span>
+
+        <span class="c1"># run in serial</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">runBatchedActions</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">actionsByNode</span><span class="p">,</span> <span class="n">serial</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Running 3 MPI actions in serial&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">),</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertListEqual</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">11</span><span class="p">])</span>
+
+        <span class="c1"># run in parallel</span>
+        <span class="k">with</span> <span class="n">mockRunLogs</span><span class="o">.</span><span class="n">BufferLog</span><span class="p">()</span> <span class="k">as</span> <span class="n">mock</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">runBatchedActions</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">,</span> <span class="n">actionsByNode</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">&quot;Running 3 MPI actions in parallel over 2 nodes.&quot;</span><span class="p">,</span> <span class="n">mock</span><span class="o">.</span><span class="n">getStdout</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
 
 
 <div class="viewcode-block" id="MpiIterTests.test_runActionsDistributeStateAction">
@@ -464,7 +500,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-10-22.
+      <span class="lastupdated">Last updated on 2025-10-24.
       </span></p>
   </div>
 

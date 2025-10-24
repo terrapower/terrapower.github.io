@@ -443,26 +443,77 @@
     <span class="n">batchNum</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="k">while</span> <span class="n">queue</span><span class="p">:</span>
         <span class="n">actionsThisRound</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">batchNum</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;MPI actions, batch </span><span class="si">{</span><span class="n">batchNum</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">numBatches</span><span class="si">}</span><span class="s2">:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">useRank</span> <span class="ow">in</span> <span class="n">useForComputation</span><span class="p">:</span>
             <span class="n">actionsThisRound</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">queue</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">useRank</span> <span class="ow">and</span> <span class="n">queue</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">useForComputation</span> <span class="o">=</span> <span class="n">_disableForExclusiveTasks</span><span class="p">(</span><span class="n">actionsThisRound</span><span class="p">,</span> <span class="n">useForComputation</span><span class="p">)</span>
-        <span class="n">realActions</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">[</span><span class="n">rank</span><span class="p">],</span> <span class="n">rank</span><span class="p">,</span> <span class="n">act</span><span class="p">)</span> <span class="k">for</span> <span class="n">rank</span><span class="p">,</span> <span class="n">act</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">actionsThisRound</span><span class="p">)</span> <span class="k">if</span> <span class="n">act</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="p">]</span>
-        <span class="n">batchNum</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span>
-            <span class="s2">&quot;Distributing </span><span class="si">{}</span><span class="s2"> MPI actions for parallel processing (batch </span><span class="si">{}</span><span class="s2"> of </span><span class="si">{}</span><span class="s2">):</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="nb">len</span><span class="p">(</span><span class="n">realActions</span><span class="p">),</span>
-                <span class="n">batchNum</span><span class="p">,</span>
-                <span class="n">numBatches</span><span class="p">,</span>
-                <span class="n">tabulate</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span><span class="n">realActions</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Nodename&quot;</span><span class="p">,</span> <span class="s2">&quot;Rank&quot;</span><span class="p">,</span> <span class="s2">&quot;Action&quot;</span><span class="p">]),</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-        <span class="n">distrib</span> <span class="o">=</span> <span class="n">DistributionAction</span><span class="p">(</span><span class="n">actionsThisRound</span><span class="p">)</span>
+        <span class="n">distrib</span> <span class="o">=</span> <span class="n">distributeActions</span><span class="p">(</span><span class="n">actionsThisRound</span><span class="p">,</span> <span class="n">useForComputation</span><span class="p">)</span>
         <span class="n">distrib</span><span class="o">.</span><span class="n">broadcast</span><span class="p">()</span>
         <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">distrib</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">results</span></div>
+
+
+
+<div class="viewcode-block" id="runBatchedActions">
+<a class="viewcode-back" href="../../.apidocs/armi.mpiActions.html#armi.mpiActions.runBatchedActions">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">runBatchedActions</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">actionsByNode</span><span class="p">,</span> <span class="n">serial</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run a series of MpiActions in parallel, or in series if :code:`serial=True`.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    This method takes a set of actions that have been batched by the user beforehand.</span>
+
+<span class="sd">    This is useful for heterogeneous work packages where some tasks have significantly larger</span>
+<span class="sd">    or smaller memory requirements. The user can place an appropriate amount of work on each node.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_DISTRIBUTABLE</span> <span class="ow">or</span> <span class="n">serial</span><span class="p">:</span>
+        <span class="n">actions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_node</span><span class="p">,</span> <span class="n">nodeActions</span> <span class="ow">in</span> <span class="n">actionsByNode</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">actions</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">nodeActions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">runActionsInSerial</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">actions</span><span class="p">)</span>
+
+    <span class="c1"># count how many actions will run on each node</span>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">))</span>
+    <span class="n">numToRunOnThisNode</span> <span class="o">=</span> <span class="p">{</span><span class="n">nodeName</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">nodes</span><span class="p">):</span>
+        <span class="n">numToRunOnThisNode</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">actionsByNode</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="p">[]))</span>
+
+    <span class="c1"># determine which ranks will run the actions</span>
+    <span class="n">numAssigned</span> <span class="o">=</span> <span class="p">{</span><span class="n">nodeName</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">}</span>
+    <span class="n">useForComputation</span> <span class="o">=</span> <span class="p">[</span><span class="kc">True</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">rank</span><span class="p">,</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">):</span>
+        <span class="c1"># if we have more processors than tasks, disable the extra</span>
+        <span class="n">useForComputation</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span> <span class="o">=</span> <span class="n">numAssigned</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">numToRunOnThisNode</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span>
+        <span class="n">numAssigned</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">totalActions</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span><span class="p">,</span> <span class="n">actions</span> <span class="ow">in</span> <span class="n">actionsByNode</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+    <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running </span><span class="si">{</span><span class="n">totalActions</span><span class="si">}</span><span class="s2"> MPI actions in parallel over </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">actionsByNode</span><span class="p">)</span><span class="si">}</span><span class="s2"> nodes.&quot;</span><span class="p">)</span>
+
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">actionsThisRound</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">nodeIndex</span> <span class="o">=</span> <span class="p">{</span><span class="n">nodeName</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">nodes</span><span class="p">)}</span>
+    <span class="k">for</span> <span class="n">rank</span><span class="p">,</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">):</span>
+        <span class="n">queue</span> <span class="o">=</span> <span class="n">actionsByNode</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nodeIndex</span><span class="p">[</span><span class="n">nodeName</span><span class="p">],</span> <span class="p">[])</span>
+        <span class="n">actionsThisRound</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">queue</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">useForComputation</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span> <span class="ow">and</span> <span class="n">queue</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">distrib</span> <span class="o">=</span> <span class="n">distributeActions</span><span class="p">(</span><span class="n">actionsThisRound</span><span class="p">,</span> <span class="n">useForComputation</span><span class="p">)</span>
+    <span class="n">distrib</span><span class="o">.</span><span class="n">broadcast</span><span class="p">()</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">distrib</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">))</span>
 
     <span class="k">return</span> <span class="n">results</span></div>
+
+
+
+<div class="viewcode-block" id="distributeActions">
+<a class="viewcode-back" href="../../.apidocs/armi.mpiActions.html#armi.mpiActions.distributeActions">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">distributeActions</span><span class="p">(</span><span class="n">actionsThisRound</span><span class="p">,</span> <span class="n">useForComputation</span><span class="p">):</span>
+    <span class="n">useForComputation</span> <span class="o">=</span> <span class="n">_disableForExclusiveTasks</span><span class="p">(</span><span class="n">actionsThisRound</span><span class="p">,</span> <span class="n">useForComputation</span><span class="p">)</span>
+    <span class="n">realActions</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">[</span><span class="n">rank</span><span class="p">],</span> <span class="n">rank</span><span class="p">,</span> <span class="n">act</span><span class="p">)</span> <span class="k">for</span> <span class="n">rank</span><span class="p">,</span> <span class="n">act</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">actionsThisRound</span><span class="p">)</span> <span class="k">if</span> <span class="n">act</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="p">]</span>
+    <span class="n">tableText</span> <span class="o">=</span> <span class="n">tabulate</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span><span class="n">realActions</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Nodename&quot;</span><span class="p">,</span> <span class="s2">&quot;Rank&quot;</span><span class="p">,</span> <span class="s2">&quot;Action&quot;</span><span class="p">])</span>
+    <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Distributing </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">realActions</span><span class="p">)</span><span class="si">}</span><span class="s2"> MPI actions for parallel processing:</span><span class="se">\n</span><span class="si">{</span><span class="n">tableText</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">DistributionAction</span><span class="p">(</span><span class="n">actionsThisRound</span><span class="p">)</span></div>
 
 
 
@@ -879,7 +930,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-10-22.
+      <span class="lastupdated">Last updated on 2025-10-24.
       </span></p>
   </div>
 
