@@ -473,10 +473,10 @@
         <span class="k">return</span> <span class="n">runActionsInSerial</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">,</span> <span class="n">actions</span><span class="p">)</span>
 
     <span class="c1"># count how many actions will run on each node</span>
-    <span class="n">nodes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">))</span>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">)</span>
     <span class="n">numToRunOnThisNode</span> <span class="o">=</span> <span class="p">{</span><span class="n">nodeName</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">}</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">nodes</span><span class="p">):</span>
-        <span class="n">numToRunOnThisNode</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">actionsByNode</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="p">[]))</span>
+    <span class="k">for</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">:</span>
+        <span class="n">numToRunOnThisNode</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">actionsByNode</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nodeName</span><span class="p">,</span> <span class="p">[]))</span>
 
     <span class="c1"># determine which ranks will run the actions</span>
     <span class="n">numAssigned</span> <span class="o">=</span> <span class="p">{</span><span class="n">nodeName</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">}</span>
@@ -484,16 +484,26 @@
     <span class="k">for</span> <span class="n">rank</span><span class="p">,</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">):</span>
         <span class="c1"># if we have more processors than tasks, disable the extra</span>
         <span class="n">useForComputation</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span> <span class="o">=</span> <span class="n">numAssigned</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">numToRunOnThisNode</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span>
-        <span class="n">numAssigned</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">useForComputation</span><span class="p">[</span><span class="n">rank</span><span class="p">]:</span>
+            <span class="n">numAssigned</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="c1"># check that we do not request more tasks than processors on a node</span>
+    <span class="k">for</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">numToRunOnThisNode</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">numAssigned</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;There are more actions (</span><span class="si">{</span><span class="n">numToRunOnThisNode</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span><span class="si">}</span><span class="s2">) than ranks available &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">numAssigned</span><span class="p">[</span><span class="n">nodeName</span><span class="p">]</span><span class="si">}</span><span class="s2">) on </span><span class="si">{</span><span class="n">nodeName</span><span class="si">}</span><span class="s2">!&quot;</span>
+            <span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
     <span class="n">totalActions</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">actions</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span><span class="p">,</span> <span class="n">actions</span> <span class="ow">in</span> <span class="n">actionsByNode</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
     <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running </span><span class="si">{</span><span class="n">totalActions</span><span class="si">}</span><span class="s2"> MPI actions in parallel over </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">actionsByNode</span><span class="p">)</span><span class="si">}</span><span class="s2"> nodes.&quot;</span><span class="p">)</span>
 
     <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">actionsThisRound</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">nodeIndex</span> <span class="o">=</span> <span class="p">{</span><span class="n">nodeName</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">nodes</span><span class="p">)}</span>
     <span class="k">for</span> <span class="n">rank</span><span class="p">,</span> <span class="n">nodeName</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">MPI_NODENAMES</span><span class="p">):</span>
-        <span class="n">queue</span> <span class="o">=</span> <span class="n">actionsByNode</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nodeIndex</span><span class="p">[</span><span class="n">nodeName</span><span class="p">],</span> <span class="p">[])</span>
+        <span class="n">queue</span> <span class="o">=</span> <span class="n">actionsByNode</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nodeName</span><span class="p">,</span> <span class="p">[])</span>
         <span class="n">actionsThisRound</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">queue</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">useForComputation</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span> <span class="ow">and</span> <span class="n">queue</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="n">distrib</span> <span class="o">=</span> <span class="n">distributeActions</span><span class="p">(</span><span class="n">actionsThisRound</span><span class="p">,</span> <span class="n">useForComputation</span><span class="p">)</span>
@@ -930,7 +940,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-10-24.
+      <span class="lastupdated">Last updated on 2025-10-27.
       </span></p>
   </div>
 
