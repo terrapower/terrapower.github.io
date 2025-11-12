@@ -171,7 +171,6 @@
     <span class="n">replaceNonsenseWithNones</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.bookkeeping.db.typedefs</span><span class="w"> </span><span class="kn">import</span> <span class="n">Histories</span><span class="p">,</span> <span class="n">History</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.nucDirectory</span><span class="w"> </span><span class="kn">import</span> <span class="n">nuclideBases</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.neutronics.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">CONF_LOADING_FILE</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">grids</span><span class="p">,</span> <span class="n">parameters</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.assemblies</span><span class="w"> </span><span class="kn">import</span> <span class="n">Assembly</span>
@@ -1857,13 +1856,18 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Collect block-by-block homogenized number densities for each nuclide.</span>
 
-<span class="sd">    Long ago, composition was stored on block params. No longer; they are on the component numberDensity params. These</span>
-<span class="sd">    block-level params, are still useful to see compositions in some visualization tools. Rather than keep them on the</span>
-<span class="sd">    reactor model, we dynamically compute them here and slap them in the database. These are ignored upon reading and</span>
-<span class="sd">    will not affect the results.</span>
-
-<span class="sd">    Remove this once a better viz tool can view composition distributions. Also remove the try/except in ``_readParams``</span>
+<span class="sd">    Homogenize the component-level to the block level. These are written to the database and useful for visualization.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># find the NuclidesBases object on the Reactor</span>
+    <span class="n">nuclideBases</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">nuclideBases</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">nuclideBases</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">nuclideBases</span>
+            <span class="k">break</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">nuclideBases</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{}</span>
+
     <span class="n">nucNames</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">nucName</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blocks</span> <span class="k">for</span> <span class="n">nucName</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">())))</span>
     <span class="n">nucBases</span> <span class="o">=</span> <span class="p">[</span><span class="n">nuclideBases</span><span class="o">.</span><span class="n">byName</span><span class="p">[</span><span class="n">nn</span><span class="p">]</span> <span class="k">for</span> <span class="n">nn</span> <span class="ow">in</span> <span class="n">nucNames</span><span class="p">]</span>
     <span class="c1"># It&#39;s faster to loop over blocks first and get all number densities from each than it is to get one nuclide at a</span>
