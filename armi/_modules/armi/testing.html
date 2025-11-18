@@ -136,12 +136,12 @@
 <span class="n">ARMI_RUN_PATH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="s2">&quot;armiRun.yaml&quot;</span><span class="p">)</span>
 <span class="n">COMPXS_PATH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="s2">&quot;COMPXS.ascii&quot;</span><span class="p">)</span>
 <span class="n">ISOAA_PATH</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="s2">&quot;ISOAA&quot;</span><span class="p">)</span>
-<span class="n">_TEST_REACTOR</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># pickled string of test reactor (for fast caching)</span>
+<span class="n">_TEST_REACTORS</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># dictionary of pickled string of test reactors (for fast caching)</span>
 
 
 <div class="viewcode-block" id="loadTestReactor">
 <a class="viewcode-back" href="../../.apidocs/armi.testing.html#armi.testing.loadTestReactor">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">loadTestReactor</span><span class="p">(</span><span class="n">inputFilePath</span><span class="o">=</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">customSettings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">inputFileName</span><span class="o">=</span><span class="s2">&quot;armiRun.yaml&quot;</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">loadTestReactor</span><span class="p">(</span><span class="n">inputFilePath</span><span class="o">=</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">customSettings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">inputFileName</span><span class="o">=</span><span class="s2">&quot;armiRun.yaml&quot;</span><span class="p">,</span> <span class="n">useCache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Loads a test reactor. Can be used in other test modules.</span>
 
@@ -154,6 +154,9 @@
 <span class="sd">        given in customSettings for that key.</span>
 <span class="sd">    inputFileName : str, default=&quot;armiRun.yaml&quot;</span>
 <span class="sd">        Name of the input file to run.</span>
+<span class="sd">    useCache : bool, default=True</span>
+<span class="sd">        Look for a copy of this Reactor in the cache, if not in the cache, put it there. (Set to False when you are</span>
+<span class="sd">        sure there will only be one test using this test reactor.)</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
@@ -167,37 +170,35 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">operators</span><span class="p">,</span> <span class="n">settings</span>
 
-    <span class="k">global</span> <span class="n">_TEST_REACTOR</span>
-    <span class="n">fName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">inputFilePath</span><span class="p">,</span> <span class="n">inputFileName</span><span class="p">)</span>
+    <span class="k">global</span> <span class="n">_TEST_REACTORS</span>
+    <span class="n">fName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">inputFilePath</span><span class="p">,</span> <span class="n">inputFileName</span><span class="p">))</span>
     <span class="n">customSettings</span> <span class="o">=</span> <span class="n">customSettings</span> <span class="ow">or</span> <span class="p">{}</span>
-    <span class="n">isPickeledReactor</span> <span class="o">=</span> <span class="n">fName</span> <span class="o">==</span> <span class="n">ARMI_RUN_PATH</span> <span class="ow">and</span> <span class="n">customSettings</span> <span class="o">==</span> <span class="p">{}</span>
+    <span class="n">reactorHash</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="n">fName</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">customSettings</span><span class="p">))</span>
 
-    <span class="k">if</span> <span class="n">isPickeledReactor</span> <span class="ow">and</span> <span class="n">_TEST_REACTOR</span><span class="p">:</span>
-        <span class="c1"># return test reactor only if no custom settings are needed.</span>
-        <span class="n">o</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">assemNum</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">_TEST_REACTOR</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">useCache</span> <span class="ow">and</span> <span class="n">reactorHash</span> <span class="ow">in</span> <span class="n">_TEST_REACTORS</span><span class="p">:</span>
+        <span class="c1"># return test reactor from cache</span>
+        <span class="n">o</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">_TEST_REACTORS</span><span class="p">[</span><span class="n">reactorHash</span><span class="p">])</span>
         <span class="n">o</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">o</span><span class="p">,</span> <span class="n">r</span>
 
-    <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(</span><span class="n">fName</span><span class="o">=</span><span class="n">fName</span><span class="p">)</span>
-
     <span class="c1"># Overwrite settings if desired</span>
+    <span class="n">cs</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">(</span><span class="n">fName</span><span class="o">=</span><span class="n">fName</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">customSettings</span><span class="p">:</span>
         <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="n">customSettings</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="s2">&quot;verbosity&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">customSettings</span><span class="p">:</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">)</span>
 
-    <span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">modified</span><span class="p">(</span><span class="n">newSettings</span><span class="o">=</span><span class="p">{})</span>
     <span class="n">o</span> <span class="o">=</span> <span class="n">operators</span><span class="o">.</span><span class="n">factory</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
     <span class="n">r</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">loadFromCs</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
 
     <span class="n">o</span><span class="o">.</span><span class="n">initializeInterfaces</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
     <span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">regenAssemblyLists</span><span class="p">()</span>
 
-    <span class="k">if</span> <span class="n">isPickeledReactor</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">useCache</span><span class="p">:</span>
         <span class="c1"># cache it for fast load for other future tests protocol=2 allows for classes with __slots__ but not</span>
         <span class="c1"># __getstate__ to be pickled</span>
-        <span class="n">_TEST_REACTOR</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">((</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">maxAssemNum</span><span class="p">),</span> <span class="n">protocol</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">_TEST_REACTORS</span><span class="p">[</span><span class="n">reactorHash</span><span class="p">]</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">((</span><span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">r</span><span class="p">),</span> <span class="n">protocol</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">r</span></div>
 
