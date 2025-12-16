@@ -143,6 +143,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span><span class="p">,</span> <span class="n">settings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.bookkeeping</span><span class="w"> </span><span class="kn">import</span> <span class="n">report</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.physics.neutronics</span><span class="w"> </span><span class="kn">import</span> <span class="n">crossSectionGroupManager</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.flags</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flags</span>
 
 
@@ -213,6 +214,7 @@
         <span class="n">ymin</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
         <span class="n">extension</span><span class="o">=</span><span class="n">extension</span><span class="p">,</span>
     <span class="p">)</span>
+    <span class="n">xsHistoryVsTime</span><span class="p">(</span><span class="n">reactor</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">history</span><span class="p">,</span> <span class="n">buGroups</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="n">extension</span><span class="p">)</span>
     <span class="n">movesVsCycle</span><span class="p">(</span><span class="n">reactor</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">scalars</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="n">extension</span><span class="p">)</span></div>
 
 
@@ -314,6 +316,58 @@
     <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="n">report</span><span class="o">.</span><span class="n">setData</span><span class="p">(</span><span class="s2">&quot;K-Eff&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">figName</span><span class="p">),</span> <span class="n">report</span><span class="o">.</span><span class="n">KEFF_PLOT</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="xsHistoryVsTime">
+<a class="viewcode-back" href="../../../.apidocs/armi.utils.reportPlotting.html#armi.utils.reportPlotting.xsHistoryVsTime">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">xsHistoryVsTime</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">history</span><span class="p">,</span> <span class="n">buGroups</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot cross section history vs. time.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name : str</span>
+<span class="sd">        reactor.name</span>
+<span class="sd">    history : armi.bookkeeping.historyTracker.HistoryTrackerInterface object</span>
+<span class="sd">        The history interface.</span>
+<span class="sd">    buGroups : list of float</span>
+<span class="sd">        The burnup groups in the problem</span>
+<span class="sd">    extension : str, optional</span>
+<span class="sd">        The file extension for saving the figure</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">extension</span> <span class="o">=</span> <span class="n">extension</span> <span class="ow">or</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">()[</span><span class="s2">&quot;outputFileExtension&quot;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">history</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">history</span><span class="o">.</span><span class="n">xsHistory</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="n">colors</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">cycle</span><span class="p">([</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;g&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;k&quot;</span><span class="p">])</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+    <span class="n">maxbu</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">typeNum</span><span class="p">,</span> <span class="n">dataList</span> <span class="ow">in</span> <span class="n">history</span><span class="o">.</span><span class="n">xsHistory</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dataList</span><span class="p">]</span>
+        <span class="n">burnups</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dataList</span><span class="p">]</span>
+        <span class="n">maxb</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">burnups</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">maxb</span> <span class="o">&gt;</span> <span class="n">maxbu</span><span class="p">:</span>
+            <span class="n">maxbu</span> <span class="o">=</span> <span class="n">maxb</span>
+        <span class="n">xsType</span> <span class="o">=</span> <span class="n">crossSectionGroupManager</span><span class="o">.</span><span class="n">getXSTypeLabelFromNumber</span><span class="p">(</span><span class="n">typeNum</span><span class="p">)</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">colors</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">burnups</span><span class="p">,</span> <span class="n">color</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Type </span><span class="si">{0}</span><span class="s2"> XS&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">xsType</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">upperBu</span> <span class="ow">in</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">+</span> <span class="n">buGroups</span><span class="p">:</span>
+        <span class="c1"># draw a hline at the limits of each burnup group</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">upperBu</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Block burnups used to generate XS for </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Time (years)&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Burnup (</span><span class="si">% F</span><span class="s2">IMA)&quot;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">maxbu</span> <span class="o">*</span> <span class="mf">1.05</span><span class="p">)</span>
+    <span class="n">figName</span> <span class="o">=</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.bugroups.&quot;</span> <span class="o">+</span> <span class="n">extension</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">figName</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">report</span><span class="o">.</span><span class="n">setData</span><span class="p">(</span><span class="s2">&quot;Xs Plot&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">figName</span><span class="p">),</span> <span class="n">report</span><span class="o">.</span><span class="n">XS_PLOT</span><span class="p">)</span></div>
 
 
 
@@ -765,7 +819,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2025, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2025-12-05.
+      <span class="lastupdated">Last updated on 2025-12-16.
       </span></p>
   </div>
 
