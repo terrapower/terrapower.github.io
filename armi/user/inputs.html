@@ -571,9 +571,11 @@ rotated. Valid angles depend on the assembly’s geometry.</p>
 <p>A cascade with no final destination defaults to deleting the assembly. Assemblies can be retained in the model by
 ending the cascade with <code class="docutils literal notranslate"><span class="pre">SFP</span></code>. When <code class="docutils literal notranslate"><span class="pre">SFP</span></code> is specified, the discharged assembly is stored in the spent fuel pool
 even if the <code class="docutils literal notranslate"><span class="pre">trackAssems</span></code> setting is <code class="docutils literal notranslate"><span class="pre">False</span></code>; <code class="docutils literal notranslate"><span class="pre">Delete</span></code> always removes the assembly from the model.</p>
-<p>Assemblies may also be re-inserted from the spent fuel pool by starting a cascade with <code class="docutils literal notranslate"><span class="pre">SFP</span></code> and providing an
-<code class="docutils literal notranslate"><span class="pre">assemblyName</span></code> for the assembly to load. No assembly type is required in this case. The cascade then proceeds as
-normal from the destination location. For example</p>
+<p>Assemblies may also be re-inserted from the spent fuel pool by starting a cascade with <code class="docutils literal notranslate"><span class="pre">SFP</span></code> and providing a
+<code class="docutils literal notranslate"><span class="pre">ringPosCycle</span></code> to identify the spent fuel pool assembly returning to the core. <code class="docutils literal notranslate"><span class="pre">ringPosCycle</span></code> is a list conatining
+ring, pos, and cycle used to specify that the assembly which resided at (ring, pos) during the specified cycle number
+is to be re-introduced into the reactor in the associated shuffle cascade. No assembly type is required in this case.
+The cascade then proceeds as normal from the destination location. For example</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sequence</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">1</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">cascade</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;outer</span><span class="nv"> </span><span class="s">fuel&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;009-045&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;008-004&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;SFP&quot;</span><span class="p p-Indicator">]</span>
@@ -594,15 +596,16 @@ normal from the destination location. For example</p>
 <dt>sequence:</dt><dd><dl class="simple">
 <dt>1:</dt><dd><ul class="simple">
 <li><p>cascade: [“SFP”, “005-003”, “SFP”]
-assemblyName: “A0073”</p></li>
+ringPosCycle: [3, 5, 4]</p></li>
 </ul>
 </dd>
 </dl>
 </dd>
 </dl>
 </div></blockquote>
-<p>This example retrieves assembly <code class="docutils literal notranslate"><span class="pre">A0073</span></code> from the spent fuel pool and places it in location <code class="docutils literal notranslate"><span class="pre">005-003</span></code> while sending
-the previous occupant of <code class="docutils literal notranslate"><span class="pre">005-003</span></code>  to the pool.</p>
+<p>This example retrieves the assembly that resided at ring 3, position 5 during cycle 4 from the spent fuel pool and
+places it in location <code class="docutils literal notranslate"><span class="pre">005-003</span></code> (ring 5, position 3) while sending the previous occupant of <code class="docutils literal notranslate"><span class="pre">005-003</span></code> to the
+spent fuel pool.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Consider using yaml anchors <code class="docutils literal notranslate"><span class="pre">&amp;</span></code> and aliases <code class="docutils literal notranslate"><span class="pre">*</span></code> to reduce repetition.</p>
@@ -1627,12 +1630,14 @@ in a problem to reduce the user-input burden.</p>
 </section>
 <section id="fuel-management-input">
 <span id="id11"></span><h2><span class="section-number">1.4. </span>Fuel Management Input<a class="headerlink" href="#fuel-management-input" title="Link to this heading"></a></h2>
-<p>Fuel management in ARMI is specified through custom Python scripts that often reside
+<p>Fuel management in ARMI is specified through custom Python scripts or YAML files that often reside
 in the working directory of a run (but can be anywhere if you use full paths). During a normal run,
-ARMI checks for two fuel management settings:</p>
+ARMI checks for several fuel management settings:</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">shuffleLogic</span></code></dt><dd><p>The path to the Python source file or dotted import path to a module that contains the user’s custom fuel
 management logic</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">shuffleSequenceFile</span></code></dt><dd><p>The path to a yaml file containing the user’s custom fuel management logic.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">fuelHandlerName</span></code></dt><dd><p>The name of a FuelHandler class that ARMI will look for in the Fuel Management Input module or file
 specified by <code class="docutils literal notranslate"><span class="pre">shuffleLogic</span></code>. Since it’s input, it’s the user’s responsibility
@@ -1643,7 +1648,7 @@ to design and place that object in that module or file.</p>
 <p class="admonition-title">Note</p>
 <p>We consider the limited syntax needed to express fuel management in Python
 code itself to be sufficiently expressive and simple for non-programmers to
-actually use. Indeed, this has been our experience.</p>
+actually use. Also, fuel management options are available through YAML input files.</p>
 </div>
 <p>The ARMI Operator will call its fuel handler’s <code class="docutils literal notranslate"><span class="pre">outage</span></code> method before each cycle (and, if requested, during branch
 search calculations). The <a class="reference internal" href="../.apidocs/armi.physics.fuelCycle.fuelHandlers.html#armi.physics.fuelCycle.fuelHandlers.FuelHandler.outage" title="armi.physics.fuelCycle.fuelHandlers.FuelHandler.outage"><code class="xref py py-meth docutils literal notranslate"><span class="pre">outage()</span></code></a> method
