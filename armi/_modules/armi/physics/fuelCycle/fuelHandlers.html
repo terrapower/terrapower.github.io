@@ -303,7 +303,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Normal shuffle from user-provided shuffle logic input</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">chooseSwaps</span><span class="p">(</span><span class="n">factor</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">updateAllLocationHistParams</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cycle</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updateAllLocationHistParams</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cycle</span><span class="p">)</span>
 
         <span class="c1"># do rotations if pin-level details are available (requires fluxRecon plugin)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;fluxRecon&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_ASSEMBLY_ROTATION_ALG</span><span class="p">]:</span>
@@ -344,8 +344,10 @@
                     <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ringPosHist</span><span class="p">:</span>
                         <span class="k">for</span> <span class="n">cycleNum</span><span class="p">,</span> <span class="n">rp</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">ringPosHist</span><span class="p">):</span>
                             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rp</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="n">rp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">a</span><span class="o">.</span><span class="n">NOT_IN_CORE</span><span class="p">:</span>
+                                <span class="n">ringPosCycle</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">rp</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">rp</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">cycleNum</span><span class="p">]</span>
                                 <span class="k">break</span>
-                        <span class="n">ringPosCycle</span> <span class="o">=</span> <span class="p">[</span><span class="n">rp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">cycleNum</span><span class="p">]</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">ringPosCycle</span> <span class="o">=</span> <span class="kc">None</span>
 
                     <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">setMoveList</span><span class="p">(</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">cycle</span><span class="p">,</span>
@@ -1153,8 +1155,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">excore</span><span class="p">[</span><span class="s2">&quot;sfp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">incoming</span><span class="p">)</span>
 
         <span class="n">incoming</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">multiplicity</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">incoming</span><span class="p">,</span> <span class="n">loc</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">updateAllLocationHistParams</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cycle</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">incoming</span><span class="p">,</span> <span class="n">loc</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="FuelHandler.swapCascade">
@@ -1225,20 +1226,18 @@
 <span class="sd">        makeShuffleReport : Creates the file that is processed here</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># read moves file</span>
+        <span class="n">cycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span>
+        <span class="k">if</span> <span class="n">cycle</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># if cycle is 0, we are at the beginning of the first cycle</span>
+            <span class="c1"># this is a special case where we don&#39;t have any moves</span>
+            <span class="c1"># so we return an empty list</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
         <span class="k">if</span> <span class="n">yaml</span><span class="p">:</span>
             <span class="n">moves</span><span class="p">,</span> <span class="n">swaps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">readMovesYaml</span><span class="p">(</span><span class="n">shuffleFile</span><span class="p">)</span>
-            <span class="n">cycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span>
-            <span class="k">if</span> <span class="n">cycle</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># if cycle is 0, we are at the beginning of the first cycle</span>
-                <span class="c1"># this is a special case where we don&#39;t have any moves</span>
-                <span class="c1"># so we return an empty list</span>
-                <span class="k">return</span> <span class="p">[]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">moves</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">readMoves</span><span class="p">(</span><span class="n">shuffleFile</span><span class="p">)</span>
             <span class="n">swaps</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="c1"># get the correct cycle number</span>
-            <span class="c1"># +1 since cycles starts on 0 and looking for the end of 1st cycle shuffle</span>
-            <span class="n">cycle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">cycle</span> <span class="o">+</span> <span class="mi">1</span>
 
         <span class="c1"># setup the load and loop chains to be run per cycle</span>
         <span class="n">moveList</span> <span class="o">=</span> <span class="n">moves</span><span class="p">[</span><span class="n">cycle</span><span class="p">]</span>
@@ -1265,8 +1264,6 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">swapAssemblies</span><span class="p">(</span><span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">)</span>
             <span class="n">moved</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pendingRotations</span> <span class="o">=</span> <span class="n">moveData</span><span class="o">.</span><span class="n">rotations</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">updateAllLocationHistParams</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cycle</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">moved</span></div>
 
@@ -1545,8 +1542,10 @@
 <span class="sd">            The chain as a location list in order</span>
 <span class="sd">        enrich : list</span>
 <span class="sd">            The axial enrichment distribution of the load assembly.</span>
-<span class="sd">        loadName : str</span>
-<span class="sd">            The assembly name of the load assembly</span>
+<span class="sd">        assemType : str</span>
+<span class="sd">            The type of the assembly</span>
+<span class="sd">        loadName or ringPosCycle : [str, tuple[int, int, int]]</span>
+<span class="sd">            The assembly name of the load assembly, or the ringPosHist identifier</span>
 <span class="sd">        destination : str</span>
 <span class="sd">            Location where the first assembly in the chain is discharged</span>
 
@@ -1579,6 +1578,7 @@
                 <span class="n">chain</span> <span class="o">=</span> <span class="p">[</span><span class="n">fromLoc</span><span class="p">]</span>
                 <span class="n">destination</span> <span class="o">=</span> <span class="n">toLoc</span>
                 <span class="n">safeCount</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># to break out of crazy loops.</span>
+                <span class="n">ringPosCycle</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="n">complete</span> <span class="o">=</span> <span class="kc">False</span>
                 <span class="k">while</span> <span class="p">(</span>
                     <span class="n">chain</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">({</span><span class="s2">&quot;LoadQueue&quot;</span><span class="p">}</span> <span class="o">|</span> <span class="n">FuelHandler</span><span class="o">.</span><span class="n">DISCHARGE_LOCS</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">complete</span> <span class="ow">and</span> <span class="n">safeCount</span> <span class="o">&lt;</span> <span class="mi">100</span>
@@ -1880,7 +1880,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2026, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2026-03-10.
+      <span class="lastupdated">Last updated on 2026-03-11.
       </span></p>
   </div>
 
