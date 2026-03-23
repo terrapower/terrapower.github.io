@@ -1398,7 +1398,6 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">representativeBlocks</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">avgNucTemperatures</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_unrepresentedXSIDs</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">extra</span><span class="p">(</span><span class="s2">&quot;Generating representative blocks for XS&quot;</span><span class="p">)</span>
         <span class="n">blockCollectionsByXsGroup</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeCrossSectionGroups</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">xsID</span><span class="p">,</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">blockCollectionsByXsGroup</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -1413,14 +1412,9 @@
                 <span class="n">reprBlock</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">createRepresentativeBlock</span><span class="p">()</span>
                 <span class="n">representativeBlocks</span><span class="p">[</span><span class="n">xsID</span><span class="p">]</span> <span class="o">=</span> <span class="n">reprBlock</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">avgNucTemperatures</span><span class="p">[</span><span class="n">xsID</span><span class="p">]</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">avgNucTemperatures</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                    <span class="s2">&quot;No candidate blocks in group for </span><span class="si">{}</span><span class="s2"> (with a valid representative block flag). &quot;</span>
-                    <span class="s2">&quot;Will apply different environment group&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
-                <span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_unrepresentedXSIDs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">representativeBlocks</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">representativeBlocks</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkForUnrepresentedXSIDs</span><span class="p">(</span><span class="n">blockCollectionsByXsGroup</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_modifyUnrepresentedXSIDs</span><span class="p">(</span><span class="n">blockCollectionsByXsGroup</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_summarizeGroups</span><span class="p">(</span><span class="n">blockCollectionsByXsGroup</span><span class="p">)</span></div>
 
@@ -1493,6 +1487,10 @@
                 <span class="n">averageByComponent</span><span class="o">=</span><span class="n">oldBlockCollection</span><span class="o">.</span><span class="n">averageByComponent</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">newBlockCollectionsByXsGroup</span><span class="p">[</span><span class="n">newXSID</span><span class="p">]</span> <span class="o">=</span> <span class="n">newBlockCollection</span>
+
+        <span class="c1"># clean up any unrepresented XS IDs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkForUnrepresentedXSIDs</span><span class="p">(</span><span class="n">blockCollectionByXsGroup</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_modifyUnrepresentedXSIDs</span><span class="p">(</span><span class="n">blockCollectionByXsGroup</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">newBlockCollectionsByXsGroup</span><span class="p">,</span> <span class="n">modifiedReprBlocks</span><span class="p">,</span> <span class="n">origXSIDsFromNew</span></div>
 
 
@@ -1551,6 +1549,32 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="n">CONF_CROSS_SECTION</span><span class="p">][</span><span class="n">newXSID</span><span class="p">]</span><span class="o">.</span><span class="n">xsID</span> <span class="o">=</span> <span class="n">newXSID</span>
 
         <span class="k">return</span> <span class="n">modifiedReprBlocks</span><span class="p">,</span> <span class="n">origXSIDsFromNew</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_checkForUnrepresentedXSIDs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blockCollectionsByXsGroup</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check for unrepresented XS IDs after self._updateEnvironmentGroups() has been called.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        blockCollectionsByXsGroup: dict[str, BlockCollection]</span>
+<span class="sd">            Dict of BlockCollection keyed by the XS group they belong to.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This should be run after :meth:`CrossSectionGroupManager._updateEnvironmentGroups`, which resets</span>
+<span class="sd">        ``b.p.envGroup`` and can result in unrepresented cross section IDs. This is usually invoked</span>
+<span class="sd">        as a result of a call to :meth:`CrossSectionGroupManager.makeCrossSectionGroups`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_unrepresentedXSIDs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">xsID</span><span class="p">,</span> <span class="n">collection</span> <span class="ow">in</span> <span class="n">blockCollectionsByXsGroup</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">xsTypeIsPregenerated</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">getCandidateBlocks</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;No candidate blocks in group for </span><span class="si">{}</span><span class="s2"> (with a valid representative block flag). &quot;</span>
+                    <span class="s2">&quot;Will apply different environment group&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_unrepresentedXSIDs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xsID</span><span class="p">)</span>
 
 <div class="viewcode-block" id="CrossSectionGroupManager.getNextAvailableXsTypes">
 <a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.CrossSectionGroupManager.getNextAvailableXsTypes">[docs]</a>
@@ -1842,7 +1866,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2026, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2026-03-19.
+      <span class="lastupdated">Last updated on 2026-03-23.
       </span></p>
   </div>
 
