@@ -441,6 +441,84 @@
 
 
 
+<div class="viewcode-block" id="MixedPinComponentMerger">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.blockConverters.html#armi.reactor.converters.blockConverters.MixedPinComponentMerger">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MixedPinComponentMerger</span><span class="p">(</span><span class="n">MultipleComponentMerger</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sourceBlock</span><span class="p">,</span> <span class="n">soluteNames</span><span class="p">,</span> <span class="n">solventName</span><span class="p">,</span> <span class="n">pin</span><span class="p">,</span> <span class="n">specifiedMinID</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This BlockConverter handles mixed blocks with multiple pin types.</span>
+<span class="sd">        A pin is a list of circular components that share a common spatial locator and thus</span>
+<span class="sd">        make up a &quot;pin&quot;, which is a physical construct but not a formal ARMI construct.</span>
+
+<span class="sd">        This class can merge multiple components at a time within a single pin. To perform</span>
+<span class="sd">        conversions on multiple pins within a mixed block, a new instance of this class</span>
+<span class="sd">        must be constructed for each pin, and then the :py:meth:`convert` method must be called in a</span>
+<span class="sd">        waterfall fashion -- that is, the block returned from :py:meth:`convert` should be passed</span>
+<span class="sd">        into the constructor of the next instance to perform a chain of component merges.</span>
+
+<span class="sd">        .. impl:: Homogenize multiple components into one in a single pin within a mixed pin assembly.</span>
+<span class="sd">            :id: I_ARMI_BLOCKCONV2</span>
+<span class="sd">            :implements: R_ARMI_BLOCKCONV</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sourceBlock : :py:class:`armi.reactor.blocks.Block`</span>
+<span class="sd">            An ARMI Block object to convert.</span>
+<span class="sd">        soluteNames : list</span>
+<span class="sd">            List of str names of the solute components in _sourceBlock</span>
+<span class="sd">        solventName : str</span>
+<span class="sd">            The name of the solvent component in _sourceBlock</span>
+<span class="sd">        pin : List[Component]</span>
+<span class="sd">            List of the components that make up the pin being converted.</span>
+<span class="sd">        minID : float</span>
+<span class="sd">            The minimum hot temperature diameter allowed for the solvent.</span>
+<span class="sd">            This is useful for forcing components to not overlap.</span>
+<span class="sd">        quite : boolean, optional</span>
+<span class="sd">            If True, less information is output in the runLog.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">sourceBlock</span><span class="p">,</span> <span class="n">soluteNames</span><span class="p">,</span> <span class="n">solventName</span><span class="p">,</span> <span class="n">specifiedMinID</span><span class="o">=</span><span class="n">specifiedMinID</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pin</span> <span class="o">=</span> <span class="n">pin</span>
+
+<div class="viewcode-block" id="MixedPinComponentMerger.convert">
+<a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.blockConverters.html#armi.reactor.converters.blockConverters.MixedPinComponentMerger.convert">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a block with the solute merged into the solvent.</span>
+
+<span class="sd">        Run _verifyPinExpansion so that verification is limited to a single pin.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">soluteName</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">soluteNames</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dissolveComponentIntoComponent</span><span class="p">(</span><span class="n">soluteName</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">solventName</span><span class="p">,</span> <span class="n">minID</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">specifiedMinID</span><span class="p">)</span>
+        <span class="n">solvent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceBlock</span><span class="o">.</span><span class="n">getComponentByName</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">solventName</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">solvent</span><span class="o">.</span><span class="vm">__class__</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">components</span><span class="o">.</span><span class="n">DerivedShape</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_verifyPinExpansion</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">soluteNames</span><span class="p">,</span> <span class="n">solvent</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceBlock</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_verifyPinExpansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solute</span><span class="p">,</span> <span class="n">solvent</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Verify the conversion of a single pin construct.&quot;&quot;&quot;</span>
+        <span class="n">validComponents</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pin</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">components</span><span class="o">.</span><span class="n">DerivedShape</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">validComponents</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sourceBlock</span><span class="p">:</span>
+                <span class="c1"># c was merged</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">components</span><span class="o">.</span><span class="n">Circle</span><span class="p">)</span> <span class="ow">or</span> <span class="n">c</span> <span class="ow">is</span> <span class="n">solvent</span> <span class="ow">or</span> <span class="n">c</span><span class="o">.</span><span class="n">containsVoidMaterial</span><span class="p">():</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">isEncapsulatedBy</span><span class="p">(</span><span class="n">solvent</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;There is a non void component </span><span class="si">{}</span><span class="s2"> in the location where component </span><span class="si">{}</span><span class="s2"> was expanded &quot;</span>
+                    <span class="s2">&quot;to absorb component solute </span><span class="si">{}</span><span class="s2">. solvent dims </span><span class="si">{}</span><span class="s2">, </span><span class="si">{}</span><span class="s2"> comp dims </span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">c</span><span class="p">,</span> <span class="n">solvent</span><span class="p">,</span> <span class="n">solute</span><span class="p">,</span> <span class="n">solvent</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">solvent</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">od</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">od</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">getArea</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Component </span><span class="si">{}</span><span class="s2"> still has negative area after </span><span class="si">{}</span><span class="s2"> was dissolved into </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">solute</span><span class="p">,</span> <span class="n">solvent</span><span class="p">),</span>
+                    <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span></div>
+
+
+
 <div class="viewcode-block" id="BlockAvgToCylConverter">
 <a class="viewcode-back" href="../../../../.apidocs/armi.reactor.converters.blockConverters.html#armi.reactor.converters.blockConverters.BlockAvgToCylConverter">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">BlockAvgToCylConverter</span><span class="p">(</span><span class="n">BlockConverter</span><span class="p">):</span>
@@ -1002,7 +1080,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2026, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2026-03-23.
+      <span class="lastupdated">Last updated on 2026-03-24.
       </span></p>
   </div>
 
