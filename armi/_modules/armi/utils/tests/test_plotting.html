@@ -120,7 +120,10 @@
 <span class="sd">&quot;&quot;&quot;Tests for basic plotting tools.&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">glob</span><span class="w"> </span><span class="kn">import</span> <span class="n">glob</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">unittest.mock</span><span class="w"> </span><span class="kn">import</span> <span class="n">patch</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -131,7 +134,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.flags</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">test_reactors</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TESTING_ROOT</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">ISOAA_PATH</span><span class="p">,</span> <span class="n">getEmptyHexReactor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">ISOAA_PATH</span><span class="p">,</span> <span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">getEmptyHexReactor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plotting</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils.directoryChangers</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
 
@@ -331,23 +334,45 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">TestPatches</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Test the ability to correctly make patches.&quot;&quot;&quot;</span>
 
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setUpClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="c1"># Prepare the input files. This is important so the unit tests run from wherever they need to run from.</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">td</span> <span class="o">=</span> <span class="n">TemporaryDirectoryChanger</span><span class="p">()</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">td</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">()</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tearDownClass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">td</span><span class="o">.</span><span class="fm">__exit__</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
 <div class="viewcode-block" id="TestPatches.test_makeAssemPatches">
 <a class="viewcode-back" href="../../../../.apidocs/armi.utils.tests.test_plotting.html#armi.utils.tests.test_plotting.TestPatches.test_makeAssemPatches">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">test_makeAssemPatches</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.utils.plotting.plt.figure&quot;</span><span class="p">)</span>
+    <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;armi.utils.plotting.plt.savefig&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_makeAssemPatches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mockSavefig</span><span class="p">,</span> <span class="n">mockFigure</span><span class="p">):</span>
+        <span class="c1"># mock up a flats-up version of the smallest test reactor</span>
+        <span class="k">for</span> <span class="n">fPath</span> <span class="ow">in</span> <span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="s2">&quot;smallestTestReactor&quot;</span><span class="p">,</span> <span class="s2">&quot;*.yaml&quot;</span><span class="p">)):</span>
+            <span class="n">fName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">fPath</span><span class="p">)</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">fPath</span><span class="p">,</span> <span class="n">fName</span><span class="p">)</span>
+
+        <span class="n">txt</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;refSmallestReactor.yaml&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">txt</span> <span class="o">=</span> <span class="n">txt</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;geom: hex_corners_up&quot;</span><span class="p">,</span> <span class="s2">&quot;geom: hex&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;refSmallestReactor.yaml&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">txt</span><span class="p">)</span>
+
         <span class="c1"># this one is flats-up with many assemblies in the core</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">rHexFlatsUp</span> <span class="o">=</span> <span class="n">test_reactors</span><span class="o">.</span><span class="n">loadTestReactor</span><span class="p">()</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">rHexFlatsUp</span> <span class="o">=</span> <span class="n">test_reactors</span><span class="o">.</span><span class="n">loadTestReactor</span><span class="p">(</span><span class="n">inputFilePath</span><span class="o">=</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">inputFileName</span><span class="o">=</span><span class="s2">&quot;armiRunSmallest.yaml&quot;</span><span class="p">)</span>
 
         <span class="n">nAssems</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">rHexFlatsUp</span><span class="o">.</span><span class="n">core</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">assertGreater</span><span class="p">(</span><span class="n">nAssems</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">nAssems</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
         <span class="n">patches</span> <span class="o">=</span> <span class="n">plotting</span><span class="o">.</span><span class="n">_makeAssemPatches</span><span class="p">(</span><span class="n">rHexFlatsUp</span><span class="o">.</span><span class="n">core</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">patches</span><span class="p">),</span> <span class="n">nAssems</span><span class="p">)</span>
 
         <span class="c1"># find the patch corresponding to the center assembly</span>
-        <span class="k">for</span> <span class="n">patch</span> <span class="ow">in</span> <span class="n">patches</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">patch</span><span class="o">.</span><span class="n">xy</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)):</span>
+        <span class="k">for</span> <span class="n">pat</span> <span class="ow">in</span> <span class="n">patches</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">pat</span><span class="o">.</span><span class="n">xy</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)):</span>
                 <span class="k">break</span>
 
-        <span class="n">vertices</span> <span class="o">=</span> <span class="n">patch</span><span class="o">.</span><span class="n">get_verts</span><span class="p">()</span>
+        <span class="n">vertices</span> <span class="o">=</span> <span class="n">pat</span><span class="o">.</span><span class="n">get_verts</span><span class="p">()</span>
         <span class="c1"># there should be 1 more than the number of points in the shape</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">vertices</span><span class="p">),</span> <span class="mi">7</span><span class="p">)</span>
         <span class="c1"># for flats-up, the first vertex should have a y position of ~zero</span>
