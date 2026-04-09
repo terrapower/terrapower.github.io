@@ -234,6 +234,39 @@
 
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_checkConsistentNuclides</span><span class="p">(</span><span class="n">thisComp</span><span class="p">,</span> <span class="n">repComp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check that thisComp has the same set of nuclides as the analogous component in the</span>
+<span class="sd">    representative block.</span>
+
+<span class="sd">    This check is somewhat permissive in that it allows for the two components to differ</span>
+<span class="sd">    in nuclides where one of them is at a zero number density.</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This only checks ``consistentNucs`` for ones that are important in SFRs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">consistentNucs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;PU239&quot;</span><span class="p">,</span> <span class="s2">&quot;U238&quot;</span><span class="p">,</span> <span class="s2">&quot;U235&quot;</span><span class="p">,</span> <span class="s2">&quot;U234&quot;</span><span class="p">,</span> <span class="s2">&quot;FE56&quot;</span><span class="p">,</span> <span class="s2">&quot;NA23&quot;</span><span class="p">,</span> <span class="s2">&quot;O16&quot;</span><span class="p">}</span>
+    <span class="c1"># ignore anything with zero number density</span>
+    <span class="n">theseNucs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">nuc</span> <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">ndens</span> <span class="ow">in</span> <span class="n">thisComp</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">ndens</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">thoseNucs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">nuc</span> <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">ndens</span> <span class="ow">in</span> <span class="n">repComp</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">ndens</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span>
+
+    <span class="c1"># in the nuclide list of the component, but at a number density of 0.0</span>
+    <span class="c1"># treat this more permissively -- i.e., it could be considered as either having or not having it</span>
+    <span class="n">theseNucsAtZero</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">nuc</span> <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">ndens</span> <span class="ow">in</span> <span class="n">thisComp</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">ndens</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">thoseNucsAtZero</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">nuc</span> <span class="k">for</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">ndens</span> <span class="ow">in</span> <span class="n">repComp</span><span class="o">.</span><span class="n">getNumberDensities</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">ndens</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">)</span>
+
+    <span class="c1"># check for any differences between which `consistentNucs` the components have</span>
+    <span class="n">diffNucsNonZero</span> <span class="o">=</span> <span class="n">theseNucs</span><span class="o">.</span><span class="n">symmetric_difference</span><span class="p">(</span><span class="n">thoseNucs</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">consistentNucs</span><span class="p">)</span>
+    <span class="n">diffNucsAtZero</span> <span class="o">=</span> <span class="n">theseNucsAtZero</span><span class="o">.</span><span class="n">symmetric_difference</span><span class="p">(</span><span class="n">thoseNucsAtZero</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">consistentNucs</span><span class="p">)</span>
+    <span class="n">diffNucs</span> <span class="o">=</span> <span class="n">diffNucsNonZero</span> <span class="o">-</span> <span class="n">diffNucsAtZero</span>
+    <span class="k">if</span> <span class="n">diffNucs</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Component </span><span class="si">{</span><span class="n">thisComp</span><span class="si">}</span><span class="s2"> in block </span><span class="si">{</span><span class="n">repComp</span><span class="si">}</span><span class="s2"> and component </span><span class="si">{</span><span class="n">thisComp</span><span class="si">}</span><span class="s2"> in block </span><span class="si">{</span><span class="n">thisComp</span><span class="o">.</span><span class="n">parent</span><span class="si">}</span><span class="s2"> are in the &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;same location, but nuclides differ by </span><span class="si">{</span><span class="n">diffNucs</span><span class="si">}</span><span class="s2">. </span><span class="se">\n</span><span class="si">{</span><span class="n">theseNucs</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="si">{</span><span class="n">thoseNucs</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+
 <div class="viewcode-block" id="BlockCollection">
 <a class="viewcode-back" href="../../../../.apidocs/armi.physics.neutronics.crossSectionGroupManager.html#armi.physics.neutronics.crossSectionGroupManager.BlockCollection">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">BlockCollection</span><span class="p">(</span><span class="nb">list</span><span class="p">):</span>
@@ -739,25 +772,14 @@
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">repBlock</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Blocks </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">repBlock</span><span class="si">}</span><span class="s2"> have differing number of components and cannot be homogenized&quot;</span><span class="p">)</span>
 
-        <span class="c1"># NOTE: We are using Fe-56 as a proxy for structure and Na-23 as proxy for coolant is</span>
-        <span class="c1"># undesirably SFR-centric. This should be generalized in the future, if possible.</span>
-        <span class="n">consistentNucs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;PU239&quot;</span><span class="p">,</span> <span class="s2">&quot;U238&quot;</span><span class="p">,</span> <span class="s2">&quot;U235&quot;</span><span class="p">,</span> <span class="s2">&quot;U234&quot;</span><span class="p">,</span> <span class="s2">&quot;FE56&quot;</span><span class="p">,</span> <span class="s2">&quot;NA23&quot;</span><span class="p">,</span> <span class="s2">&quot;O16&quot;</span><span class="p">}</span>
+        <span class="c1"># NOTE: We are using Fe-56 as a proxy for structure and Na-23 as proxy for coolant, which</span>
+        <span class="c1"># is undesirably SFR-centric. This should be generalized in the future, if possible.</span>
         <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">repC</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">b</span><span class="p">),</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">repBlock</span><span class="p">)):</span>
-            <span class="n">compString</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Component </span><span class="si">{</span><span class="n">repC</span><span class="si">}</span><span class="s2"> in block </span><span class="si">{</span><span class="n">repBlock</span><span class="si">}</span><span class="s2"> and component </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> in block </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">_checkConsistentNuclides</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">repC</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span> <span class="o">!=</span> <span class="n">repC</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">compString</span><span class="si">}</span><span class="s2"> must have the same multiplicity, but they have. </span><span class="si">{</span><span class="n">repC</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span><span class="si">}</span><span class="s2"> &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;and </span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span><span class="si">}</span><span class="s2">, respectively.&quot;</span>
-                <span class="p">)</span>
-
-            <span class="n">theseNucs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">())</span>
-            <span class="n">thoseNucs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">repC</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">())</span>
-            <span class="c1"># check for any differences between which `consistentNucs` the components have</span>
-            <span class="n">diffNucs</span> <span class="o">=</span> <span class="n">theseNucs</span><span class="o">.</span><span class="n">symmetric_difference</span><span class="p">(</span><span class="n">thoseNucs</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">consistentNucs</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">diffNucs</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">compString</span><span class="si">}</span><span class="s2"> are in the same location, but nuclides &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;differ by </span><span class="si">{</span><span class="n">diffNucs</span><span class="si">}</span><span class="s2">. </span><span class="se">\n</span><span class="si">{</span><span class="n">theseNucs</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="si">{</span><span class="n">thoseNucs</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Component </span><span class="si">{</span><span class="n">repC</span><span class="si">}</span><span class="s2"> in block </span><span class="si">{</span><span class="n">repBlock</span><span class="si">}</span><span class="s2"> and component </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> in block </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> must have the same &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;multiplicity, but they have </span><span class="si">{</span><span class="n">repC</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span><span class="si">}</span><span class="s2">, respectively.&quot;</span>
                 <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_getAverageComponentNucs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">components</span><span class="p">,</span> <span class="n">bWeights</span><span class="p">):</span>
@@ -917,14 +939,9 @@
 
 <span class="sd">        TypeError</span>
 <span class="sd">            When the shape of the component is not a rectangle.</span>
-
-<span class="sd">        Warning</span>
-<span class="sd">        -------</span>
-<span class="sd">        This only checks ``consistentNucs`` for ones that are important in ZPPR and BFS.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">comps</span> <span class="o">=</span> <span class="n">b</span> <span class="k">if</span> <span class="n">components</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">components</span>
 
-        <span class="n">consistentNucs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;PU239&quot;</span><span class="p">,</span> <span class="s2">&quot;U238&quot;</span><span class="p">,</span> <span class="s2">&quot;U235&quot;</span><span class="p">,</span> <span class="s2">&quot;U234&quot;</span><span class="p">,</span> <span class="s2">&quot;FE56&quot;</span><span class="p">,</span> <span class="s2">&quot;NA23&quot;</span><span class="p">,</span> <span class="s2">&quot;O16&quot;</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">repC</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">comps</span><span class="p">,</span> <span class="n">repBlock</span><span class="p">):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">basicShapes</span><span class="o">.</span><span class="n">Rectangle</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
@@ -938,15 +955,7 @@
                     <span class="s2">&quot;thermal expansion&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">compString</span><span class="p">)</span>
                 <span class="p">)</span>
 
-            <span class="n">theseNucs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">())</span>
-            <span class="n">thoseNucs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">repC</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">())</span>
-            <span class="k">for</span> <span class="n">nuc</span> <span class="ow">in</span> <span class="n">consistentNucs</span><span class="p">:</span>
-                <span class="k">if</span> <span class="p">(</span><span class="n">nuc</span> <span class="ow">in</span> <span class="n">theseNucs</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="n">nuc</span> <span class="ow">in</span> <span class="n">thoseNucs</span><span class="p">):</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> are in the same location, but are not consistent in nuclide </span><span class="si">{}</span><span class="s2">. </span><span class="se">\n</span><span class="si">{}</span><span class="s2"> </span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                            <span class="n">compString</span><span class="p">,</span> <span class="n">nuc</span><span class="p">,</span> <span class="n">theseNucs</span><span class="p">,</span> <span class="n">thoseNucs</span>
-                        <span class="p">)</span>
-                    <span class="p">)</span>
+            <span class="n">_checkConsistentNuclides</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">repC</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span> <span class="o">!=</span> <span class="n">repC</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">mult</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> must have the same multiplicity to homogenize&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">compString</span><span class="p">))</span>
 
