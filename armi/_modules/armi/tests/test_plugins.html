@@ -142,6 +142,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.flags</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flags</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">loadTestReactor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.tests</span><span class="w"> </span><span class="kn">import</span> <span class="n">TEST_ROOT</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">onlyRunOnce</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils.directoryChangers</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
 
 
@@ -192,6 +193,7 @@
 <a class="viewcode-back" href="../../../.apidocs/armi.tests.test_plugins.html#armi.tests.test_plugins.BeforeReactorPlugin.beforeReactorConstruction">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="nd">@plugins</span><span class="o">.</span><span class="n">HOOKIMPL</span>
+    <span class="nd">@onlyRunOnce</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">beforeReactorConstruction</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">cs</span><span class="o">.</span><span class="n">beforeReactorConstructionFlag</span> <span class="o">=</span> <span class="kc">True</span></div>
 </div>
@@ -275,21 +277,37 @@
 <a class="viewcode-back" href="../../../.apidocs/armi.tests.test_plugins.html#armi.tests.test_plugins.TestPluginRegistration.test_beforeReactorConstructionHook">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">test_beforeReactorConstructionHook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Test that plugin hook successfully injects code before reactor initialization.&quot;&quot;&quot;</span>
-        <span class="n">pm</span> <span class="o">=</span> <span class="n">getPluginManagerOrFail</span><span class="p">()</span>
-        <span class="n">pm</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">BeforeReactorPlugin</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Load a test reactor to save to DB. This should be loaded before the `BeforeReactorPlugin` is registered,</span>
+            <span class="c1"># because we aren&#39;t testing that functionality just yet</span>
             <span class="n">o</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">loadTestReactor</span><span class="p">(</span><span class="n">TEST_ROOT</span><span class="p">,</span> <span class="n">inputFileName</span><span class="o">=</span><span class="s2">&quot;smallestTestReactor/armiRunSmallest.yaml&quot;</span><span class="p">,</span> <span class="n">useCache</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">beforeReactorConstructionFlag</span><span class="p">)</span>
 
-            <span class="c1"># Check that hook is called for database loading</span>
+            <span class="c1"># Now, register the plugin before `loadOperator` is called</span>
+            <span class="n">pm</span> <span class="o">=</span> <span class="n">getPluginManagerOrFail</span><span class="p">()</span>
+            <span class="n">pm</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">BeforeReactorPlugin</span><span class="p">)</span>
+
             <span class="k">with</span> <span class="n">TemporaryDirectoryChanger</span><span class="p">():</span>
+                <span class="c1"># Save loaded reactor to DB</span>
                 <span class="n">dbi</span> <span class="o">=</span> <span class="n">DatabaseInterface</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
                 <span class="n">dbi</span><span class="o">.</span><span class="n">initDB</span><span class="p">(</span><span class="n">fName</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span> <span class="o">+</span> <span class="s2">&quot;.h5&quot;</span><span class="p">)</span>
                 <span class="n">db</span> <span class="o">=</span> <span class="n">dbi</span><span class="o">.</span><span class="n">database</span>
                 <span class="n">db</span><span class="o">.</span><span class="n">writeToDB</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
                 <span class="n">db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-                <span class="n">o</span> <span class="o">=</span> <span class="n">loadOperator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span> <span class="o">+</span> <span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">callReactorConstructionHook</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">beforeReactorConstructionFlag</span><span class="p">)</span>
+                <span class="c1"># Call `loadOperator`, which will trigger the plugin hook we are testing</span>
+                <span class="n">o1</span> <span class="o">=</span> <span class="n">loadOperator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span> <span class="o">+</span> <span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="c1"># Assert to prove that the plugin hook code ran</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">o1</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">beforeReactorConstructionFlag</span><span class="p">)</span>
+                <span class="c1"># Run `loadOperator` a second time</span>
+                <span class="n">o2</span> <span class="o">=</span> <span class="n">loadOperator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span> <span class="o">+</span> <span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="c1"># Assert to prove that the plugin hook code did not run</span>
+                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaisesRegex</span><span class="p">(</span>
+                    <span class="ne">AttributeError</span><span class="p">,</span> <span class="s2">&quot;&#39;Settings&#39; object has no attribute &#39;beforeReactorConstructionFlag&#39;&quot;</span>
+                <span class="p">):</span>
+                    <span class="n">o2</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">beforeReactorConstructionFlag</span>
+                <span class="c1"># Reset the decorator wrapper, and run `loadOperator` a third time</span>
+                <span class="n">BeforeReactorPlugin</span><span class="o">.</span><span class="n">beforeReactorConstruction</span><span class="o">.</span><span class="n">reset_onlyRunOnce</span><span class="p">()</span>
+                <span class="n">o3</span> <span class="o">=</span> <span class="n">loadOperator</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span> <span class="o">+</span> <span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">o3</span><span class="o">.</span><span class="n">cs</span><span class="o">.</span><span class="n">beforeReactorConstructionFlag</span><span class="p">)</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="n">pm</span><span class="o">.</span><span class="n">unregister</span><span class="p">(</span><span class="n">BeforeReactorPlugin</span><span class="p">)</span></div>
 </div>
@@ -467,7 +485,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2026, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2026-05-11.
+      <span class="lastupdated">Last updated on 2026-05-15.
       </span></p>
   </div>
 
