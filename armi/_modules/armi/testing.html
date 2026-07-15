@@ -129,7 +129,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">getPluginManagerOrFail</span><span class="p">,</span> <span class="n">materials</span><span class="p">,</span> <span class="n">runLog</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">geometry</span><span class="p">,</span> <span class="n">grids</span><span class="p">,</span> <span class="n">reactors</span>
 
 <span class="n">TEST_ROOT</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)),</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;tests&quot;</span><span class="p">))</span>
@@ -181,6 +181,11 @@
         <span class="c1"># return test reactor from cache</span>
         <span class="n">o</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">_TEST_REACTORS</span><span class="p">[</span><span class="n">reactorHash</span><span class="p">])</span>
         <span class="n">o</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;materialNamespaceOrder&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">materials</span><span class="o">.</span><span class="n">getMaterialNamespaceOrder</span> <span class="o">!=</span> <span class="p">[</span><span class="s2">&quot;armi.materials&quot;</span><span class="p">]:</span>
+            <span class="n">materials</span><span class="o">.</span><span class="n">setMaterialNamespaceOrder</span><span class="p">([</span><span class="s2">&quot;armi.materials&quot;</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;materialNamespaceOrder&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">materials</span><span class="o">.</span><span class="n">getMaterialNamespaceOrder</span><span class="p">():</span>
+            <span class="c1"># Reload materials if the current global namespace order doesn&#39;t match the case settings namespace order</span>
+            <span class="n">materials</span><span class="o">.</span><span class="n">setMaterialNamespaceOrder</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">[</span><span class="s2">&quot;materialNamespaceOrder&quot;</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">o</span><span class="p">,</span> <span class="n">r</span>
 
     <span class="c1"># Overwrite settings if desired</span>
@@ -191,6 +196,9 @@
     <span class="k">if</span> <span class="s2">&quot;verbosity&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">customSettings</span><span class="p">:</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">)</span>
 
+    <span class="c1"># Always want to reset this hook if the namespace has changed unit tests have varying namespace settings</span>
+    <span class="k">if</span> <span class="n">cs</span><span class="p">[</span><span class="s2">&quot;materialNamespaceOrder&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">materials</span><span class="o">.</span><span class="n">getMaterialNamespaceOrder</span><span class="p">():</span>
+        <span class="n">_resetBeforeReactorConstructionHook</span><span class="p">()</span>
     <span class="n">o</span> <span class="o">=</span> <span class="n">operators</span><span class="o">.</span><span class="n">factory</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
     <span class="n">r</span> <span class="o">=</span> <span class="n">reactors</span><span class="o">.</span><span class="n">loadFromCs</span><span class="p">(</span><span class="n">cs</span><span class="p">)</span>
 
@@ -204,6 +212,22 @@
 
     <span class="k">return</span> <span class="n">o</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">r</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resetBeforeReactorConstructionHook</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function that gathers all the plugins with a `beforeReactorConstruction` hook and resets the `onlyRunOnce`</span>
+<span class="sd">    decorator. This is important to do for unit tests because different plugins may have a different namespace order</span>
+<span class="sd">    and we need the materials accurate to the test to load.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pm</span> <span class="o">=</span> <span class="n">getPluginManagerOrFail</span><span class="p">()</span>
+    <span class="n">hook</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">hook</span><span class="o">.</span><span class="n">beforeReactorConstruction</span>
+
+    <span class="k">for</span> <span class="n">hookimpl</span> <span class="ow">in</span> <span class="n">hook</span><span class="o">.</span><span class="n">get_hookimpls</span><span class="p">():</span>
+        <span class="n">func</span> <span class="o">=</span> <span class="n">hookimpl</span><span class="o">.</span><span class="n">function</span>
+        <span class="n">reset</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="s2">&quot;reset_onlyRunOnce&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">reset</span><span class="p">):</span>
+            <span class="n">reset</span><span class="p">()</span>
 
 
 <div class="viewcode-block" id="reduceTestReactorRings">
@@ -277,7 +301,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2026, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2026-07-14.
+      <span class="lastupdated">Last updated on 2026-07-15.
       </span></p>
   </div>
 
