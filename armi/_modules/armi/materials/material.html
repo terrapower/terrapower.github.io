@@ -15,9 +15,9 @@
       <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_style.css?v=678fb11e" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_style.css?v=678fb11e" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/modern.css?v=803738c0" />
@@ -123,6 +123,8 @@
 <span class="sd">Most temperatures may be specified in either K or C and the functions will convert for you.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
@@ -197,7 +199,7 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Dictionary of valid temperatures over which the property models are valid in the format</span>
 <span class="sd">    &#39;Property Name&#39;: ((Temperature_Lower_Limit, Temperature_Upper_Limit), Temperature_Units)&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">yamlPath</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">yamlPath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">updateMassFracs</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="k">global</span> <span class="n">_YAML_MATERIALS</span>
         <span class="k">if</span> <span class="n">yamlPath</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">YAML_PATH</span> <span class="o">=</span> <span class="n">yamlPath</span>
@@ -224,8 +226,22 @@
             <span class="c1"># This material does not have a YAML file to pull the name from.</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
 
-        <span class="c1"># call subclass implementations</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">setDefaultMassFracs</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">updateMassFracs</span><span class="p">:</span>
+            <span class="c1"># call subclass implementations</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setDefaultMassFracs</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__deepcopy__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memo</span><span class="p">):</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="n">memo</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)]</span> <span class="o">=</span> <span class="n">result</span>
+
+        <span class="n">result</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">memo</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">result</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;Material: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span>
@@ -297,22 +313,8 @@
 <div class="viewcode-block" id="Material.duplicate">
 <a class="viewcode-back" href="../../../.apidocs/armi.materials.material.html#armi.materials.material.Material.duplicate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">duplicate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Copy without needing a deepcopy.&quot;&quot;&quot;</span>
-        <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">()</span>
-
-        <span class="n">m</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">m</span><span class="o">.</span><span class="n">massFrac</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
-
-        <span class="n">m</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span>
-        <span class="n">m</span><span class="o">.</span><span class="n">refDens</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">refDens</span>
-        <span class="n">m</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">theoreticalDensityFrac</span>
-
-        <span class="c1"># handle some special cases for subclasses, like fuels</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;class1_wt_frac&quot;</span><span class="p">):</span>
-            <span class="n">m</span><span class="o">.</span><span class="n">class1_wt_frac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">class1_wt_frac</span>
-
-        <span class="k">return</span> <span class="n">m</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See deepcopy, retained for API compatibility.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Material.linearExpansion">
@@ -422,6 +424,9 @@
 <span class="sd">        This method pulls the material composition from the material YAML definition file. Alternatively, this method</span>
 <span class="sd">        can be over-riden by in Python to declare the default mass fractions using some custom logic.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># clear mass fracs previously set since we are resetting to the default.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">massFrac</span> <span class="o">=</span> <span class="p">{}</span>
+
         <span class="c1"># If there is a YAML file, try to pull the material composition from there.</span>
         <span class="n">massFracs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">balanceNuc</span> <span class="o">=</span> <span class="kc">None</span>
