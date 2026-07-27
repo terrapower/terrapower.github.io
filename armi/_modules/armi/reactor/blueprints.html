@@ -495,8 +495,7 @@
         <span class="k">for</span> <span class="n">nucBase</span> <span class="ow">in</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">instances</span><span class="p">:</span>
             <span class="n">isAlreadyIsotopic</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nucBase</span><span class="p">,</span> <span class="n">nuclideBases</span><span class="o">.</span><span class="n">NaturalNuclideBase</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">isAlreadyIsotopic</span><span class="p">:</span>
-                <span class="c1"># `elemental` may be a NaturalNuclideBase or a NuclideBase</span>
-                <span class="c1"># skip all NuclideBases (isotopics)</span>
+                <span class="c1"># `elemental` may be a NaturalNuclideBase or a NuclideBase skip all NuclideBases (isotopics)</span>
                 <span class="k">continue</span>
 
             <span class="c1"># we now know its an elemental</span>
@@ -628,16 +627,43 @@
         <span class="k">return</span> <span class="n">inp</span></div>
 
 
+<div class="viewcode-block" id="Blueprints.dump">
+<a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.Blueprints.dump">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dump</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">stream</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A wrapper around the yamlize.Object.dump.</span>
+
+<span class="sd">        With the release of ruamel.yaml 0.19.1, we began to get an error where lists that include only empty and 0.0</span>
+<span class="sd">        values incorrectly for the zero values to zero strings: &#39;0.0&#39;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="n">stream</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">stream</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">):</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Loop through the entire text file, to attempt to do the cleaning</span>
+        <span class="n">stream</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># must rewind to be able to read the entire stream</span>
+        <span class="n">txt</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">txt</span> <span class="o">=</span> <span class="n">txt</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&#39;0.0&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;0.0&quot;</span><span class="p">)</span>
+        <span class="n">txt</span> <span class="o">=</span> <span class="n">txt</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;&quot;0.0&quot;&#39;</span><span class="p">,</span> <span class="s2">&quot;0.0&quot;</span><span class="p">)</span>
+
+        <span class="c1"># wipe out the stream and then over-write it</span>
+        <span class="n">stream</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">stream</span><span class="o">.</span><span class="n">truncate</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">stream</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">txt</span><span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="Blueprints.load">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.Blueprints.load">[docs]</a>
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">roundTrip</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;A wrapper around the `yamlize.Object.load()` method.&quot;&quot;&quot;</span>
-        <span class="c1"># With the release of ruamel.yaml 0.19.1, we began getting the following error:</span>
-        <span class="c1"># AttributeError: &#39;RoundTripLoader&#39; object has no attribute &#39;max_depth&#39;</span>
-        <span class="c1"># Setting that attribute to `None` solved the issue. However, it would be prudent to rework blueprints loading</span>
-        <span class="c1"># to side step the issue entirely. This occurs because of the way `yamlize` works when it calls</span>
-        <span class="c1"># `get_single_node`.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A wrapper around the `yamlize.Object.load()` method.</span>
+
+<span class="sd">        With the release of ruamel.yaml 0.19.1, we began getting the following error:</span>
+<span class="sd">        AttributeError: &#39;RoundTripLoader&#39; object has no attribute &#39;max_depth&#39;</span>
+<span class="sd">        Setting that attribute to `None` solved the issue. However, it would be prudent to rework blueprints loading to</span>
+<span class="sd">        side step the issue entirely. This occurs because of the way `yamlize` calls `get_single_node`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">RoundTripLoader</span><span class="o">.</span><span class="n">max_depth</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">Loader</span><span class="o">=</span><span class="n">RoundTripLoader</span><span class="p">)</span></div>
 
