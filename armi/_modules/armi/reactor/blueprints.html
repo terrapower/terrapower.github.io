@@ -180,7 +180,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">ordered_set</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">yamlize</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">yamlize.objects</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ruamel.yaml</span><span class="w"> </span><span class="kn">import</span> <span class="n">RoundTripLoader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ruamel.yaml</span><span class="w"> </span><span class="kn">import</span> <span class="n">RoundTripDumper</span><span class="p">,</span> <span class="n">RoundTripLoader</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">context</span><span class="p">,</span>
@@ -630,19 +630,53 @@
 <div class="viewcode-block" id="Blueprints.dump">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.Blueprints.dump">[docs]</a>
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">dump</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">stream</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;A wrapper around the yamlize.Object.dump.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dump</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">Dumper</span><span class="o">=</span><span class="n">RoundTripDumper</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A modification of yamlize.Object.dump.</span>
 
 <span class="sd">        With the release of ruamel.yaml 0.19.1, we began to get an error where lists that include only empty and 0.0</span>
 <span class="sd">        values incorrectly for the zero values to zero strings: &#39;0.0&#39;.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="n">stream</span><span class="p">)</span>
+        <span class="n">convertToYaml</span> <span class="o">=</span> <span class="n">stream</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="n">stream</span> <span class="o">=</span> <span class="n">stream</span> <span class="ow">or</span> <span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">()</span>
+        <span class="n">dumper</span> <span class="o">=</span> <span class="n">Dumper</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">stream</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">):</span>
-            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dumper</span><span class="o">.</span><span class="n">_serializer</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
+            <span class="n">root_node</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">to_yaml</span><span class="p">(</span><span class="n">dumper</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+            <span class="n">dumper</span><span class="o">.</span><span class="n">serialize</span><span class="p">(</span><span class="n">root_node</span><span class="p">)</span>
+            <span class="n">dumper</span><span class="o">.</span><span class="n">_serializer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">dumper</span><span class="o">.</span><span class="n">_emitter</span><span class="o">.</span><span class="n">dispose</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                <span class="k">raise</span>
+                <span class="n">dumper</span><span class="o">.</span><span class="n">dispose</span><span class="p">()</span>  <span class="c1"># cyaml</span>
 
-        <span class="c1"># Loop through the entire text file, to attempt to do the cleaning</span>
-        <span class="n">stream</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># must rewind to be able to read the entire stream</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">Blueprints</span><span class="o">.</span><span class="n">streamCleaner</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">io</span><span class="o">.</span><span class="n">UnsupportedOperation</span><span class="p">:</span>
+            <span class="c1"># Not all streams are writable.</span>
+            <span class="k">pass</span>
+
+        <span class="k">if</span> <span class="n">convertToYaml</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">stream</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="Blueprints.streamCleaner">
+<a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.Blueprints.streamCleaner">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">streamCleaner</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">stream</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clean the zero strings into zero floats.</span>
+
+<span class="sd">        With the release of ruamel.yaml 0.19.1, we began to get an error where lists that include only empty and 0.0</span>
+<span class="sd">        values incorrectly for the zero values to zero strings: &#39;0.0&#39;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># must rewind to be able to read the entire stream</span>
+        <span class="n">stream</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># build the replacement string</span>
         <span class="n">txt</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
         <span class="n">txt</span> <span class="o">=</span> <span class="n">txt</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&#39;0.0&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;0.0&quot;</span><span class="p">)</span>
         <span class="n">txt</span> <span class="o">=</span> <span class="n">txt</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;&quot;0.0&quot;&#39;</span><span class="p">,</span> <span class="s2">&quot;0.0&quot;</span><span class="p">)</span>
@@ -717,7 +751,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2026, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2026-07-29.
+      <span class="lastupdated">Last updated on 2026-07-30.
       </span></p>
   </div>
 
