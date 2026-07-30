@@ -230,8 +230,8 @@
 <span class="sd">    `doc/user/outputs/database` for more details.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="c1"># Allows matching for, e.g., c01n02EOL</span>
-    <span class="n">timeNodeGroupPattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^c(\d\d)n(\d\d).*$&quot;</span><span class="p">)</span>
+    <span class="c1"># DB timenode matching. Please see genTimeSteps for details.</span>
+    <span class="n">timeNodeGroupPattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^c(\d\d)n(\d\d)([a-zA-Z]{0,9})$&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fileName</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">,</span> <span class="n">permission</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;r&quot;</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -430,7 +430,7 @@
 
 <div class="viewcode-block" id="Database.splitDatabase">
 <a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database.html#armi.bookkeeping.db.database.Database.splitDatabase">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">splitDatabase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keepTimeSteps</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">splitDatabase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keepTimeSteps</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Tuple</span><span class="p">],</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Discard all data except for specific time steps, retaining old data in a separate file.</span>
 
@@ -474,7 +474,13 @@
             <span class="k">for</span> <span class="n">groupName</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">dbIn</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeNodeGroupPattern</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">groupName</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
-                    <span class="n">timeSteps</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span> <span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">))))</span>
+                    <span class="n">groups</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+                        <span class="c1"># handle timenodes with statepoint names like c01n02EOL and c07n01error</span>
+                        <span class="n">timeStep</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">groups</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">timeStep</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+                    <span class="n">timeSteps</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">timeStep</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">dbIn</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">groupName</span><span class="p">,</span> <span class="n">dbOut</span><span class="p">)</span>
 
@@ -715,15 +721,32 @@
 
 <div class="viewcode-block" id="Database.genTimeSteps">
 <a class="viewcode-back" href="../../../../.apidocs/armi.bookkeeping.db.database.html#armi.bookkeeping.db.database.Database.genTimeSteps">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">genTimeSteps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a generator of (cycle, node) tuples that are present in the DB.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">genTimeSteps</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a generator of tuples reflecting statepoints that are present in the DB.</span>
+
+<span class="sd">        This method relies on a class variable timeNodeGroupPattern, which is a Python regex pattern that matches the</span>
+<span class="sd">        the Python database time nodes. This method must support all possible Database time nodes.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        c00n00 -&gt; (0, 0)</span>
+<span class="sd">        c01n04 -&gt; (1, 4)</span>
+<span class="sd">        c01n02EOL -&gt; (1, 2, &quot;EOL&quot;)</span>
+<span class="sd">        c12n99error -&gt; (12, 99, &quot;error&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">h5db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Must open the database before calling genTimeSteps&quot;</span>
         <span class="k">for</span> <span class="n">groupName</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h5db</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
             <span class="n">match</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeNodeGroupPattern</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">groupName</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
-                <span class="n">cycle</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
-                <span class="n">node</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
-                <span class="k">yield</span> <span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span></div>
+                <span class="n">groups</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+                <span class="n">cycle</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">node</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">groups</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">statePoint</span> <span class="o">=</span> <span class="n">groups</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">statePoint</span><span class="p">):</span>
+                    <span class="c1"># handle timenodes with statepoint names like c01n02EOL and c07n01error</span>
+                    <span class="k">yield</span> <span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">statePoint</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">yield</span> <span class="p">(</span><span class="n">cycle</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="Database.genAuxiliaryData">
