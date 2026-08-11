@@ -121,10 +121,11 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">unittest.mock</span><span class="w"> </span><span class="kn">import</span> <span class="n">MagicMock</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">array</span><span class="p">,</span> <span class="n">array_equal</span><span class="p">,</span> <span class="n">full</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">array</span><span class="p">,</span> <span class="n">array_equal</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">float32</span><span class="p">,</span> <span class="n">float64</span><span class="p">,</span> <span class="n">full</span><span class="p">,</span> <span class="n">ndarray</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">assert_allclose</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.materials.material</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fluid</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.blueprints</span><span class="w"> </span><span class="kn">import</span> <span class="n">Blueprints</span>
@@ -189,7 +190,36 @@
     <span class="n">HMmass</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">HMmassBOL</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">HMmolesBOL</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">temp</span><span class="p">:</span> <span class="nb">float</span></div>
+    <span class="n">temp</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">volume</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">pinNDens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">dtype</span><span class="p">[</span><span class="n">float32</span><span class="p">]]]</span>
+    <span class="n">detailedNDens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">dtype</span><span class="p">[</span><span class="n">float64</span><span class="p">]]]</span>
+
+<div class="viewcode-block" id="StoreMassAndTemp.fromComponent">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_axialExpansionChanger_MultiPin.html#armi.reactor.converters.tests.test_axialExpansionChanger_MultiPin.StoreMassAndTemp.fromComponent">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fromComponent</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="n">Component</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize from a component.</span>
+
+<span class="sd">        Helps because the init signature has lots of fields.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">pinNDens</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNDens</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># copy so scaling operations like component.changeNDensByFactor don&#39;t mutate original data</span>
+            <span class="n">pinNDens</span> <span class="o">=</span> <span class="n">pinNDens</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">detailedNDens</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">detailedNDens</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">detailedNDens</span> <span class="o">=</span> <span class="n">detailedNDens</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">getMass</span><span class="p">(),</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">getHMMass</span><span class="p">(),</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span><span class="p">,</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span><span class="p">,</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">getVolume</span><span class="p">(),</span>
+            <span class="n">pinNDens</span><span class="p">,</span>
+            <span class="n">detailedNDens</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
 
 
 
@@ -299,6 +329,15 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">c0</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;fuel test&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b0</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">c1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">axialExpChngr</span><span class="o">.</span><span class="n">linked</span><span class="o">.</span><span class="n">linkedComponents</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span>
 
+        <span class="n">nPins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">getDimension</span><span class="p">(</span><span class="s2">&quot;mult&quot;</span><span class="p">)</span>
+        <span class="n">nPinNuclides</span> <span class="o">=</span> <span class="mi">7</span>  <span class="c1"># arbitrary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNDens</span> <span class="o">=</span> <span class="n">full</span><span class="p">((</span><span class="n">nPins</span><span class="p">,</span> <span class="n">nPinNuclides</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">float32</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNDens</span> <span class="o">=</span> <span class="n">full</span><span class="p">((</span><span class="n">nPins</span><span class="p">,</span> <span class="n">nPinNuclides</span><span class="p">),</span> <span class="mf">20.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">float32</span><span class="p">)</span>
+
+        <span class="n">nDetailedNuclides</span> <span class="o">=</span> <span class="mi">11</span>  <span class="c1"># arbitrary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">detailedNDens</span> <span class="o">=</span> <span class="n">full</span><span class="p">((</span><span class="n">nDetailedNuclides</span><span class="p">,),</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">float64</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">detailedNDens</span> <span class="o">=</span> <span class="n">full</span><span class="p">((</span><span class="n">nDetailedNuclides</span><span class="p">,),</span> <span class="mf">4e-1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">float64</span><span class="p">)</span>
+
 <div class="viewcode-block" id="TestRedistributeMass.test_getAllNucs">
 <a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_axialExpansionChanger_MultiPin.html#armi.reactor.converters.tests.test_axialExpansionChanger_MultiPin.TestRedistributeMass.test_getAllNucs">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">test_getAllNucs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -399,7 +438,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">growFrac</span> <span class="o">=</span> <span class="mf">1.10</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initializeTest</span><span class="p">(</span><span class="n">growFrac</span><span class="p">,</span> <span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_redistributeMassWithTempAssert</span><span class="p">(</span><span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">toComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">,</span> <span class="n">thermalExp</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_redistributeMassWithTempAssert</span><span class="p">(</span><span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">toComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">,</span> <span class="n">thermalExp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">growFrac</span><span class="o">=</span><span class="n">growFrac</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="TestRedistributeMass.test_addMassToCompNonTargetCompNoTherm">
@@ -416,7 +455,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">growFrac</span> <span class="o">=</span> <span class="mf">0.9</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initializeTest</span><span class="p">(</span><span class="n">growFrac</span><span class="p">,</span> <span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_redistributeMassWithTempAssert</span><span class="p">(</span><span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">,</span> <span class="n">toComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">thermalExp</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_redistributeMassWithTempAssert</span><span class="p">(</span><span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">,</span> <span class="n">toComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">thermalExp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">growFrac</span><span class="o">=</span><span class="n">growFrac</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="TestRedistributeMass.test_addMassToCompNonTargetComprYesTherm">
@@ -439,7 +478,7 @@
         <span class="n">growFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">axialExpChngr</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">getExpansionFactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_initializeTest</span><span class="p">(</span><span class="n">growFrac</span><span class="p">,</span> <span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_redistributeMassWithTempAssert</span><span class="p">(</span><span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">,</span> <span class="n">toComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">thermalExp</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_redistributeMassWithTempAssert</span><span class="p">(</span><span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">,</span> <span class="n">toComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">thermalExp</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">growFrac</span><span class="o">=</span><span class="n">growFrac</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="TestRedistributeMass.test_addMassToCompNonTargetExpanYesTherm">
@@ -461,7 +500,7 @@
         <span class="n">growFrac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">axialExpChngr</span><span class="o">.</span><span class="n">expansionData</span><span class="o">.</span><span class="n">getExpansionFactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_initializeTest</span><span class="p">(</span><span class="n">growFrac</span><span class="p">,</span> <span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_redistributeMassWithTempAssert</span><span class="p">(</span><span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">toComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">,</span> <span class="n">thermalExp</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_redistributeMassWithTempAssert</span><span class="p">(</span><span class="n">fromComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">,</span> <span class="n">toComp</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">,</span> <span class="n">thermalExp</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">growFrac</span><span class="o">=</span><span class="n">growFrac</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_updateToCompElevations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">toComp</span><span class="p">:</span> <span class="n">Component</span><span class="p">):</span>
@@ -512,22 +551,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># set the original mass and temperature of the components post expansion and pre redistribution</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">originalC0</span> <span class="o">=</span> <span class="n">StoreMassAndTemp</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">getMass</span><span class="p">(),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">getHMMass</span><span class="p">(),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">originalC1</span> <span class="o">=</span> <span class="n">StoreMassAndTemp</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">getMass</span><span class="p">(),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">getHMMass</span><span class="p">(),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">temperatureInC</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">originalC0</span> <span class="o">=</span> <span class="n">StoreMassAndTemp</span><span class="o">.</span><span class="n">fromComponent</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">originalC1</span> <span class="o">=</span> <span class="n">StoreMassAndTemp</span><span class="o">.</span><span class="n">fromComponent</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">)</span>
 
         <span class="c1"># adjust c0 elevations per growFrac</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">zbottom</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">b0</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">zbottom</span>
@@ -566,7 +591,9 @@
             <span class="n">toCompRefData</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">originalC0</span> <span class="k">if</span> <span class="n">toComp</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">originalC0</span><span class="o">.</span><span class="n">cType</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">originalC1</span>
         <span class="k">return</span> <span class="n">fromCompRefData</span><span class="p">,</span> <span class="n">toCompRefData</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_redistributeMassWithTempAssert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fromComp</span><span class="p">:</span> <span class="n">Component</span><span class="p">,</span> <span class="n">toComp</span><span class="p">:</span> <span class="n">Component</span><span class="p">,</span> <span class="n">thermalExp</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_redistributeMassWithTempAssert</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">fromComp</span><span class="p">:</span> <span class="n">Component</span><span class="p">,</span> <span class="n">toComp</span><span class="p">:</span> <span class="n">Component</span><span class="p">,</span> <span class="n">thermalExp</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">growFrac</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform the mass redistribution from ``fromComp`` to ``toComp``.</span>
 
 <span class="sd">        Notes</span>
@@ -580,6 +607,25 @@
         <span class="n">fromCompRefData</span><span class="p">,</span> <span class="n">toCompRefData</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getReferenceData</span><span class="p">(</span><span class="n">fromComp</span><span class="p">,</span> <span class="n">toComp</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_updateToCompElevations</span><span class="p">(</span><span class="n">toComp</span><span class="o">=</span><span class="n">toComp</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_updateFromCompElevations</span><span class="p">(</span><span class="n">fromComp</span><span class="o">=</span><span class="n">fromComp</span><span class="p">)</span>
+
+        <span class="c1"># Ensure conservation between the two components (e.g., total mass before == total mass after)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+            <span class="n">toComp</span><span class="o">.</span><span class="n">getMass</span><span class="p">()</span> <span class="o">+</span> <span class="n">fromComp</span><span class="o">.</span><span class="n">getMass</span><span class="p">(),</span>
+            <span class="n">toCompRefData</span><span class="o">.</span><span class="n">mass</span> <span class="o">+</span> <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">mass</span><span class="p">,</span>
+            <span class="n">places</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">places</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+            <span class="n">toComp</span><span class="o">.</span><span class="n">getHMMass</span><span class="p">()</span> <span class="o">+</span> <span class="n">fromComp</span><span class="o">.</span><span class="n">getHMMass</span><span class="p">(),</span> <span class="n">toCompRefData</span><span class="o">.</span><span class="n">HMmass</span> <span class="o">+</span> <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">HMmass</span><span class="p">,</span> <span class="n">places</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">places</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+            <span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="o">+</span> <span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span><span class="p">,</span>
+            <span class="n">toCompRefData</span><span class="o">.</span><span class="n">HMmolesBOL</span> <span class="o">+</span> <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">HMmolesBOL</span><span class="p">,</span>
+            <span class="n">places</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">places</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
+            <span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span> <span class="o">+</span> <span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">massHmBOL</span><span class="p">,</span>
+            <span class="n">toCompRefData</span><span class="o">.</span><span class="n">HMmassBOL</span> <span class="o">+</span> <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">HMmassBOL</span><span class="p">,</span>
+        <span class="p">)</span>
 
         <span class="c1"># ensure the toComp mass increases by amountBeingRedistributed</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span>
@@ -630,6 +676,34 @@
             <span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span><span class="p">,</span>
             <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">HMmolesBOL</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">redistributedBOLMoles</span><span class="p">,</span>
             <span class="n">places</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">places</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># pin number density check</span>
+        <span class="k">if</span> <span class="n">fromComp</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">:</span>
+            <span class="c1"># if we contracted and are moving nuclides from the upper component, the number</span>
+            <span class="c1"># density in the from component is unchanged. it has not undergone any expansion or</span>
+            <span class="c1"># other changes in this test</span>
+            <span class="n">assert_allclose</span><span class="p">(</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNDens</span><span class="p">,</span> <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">pinNDens</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># fromComp ndens should only change due to the thermal expansion in the lower component</span>
+            <span class="n">assert_allclose</span><span class="p">(</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNDens</span><span class="p">,</span> <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">pinNDens</span> <span class="o">/</span> <span class="n">growFrac</span><span class="p">)</span>
+        <span class="c1"># conservation of total number of pin atoms through expansion</span>
+        <span class="n">assert_allclose</span><span class="p">(</span>
+            <span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNDens</span> <span class="o">*</span> <span class="n">fromComp</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span> <span class="o">+</span> <span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">pinNDens</span> <span class="o">*</span> <span class="n">toComp</span><span class="o">.</span><span class="n">getVolume</span><span class="p">(),</span>
+            <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">pinNDens</span> <span class="o">*</span> <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">volume</span> <span class="o">+</span> <span class="n">toCompRefData</span><span class="o">.</span><span class="n">pinNDens</span> <span class="o">*</span> <span class="n">toCompRefData</span><span class="o">.</span><span class="n">volume</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># detailed number density check</span>
+        <span class="k">if</span> <span class="n">fromComp</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">:</span>
+            <span class="c1"># if we contracted and are moving nuclides from the upper component, the number</span>
+            <span class="c1"># density in the from component is unchanged. it has not undergone any expansion or</span>
+            <span class="c1"># other changes in this test</span>
+            <span class="n">assert_allclose</span><span class="p">(</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">detailedNDens</span><span class="p">,</span> <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">detailedNDens</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># fromComp ndens should only change due to the thermal expansion in the lower component</span>
+            <span class="n">assert_allclose</span><span class="p">(</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">detailedNDens</span><span class="p">,</span> <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">detailedNDens</span> <span class="o">/</span> <span class="n">growFrac</span><span class="p">)</span>
+        <span class="n">assert_allclose</span><span class="p">(</span>
+            <span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">detailedNDens</span> <span class="o">*</span> <span class="n">fromComp</span><span class="o">.</span><span class="n">getVolume</span><span class="p">()</span> <span class="o">+</span> <span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">detailedNDens</span> <span class="o">*</span> <span class="n">toComp</span><span class="o">.</span><span class="n">getVolume</span><span class="p">(),</span>
+            <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">detailedNDens</span> <span class="o">*</span> <span class="n">fromCompRefData</span><span class="o">.</span><span class="n">volume</span> <span class="o">+</span> <span class="n">toCompRefData</span><span class="o">.</span><span class="n">detailedNDens</span> <span class="o">*</span> <span class="n">toCompRefData</span><span class="o">.</span><span class="n">volume</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 

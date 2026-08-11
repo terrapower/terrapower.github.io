@@ -122,6 +122,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">isclose</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">textwrap</span><span class="w"> </span><span class="kn">import</span> <span class="n">dedent</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">brentq</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
@@ -165,13 +166,25 @@
 <div class="viewcode-block" id="RedistributeMass.performRedistribution">
 <a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.axialExpansionChanger.redistributeMass.html#armi.reactor.converters.axialExpansionChanger.axialExpansionChanger.RedistributeMass.performRedistribution">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">performRedistribution</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform the mass redistribution between two compatible components.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compatabilityCheck</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setNewToCompNDens</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">setNewToCompTemperature</span><span class="p">()</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_adjustMassParams</span><span class="p">()</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform the mass redistribution after checking compatibility.</span>
 
+<span class="sd">        This is the primary method expected to be invoked by callers. Other private</span>
+<span class="sd">        methods can be overridden and extended by subclasses.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">compatabilityCheck</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_performRedistribution</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_performRedistribution</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform the mass redistribution between compatible components.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setNewToCompNDens</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">molesHmBOL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_adjustMassParams</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_adjustPinNDens</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_adjustDetailedNDens</span><span class="p">()</span>
+        <span class="c1"># Temperature change MUST go last because it can change the volume of the components</span>
+        <span class="c1"># and the pre-expansion / pre-distribution volumes control how much of what is moved</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setNewToCompTemperature</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">fromCompVolume</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -261,7 +274,7 @@
 
 <span class="sd">        Where, :math:`A_1, T_1, H_1`, are the area, temperature, and height of ``toComp``, :math:`A_2, T_2`, are the</span>
 <span class="sd">        area and temparature of ``fromComp``, :math:`\delta` is the parameter ``deltaZTop``, and :math:`\hat{T}` is</span>
-<span class="sd">        the new temperature of ``toComp`` post-redistribution. :func:`scipy.optimize.brentq` is used to</span>
+<span class="sd">        the new temperature of ``toComp`` post-redistribution. ``scipy.optimize.brentq`` is used to</span>
 <span class="sd">        find the root of the above equation, indicating the value for :math:`\hat{T}`</span>
 <span class="sd">        that finds the desired area, post-redistribution of mass.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -309,8 +322,12 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_sortKey</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Break isotope string down by element, atomic weight, and metastable state for sorting. Raises a RuntimeError</span>
-<span class="sd">        if the string does not match the expected pattern.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Break isotope string down by atomic weight, element, and metastable state for sorting.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        RuntimeError</span>
+<span class="sd">            If the string does not match the expected pattern.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
 <span class="w">            </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
@@ -334,8 +351,7 @@
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        The returned list is sorted by :py:meth:`sortKey`. Isotopes are sorted based on 1) atomic weight, 2) element,</span>
-<span class="sd">        and 3) metastable state.</span>
+<span class="sd">        The returned list is sorted by :py:meth:`_sortKey`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">nucsToAdd</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">nucsA</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">nucsB</span><span class="p">))</span>
         <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">nucsToAdd</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_sortKey</span><span class="p">)</span>
@@ -351,7 +367,77 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">amountMoved</span> <span class="o">=</span> <span class="n">removalFrac</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">+</span> <span class="n">amountMoved</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">-</span> <span class="n">amountMoved</span></div>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">-</span> <span class="n">amountMoved</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_updateNumberDensityParameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">paramName</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update some number density parameter.</span>
+
+<span class="sd">        If one of the components :attr:`toComp` or :attr:`fromComp` does not have this parameter, no update will be</span>
+<span class="sd">        performed. This can lead to loss of conservation but is consistent with the approach of performing mass</span>
+<span class="sd">        redistribution between similar components.</span>
+
+<span class="sd">        Performs a volume-weighted average between number density parameters:</span>
+<span class="sd">        ``rho&#39; = (rho_f * v_f + rho_t * v_t) / (v_f + v_t)`` where ``_f` is the &quot;from&quot; component and ``_t`` is the</span>
+<span class="sd">        &quot;to&quot; component.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        paramName</span>
+<span class="sd">            Name of the parameter to update</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            If the update was performed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fromData</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="n">paramName</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">toData</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="n">paramName</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">fromData</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="n">toData</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Inconsistent </span><span class="si">{</span><span class="n">paramName</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">assemblyName</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Conservation of </span><span class="si">{</span><span class="n">paramName</span><span class="si">}</span><span class="s2"> is not ensured.&quot;</span><span class="p">,</span>
+                <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Conservation of c.p.</span><span class="si">{</span><span class="n">paramName</span><span class="si">}</span><span class="s2"> is not ensured&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="c1"># If we&#39;re here, we know either both have data or neither have data</span>
+        <span class="k">if</span> <span class="n">fromData</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="c1"># array * scalar gives us a new array, not a copy. So we can do in-place mutations later</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">toData</span> <span class="o">=</span> <span class="n">toData</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">toCompVolume</span>
+            <span class="n">fromData</span> <span class="o">=</span> <span class="n">fromData</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">fromCompVolume</span>
+            <span class="n">toData</span> <span class="o">+=</span> <span class="n">fromData</span>
+            <span class="n">toData</span> <span class="o">/=</span> <span class="bp">self</span><span class="o">.</span><span class="n">newVolume</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Error updating </span><span class="si">{</span><span class="n">paramName</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">assemblyName</span><span class="si">}</span><span class="s2"> : toComp=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="si">}</span><span class="s2"> : fromComp=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fromComp</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">fromData</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="se">\n</span><span class="si">{</span><span class="n">toData</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">raise</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">paramName</span><span class="p">]</span> <span class="o">=</span> <span class="n">toData</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_adjustPinNDens</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update pin number density parameter.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            If the update was performed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_updateNumberDensityParameters</span><span class="p">(</span><span class="s2">&quot;pinNDens&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_adjustDetailedNDens</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the detailed number density parameter.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            If the update was performed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_updateNumberDensityParameters</span><span class="p">(</span><span class="s2">&quot;detailedNDens&quot;</span><span class="p">)</span></div>
 
 </pre></div>
 

@@ -97,11 +97,17 @@
 <li class="toctree-l5"><a class="reference internal" href="#block-level-mass-redistribution">8.2.3.1. Block-Level Mass Redistribution</a></li>
 </ul>
 </li>
-<li class="toctree-l4"><a class="reference internal" href="#warnings-and-runtime-error-messages">8.2.4. Warnings and Runtime Error Messages</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="#mass-redistribution-between-like-materials">8.2.4.1. Mass Redistribution Between Like Materials</a></li>
-<li class="toctree-l5"><a class="reference internal" href="#post-redistribution-temperature-search-failure">8.2.4.2. Post-Redistribution Temperature Search Failure</a></li>
-<li class="toctree-l5"><a class="reference internal" href="#negative-block-or-component-heights">8.2.4.3. Negative Block or Component Heights</a></li>
-<li class="toctree-l5"><a class="reference internal" href="#inconsistent-component-and-block-heights">8.2.4.4. Inconsistent Component and Block Heights</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#component-temperature-update">8.2.4. Component temperature update</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#component-parameter-updates">8.2.5. Component parameter updates</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#pin-and-detailed-number-densities">8.2.5.1. Pin and detailed number densities</a></li>
+<li class="toctree-l5"><a class="reference internal" href="#bol-heavy-metal">8.2.5.2. BOL heavy metal</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="#warnings-and-runtime-error-messages">8.2.6. Warnings and Runtime Error Messages</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#mass-redistribution-between-like-materials">8.2.6.1. Mass Redistribution Between Like Materials</a></li>
+<li class="toctree-l5"><a class="reference internal" href="#post-redistribution-temperature-search-failure">8.2.6.2. Post-Redistribution Temperature Search Failure</a></li>
+<li class="toctree-l5"><a class="reference internal" href="#negative-block-or-component-heights">8.2.6.3. Negative Block or Component Heights</a></li>
+<li class="toctree-l5"><a class="reference internal" href="#inconsistent-component-and-block-heights">8.2.6.4. Inconsistent Component and Block Heights</a></li>
 </ul>
 </li>
 </ul>
@@ -229,6 +235,13 @@ volume left for fluid components.</p>
 <p>This section provides an example thermal expansion calculation for a simple cylindrical component
 from a reference temperature of 20°C to 1000°C with example material properties and dimensions as
 shown in the table below.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Implementation of axial expansion is handled through the <a class="reference internal" href="../.apidocs/armi.reactor.converters.axialExpansionChanger.html#module-armi.reactor.converters.axialExpansionChanger" title="armi.reactor.converters.axialExpansionChanger"><code class="xref py py-mod docutils literal notranslate"><span class="pre">armi.reactor.converters.axialExpansionChanger</span></code></a>
+module. Developers desiring to learn more can seek there. If you wish to expose a new class for axial expansion,
+consider implementing the <a class="reference internal" href="../.apidocs/armi.plugins.html#armi.plugins.ArmiPlugin.getAxialExpansionChanger" title="armi.plugins.ArmiPlugin.getAxialExpansionChanger"><code class="xref py py-meth docutils literal notranslate"><span class="pre">getAxialExpansionChanger()</span></code></a>
+plugin hook.</p>
+</div>
 <table class="docutils align-default" id="thermal-exp-comp-properties">
 <caption><span class="caption-text">Example Component Properties for Thermal Expansion</span><a class="headerlink" href="#thermal-exp-comp-properties" title="Link to this table"></a></caption>
 <colgroup>
@@ -629,6 +642,10 @@ is calculated as follows,</p>
 cc to atoms per barn per cm. Given <span class="math notranslate nohighlight">\(m_i\)</span>, the post redistribution number density is calculated as follows,</p>
 <div class="math notranslate nohighlight">
 \[\hat{N}_{i,0} = \frac{\left( m_{i,0} + m_{i,1} \right) \chi}{ \big(A_1(T_1) h_1 + A_2(T_2)\delta\big) \alpha_i}.\]</div>
+</section>
+</section>
+<section id="component-temperature-update">
+<h3><span class="section-number">8.2.4. </span>Component temperature update<a class="headerlink" href="#component-temperature-update" title="Link to this heading"></a></h3>
 <p>The post redistribution temperature, <span class="math notranslate nohighlight">\(\hat{T}_0\)</span>, is computed by minimizing the residual of the difference between
 the actual post-redistribution area of the Component and its expected area,</p>
 <div class="math notranslate nohighlight" id="newtemp">
@@ -640,11 +657,42 @@ minimization may fail. In this case, a mass weighted temperature is used instead
 <div class="math notranslate nohighlight" id="consolationprize">
 <span id="equation-consolationprize"></span><span class="eqno">(18)<a class="headerlink" href="#consolationprize" title="Link to this equation"></a></span>\[\hat{T}_0 = \frac{m_{i,0}T_0 + m_{i,1}T_1}{m_{i,0} + m_{i,1}}.\]</div>
 </section>
+<section id="component-parameter-updates">
+<h3><span class="section-number">8.2.5. </span>Component parameter updates<a class="headerlink" href="#component-parameter-updates" title="Link to this heading"></a></h3>
+<section id="pin-and-detailed-number-densities">
+<h4><span class="section-number">8.2.5.1. </span>Pin and detailed number densities<a class="headerlink" href="#pin-and-detailed-number-densities" title="Link to this heading"></a></h4>
+<p>During the expansion/contraction and redistribution of mass process, some parameters beyond nuclide number densities
+are updated via <a class="reference internal" href="../.apidocs/armi.reactor.converters.axialExpansionChanger.redistributeMass.html#armi.reactor.converters.axialExpansionChanger.redistributeMass.RedistributeMass" title="armi.reactor.converters.axialExpansionChanger.redistributeMass.RedistributeMass"><code class="xref py py-class docutils literal notranslate"><span class="pre">RedistributeMass</span></code></a>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Component.p.pinNDens</span></code> and <code class="docutils literal notranslate"><span class="pre">Component.p.detailedNDens</span></code> are updated if they are populated for both
+components. They are updated proportional to the volume shifted between the “from” (source) component and the “to”
+(destination) component per</p>
+<div class="math notranslate nohighlight" id="volumeweightedupdate">
+<span id="equation-volumeweightedupdate"></span><span class="eqno">(19)<a class="headerlink" href="#volumeweightedupdate" title="Link to this equation"></a></span>\[\rho_t^\prime = \frac{\rho_t V_t + \rho_f V_f}{V_t + V_f}.\]</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The implementation expects that the <code class="docutils literal notranslate"><span class="pre">Component.p.pinNDens</span></code> and <code class="docutils literal notranslate"><span class="pre">Component.p.detailedNDens</span></code>
+parameters are structured identically across the two components. If they are vectors, then
+<code class="docutils literal notranslate"><span class="pre">source.p.detailedNDens[i]</span></code> reflects number density for the same nuclide as <code class="docutils literal notranslate"><span class="pre">dest.p.detailedNDens[i]</span></code>.
+If this is not the case, consider subclassing and overriding methods on
+<a class="reference internal" href="../.apidocs/armi.reactor.converters.axialExpansionChanger.redistributeMass.html#armi.reactor.converters.axialExpansionChanger.redistributeMass.RedistributeMass" title="armi.reactor.converters.axialExpansionChanger.redistributeMass.RedistributeMass"><code class="xref py py-class docutils literal notranslate"><span class="pre">RedistributeMass</span></code></a></p>
+</div>
+</section>
+<section id="bol-heavy-metal">
+<h4><span class="section-number">8.2.5.2. </span>BOL heavy metal<a class="headerlink" href="#bol-heavy-metal" title="Link to this heading"></a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">Component.p.massHmBOL</span></code> and <code class="docutils literal notranslate"><span class="pre">Component.p.molesHmBOL</span></code> are updated by moving a fraction from the source
+to the destination component, proportional to the height change and the height of the source component</p>
+<div class="math notranslate nohighlight">
+\[hm_t' = hm_t + hm_f \frac{\Delta z}{h_f},\]</div>
+<p>and</p>
+<div class="math notranslate nohighlight">
+\[hm_f' = hm_f \left(1 - \frac{\Delta z}{h_f}\right),\]</div>
+<p>for a given change in height, <span class="math notranslate nohighlight">\(\Delta z\)</span>, and height of the source component prior to the redistribution, <span class="math notranslate nohighlight">\(h_f\)</span>.</p>
+</section>
 </section>
 <section id="warnings-and-runtime-error-messages">
-<h3><span class="section-number">8.2.4. </span>Warnings and Runtime Error Messages<a class="headerlink" href="#warnings-and-runtime-error-messages" title="Link to this heading"></a></h3>
+<h3><span class="section-number">8.2.6. </span>Warnings and Runtime Error Messages<a class="headerlink" href="#warnings-and-runtime-error-messages" title="Link to this heading"></a></h3>
 <section id="mass-redistribution-between-like-materials">
-<h4><span class="section-number">8.2.4.1. </span>Mass Redistribution Between Like Materials<a class="headerlink" href="#mass-redistribution-between-like-materials" title="Link to this heading"></a></h4>
+<h4><span class="section-number">8.2.6.1. </span>Mass Redistribution Between Like Materials<a class="headerlink" href="#mass-redistribution-between-like-materials" title="Link to this heading"></a></h4>
 <p>Mass redistribution is currently only possible between components that are the same material. This restriction is to
 ensure that material properties post-redistribution are known (e.g., mixing different alloys of metal may result in a
 material with unknown properties). If components of different materials are attempted to have their mass redistributed,
@@ -661,7 +709,7 @@ the following warning is populated to the stdout:</p>
 </div>
 </section>
 <section id="post-redistribution-temperature-search-failure">
-<h4><span class="section-number">8.2.4.2. </span>Post-Redistribution Temperature Search Failure<a class="headerlink" href="#post-redistribution-temperature-search-failure" title="Link to this heading"></a></h4>
+<h4><span class="section-number">8.2.6.2. </span>Post-Redistribution Temperature Search Failure<a class="headerlink" href="#post-redistribution-temperature-search-failure" title="Link to this heading"></a></h4>
 <p>As described in <a class="reference internal" href="#mass-redistribution"><span class="std std-numref">Section 8.2.3.1</span></a>, the minimization of Equation <a class="reference internal" href="#equation-newtemp">(17)</a> may fail. The two mechanisms
 in which Brent’s method may fail are if Equation <a class="reference internal" href="#equation-newtemp">(17)</a> does not have opposite signs at each prescribed
 temperature bound of if Equation <a class="reference internal" href="#equation-newtemp">(17)</a> is discontinuous. If the minimization routine fails, the following
@@ -694,14 +742,14 @@ fail.</p></li>
 </ol>
 </section>
 <section id="negative-block-or-component-heights">
-<h4><span class="section-number">8.2.4.3. </span>Negative Block or Component Heights<a class="headerlink" href="#negative-block-or-component-heights" title="Link to this heading"></a></h4>
+<h4><span class="section-number">8.2.6.3. </span>Negative Block or Component Heights<a class="headerlink" href="#negative-block-or-component-heights" title="Link to this heading"></a></h4>
 <p>If a Block or Component height becomes negative, an <code class="docutils literal notranslate"><span class="pre">ArithmeticError</span></code> is raised indicating which Block and/or
 Component has a negative height. Both signal a non-physical condition that is un-resolveable in the current
 implementation. This is often caused by thermal expansion of a solid component being drastically different that the
 other components nearby.</p>
 </section>
 <section id="inconsistent-component-and-block-heights">
-<h4><span class="section-number">8.2.4.4. </span>Inconsistent Component and Block Heights<a class="headerlink" href="#inconsistent-component-and-block-heights" title="Link to this heading"></a></h4>
+<h4><span class="section-number">8.2.6.4. </span>Inconsistent Component and Block Heights<a class="headerlink" href="#inconsistent-component-and-block-heights" title="Link to this heading"></a></h4>
 <p>The current implementation is designed such that the heights of each Component and their parent block remain consistent.
 However, these can go out of sync and have been found to be due incompatible blueprints definitions. As stated in
 <a class="reference internal" href="#mass-conservation"><span class="std std-numref">Section 8.2.3</span></a>, in order for mass to be conserved, each component must axially terminate in unique blocks.
