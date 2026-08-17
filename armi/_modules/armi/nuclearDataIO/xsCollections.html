@@ -15,11 +15,11 @@
       <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-data-viewer/jsonview.bundle.css?v=f6ef2277" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/libs/html/datatables.min.css?v=4b4fd840" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_style.css?v=678fb11e" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_links.css?v=2150a916" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_core.css?v=f5b60a78" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/needstable.css?v=5e1b6797" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_toggle.css?v=5c6620df" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/common_css/need_style.css?v=678fb11e" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-needs/modern.css?v=803738c0" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-test-results/common.css?v=9ec2c1d5" />
 
@@ -105,19 +105,19 @@
   <h1>Source code for armi.nuclearDataIO.xsCollections</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright 2019 TerraPower, LLC</span>
 <span class="c1">#</span>
-<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 <span class="c1"># you may not use this file except in compliance with the License.</span>
 <span class="c1"># You may obtain a copy of the License at</span>
 <span class="c1">#</span>
 <span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
 <span class="c1">#</span>
 <span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 <span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 <span class="c1"># See the License for the specific language governing permissions and</span>
 <span class="c1"># limitations under the License.</span>
 
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 <span class="sd">Cross section collections contain cross sections for a single nuclide or region.</span>
 
 <span class="sd">Specifically, they are used as attributes of :py:class:`~armi.nuclearDataIO.xsNuclides.XSNuclide`,</span>
@@ -134,15 +134,15 @@
 <span class="sd">Examples</span>
 <span class="sd">--------</span>
 <span class="sd">    # creating a MicroscopicXSCollection by loading one from ISOTXS.</span>
-<span class="sd">    microLib = armi.nuclearDataIO.ISOTXS(&#39;ISOTXS&#39;)</span>
-<span class="sd">    micros = myLib.nuclides[&#39;U235AA&#39;].micros</span>
+<span class="sd">    microLib = armi.nuclearDataIO.ISOTXS('ISOTXS')</span>
+<span class="sd">    micros = myLib.nuclides['U235AA'].micros</span>
 
 <span class="sd">    # creating macroscopic XS:</span>
 <span class="sd">    mc = MacroscopicCrossSectionCreator()</span>
 <span class="sd">    macroCollection = mc.createMacrosFromMicros(microLib, block)</span>
 <span class="sd">    blocksWithMacros = mc.createMacrosOnBlocklist(microLib, blocks)</span>
 
-<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">sparse</span>
@@ -154,22 +154,22 @@
 <span class="c1"># No one is particularly proud of these names...we can claim</span>
 <span class="c1"># they have some origin in the ISOTXS file format card 04 definition</span>
 <span class="c1"># fmt: off</span>
-<span class="n">NGAMMA</span> <span class="o">=</span> <span class="s2">&quot;nGamma&quot;</span>      <span class="c1"># radiative capture</span>
-<span class="n">NALPHA</span> <span class="o">=</span> <span class="s2">&quot;nalph&quot;</span>       <span class="c1"># (n, alpha)</span>
-<span class="n">NP</span> <span class="o">=</span> <span class="s2">&quot;np&quot;</span>              <span class="c1"># (n, proton)</span>
-<span class="n">ND</span> <span class="o">=</span> <span class="s2">&quot;nd&quot;</span>              <span class="c1"># (n, deuteron)</span>
-<span class="n">NT</span> <span class="o">=</span> <span class="s2">&quot;nt&quot;</span>              <span class="c1"># (n, triton)</span>
-<span class="n">FISSION_XS</span> <span class="o">=</span> <span class="s2">&quot;fission&quot;</span> <span class="c1"># (n, fission)</span>
-<span class="n">N2N_XS</span> <span class="o">=</span> <span class="s2">&quot;n2n&quot;</span>         <span class="c1"># (n,2n)</span>
-<span class="n">NUSIGF</span> <span class="o">=</span> <span class="s2">&quot;nuSigF&quot;</span>
-<span class="n">NU</span> <span class="o">=</span> <span class="s2">&quot;neutronsPerFission&quot;</span>
+<span class="n">NGAMMA</span> <span class="o">=</span> <span class="s2">"nGamma"</span>      <span class="c1"># radiative capture</span>
+<span class="n">NALPHA</span> <span class="o">=</span> <span class="s2">"nalph"</span>       <span class="c1"># (n, alpha)</span>
+<span class="n">NP</span> <span class="o">=</span> <span class="s2">"np"</span>              <span class="c1"># (n, proton)</span>
+<span class="n">ND</span> <span class="o">=</span> <span class="s2">"nd"</span>              <span class="c1"># (n, deuteron)</span>
+<span class="n">NT</span> <span class="o">=</span> <span class="s2">"nt"</span>              <span class="c1"># (n, triton)</span>
+<span class="n">FISSION_XS</span> <span class="o">=</span> <span class="s2">"fission"</span> <span class="c1"># (n, fission)</span>
+<span class="n">N2N_XS</span> <span class="o">=</span> <span class="s2">"n2n"</span>         <span class="c1"># (n,2n)</span>
+<span class="n">NUSIGF</span> <span class="o">=</span> <span class="s2">"nuSigF"</span>
+<span class="n">NU</span> <span class="o">=</span> <span class="s2">"neutronsPerFission"</span>
 <span class="c1"># fmt: on</span>
 <span class="n">CAPTURE_XS</span> <span class="o">=</span> <span class="p">[</span><span class="n">NGAMMA</span><span class="p">,</span> <span class="n">NALPHA</span><span class="p">,</span> <span class="n">NP</span><span class="p">,</span> <span class="n">ND</span><span class="p">,</span> <span class="n">NT</span><span class="p">]</span>
 
 <span class="c1"># Cross section types that are represented by 2-D matrices in the multigroup approximation</span>
-<span class="n">BASIC_SCAT_MATRIX</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;elasticScatter&quot;</span><span class="p">,</span> <span class="s2">&quot;inelasticScatter&quot;</span><span class="p">,</span> <span class="s2">&quot;n2nScatter&quot;</span><span class="p">]</span>
-<span class="n">OTHER_SCAT_MATRIX</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;totalScatter&quot;</span><span class="p">,</span> <span class="s2">&quot;elasticScatter1stOrder&quot;</span><span class="p">]</span>
-<span class="n">HIGHORDER_SCATTER</span> <span class="o">=</span> <span class="s2">&quot;higherOrderScatter&quot;</span>
+<span class="n">BASIC_SCAT_MATRIX</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"elasticScatter"</span><span class="p">,</span> <span class="s2">"inelasticScatter"</span><span class="p">,</span> <span class="s2">"n2nScatter"</span><span class="p">]</span>
+<span class="n">OTHER_SCAT_MATRIX</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"totalScatter"</span><span class="p">,</span> <span class="s2">"elasticScatter1stOrder"</span><span class="p">]</span>
+<span class="n">HIGHORDER_SCATTER</span> <span class="o">=</span> <span class="s2">"higherOrderScatter"</span>
 
 <span class="c1"># Subset of vector xs used to evaluate absorption cross-section</span>
 <span class="n">ABSORPTION_XS</span> <span class="o">=</span> <span class="n">CAPTURE_XS</span> <span class="o">+</span> <span class="p">[</span><span class="n">FISSION_XS</span><span class="p">,</span> <span class="n">N2N_XS</span><span class="p">]</span>
@@ -178,46 +178,46 @@
 <span class="n">BASIC_XS</span> <span class="o">=</span> <span class="n">ABSORPTION_XS</span> <span class="o">+</span> <span class="p">[</span><span class="n">NUSIGF</span><span class="p">]</span>
 
 <span class="c1"># Subset vector xs that are derived from basic cross sections</span>
-<span class="n">DERIVED_XS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;absorption&quot;</span><span class="p">,</span> <span class="s2">&quot;removal&quot;</span><span class="p">]</span>
+<span class="n">DERIVED_XS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"absorption"</span><span class="p">,</span> <span class="s2">"removal"</span><span class="p">]</span>
 
 <span class="c1"># Total and transport are treated differently since they are 2D (can have multiple moments)</span>
-<span class="n">TOTAL_XS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">,</span> <span class="s2">&quot;transport&quot;</span><span class="p">]</span>
+<span class="n">TOTAL_XS</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"total"</span><span class="p">,</span> <span class="s2">"transport"</span><span class="p">]</span>
 
 <span class="c1"># Subset of all basic cross sections that include removal and scattering</span>
 <span class="n">ALL_XS</span> <span class="o">=</span> <span class="n">BASIC_XS</span> <span class="o">+</span> <span class="n">BASIC_SCAT_MATRIX</span> <span class="o">+</span> <span class="n">OTHER_SCAT_MATRIX</span> <span class="o">+</span> <span class="n">DERIVED_XS</span> <span class="o">+</span> <span class="n">TOTAL_XS</span>
 
 <span class="c1"># All xs collection data</span>
 <span class="n">ALL_COLLECTION_DATA</span> <span class="o">=</span> <span class="n">ALL_XS</span> <span class="o">+</span> <span class="p">[</span>
-    <span class="s2">&quot;chi&quot;</span><span class="p">,</span>
+    <span class="s2">"chi"</span><span class="p">,</span>
     <span class="n">NU</span><span class="p">,</span>
-    <span class="s2">&quot;strpd&quot;</span><span class="p">,</span>
+    <span class="s2">"strpd"</span><span class="p">,</span>
     <span class="n">HIGHORDER_SCATTER</span><span class="p">,</span>
-    <span class="s2">&quot;diffusionConstants&quot;</span><span class="p">,</span>
+    <span class="s2">"diffusionConstants"</span><span class="p">,</span>
 <span class="p">]</span>
 
-<span class="n">E_CAPTURE</span> <span class="o">=</span> <span class="s2">&quot;ecapt&quot;</span>
-<span class="n">E_FISSION</span> <span class="o">=</span> <span class="s2">&quot;efiss&quot;</span>
+<span class="n">E_CAPTURE</span> <span class="o">=</span> <span class="s2">"ecapt"</span>
+<span class="n">E_FISSION</span> <span class="o">=</span> <span class="s2">"efiss"</span>
 
 
 <div class="viewcode-block" id="XSCollection">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.XSCollection">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">XSCollection</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A cross section collection.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""A cross section collection."""</span>
 
     <span class="n">_zeroes</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    A dict of numpy arrays set to the size of XSLibrary.numGroups.</span>
 
 <span class="sd">    This is used to initialize cross sections which may not exist for the specific nuclide.</span>
 <span class="sd">    Consequently, there should never be a situation where a cross section does not exist.</span>
-<span class="sd">    In addition, they are all pointers to the same array, so we&#39;re not generating too much</span>
+<span class="sd">    In addition, they are all pointers to the same array, so we're not generating too much</span>
 <span class="sd">    unnecessary data.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    This is a dict so that it can store multiple 0_g &quot;matrices&quot;, i.e. vectors. Realistically,</span>
+<span class="sd">    This is a dict so that it can store multiple 0_g "matrices", i.e. vectors. Realistically,</span>
 <span class="sd">    during any given run there will only be a set of groups, e.g. 33.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="XSCollection.getDefaultXs">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.XSCollection.getDefaultXs">[docs]</a>
@@ -231,14 +231,14 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Construct a NuclideCollection.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        parent : object</span>
 <span class="sd">            The parent container, which may be a region, a nuclide, a block, etc.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">numGroups</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">transport</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">total</span> <span class="o">=</span> <span class="kc">None</span>
@@ -262,18 +262,18 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">removal</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">nuSigF</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">higherOrderScatter</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">parent</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">parent</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Access cross sections by key string (e.g. micros[&#39;fission&#39;] = micros.fission.</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Access cross sections by key string (e.g. micros['fission'] = micros.fission.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        These containers were originally</span>
 <span class="sd">        dicts, but upgraded to objects with numpy values as specialization</span>
 <span class="sd">        was needed. This access method could/should be phased out.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
@@ -291,7 +291,7 @@
 <div class="viewcode-block" id="XSCollection.getAbsorptionXS">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.XSCollection.getAbsorptionXS">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">getAbsorptionXS</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return total absorption XS, which is the sum of capture + fission + others.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Return total absorption XS, which is the sum of capture + fission + others."""</span>
         <span class="n">absXS</span> <span class="o">=</span> <span class="p">[</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">nGamma</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">fission</span><span class="p">,</span>
@@ -307,7 +307,7 @@
 <div class="viewcode-block" id="XSCollection.getTotalScatterMatrix">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.XSCollection.getTotalScatterMatrix">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">getTotalScatterMatrix</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Sum up scatter matrices to produce total scatter matrix.</span>
 
 <span class="sd">        Multiply reaction-based n2n scatter matrix by 2.0 to convert to production-based.</span>
@@ -326,20 +326,20 @@
 
 <span class="sd">        Example: When producing macroscopic cross sections in MC2-3 the code internally merges the elastic and</span>
 <span class="sd">        inelastic scattering matrices into a single elastic scattering matrix.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">scatters</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">totalScatterComponents</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;elastic&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">elasticScatter</span><span class="p">,</span>
-            <span class="s2">&quot;inelastic&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">inelasticScatter</span><span class="p">,</span>
-            <span class="s2">&quot;n2n&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n2nScatter</span> <span class="o">*</span> <span class="mf">2.0</span><span class="p">,</span>
+            <span class="s2">"elastic"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">elasticScatter</span><span class="p">,</span>
+            <span class="s2">"inelastic"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">inelasticScatter</span><span class="p">,</span>
+            <span class="s2">"n2n"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n2nScatter</span> <span class="o">*</span> <span class="mf">2.0</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="k">for</span> <span class="n">sType</span><span class="p">,</span> <span class="n">sMatrix</span> <span class="ow">in</span> <span class="n">totalScatterComponents</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">sMatrix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">scatters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sMatrix</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> scattering matrix in </span><span class="si">{}</span><span class="s2"> is not defined. Generating total scattering matrix&quot;</span>
-                    <span class="s2">&quot; without this data&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sType</span><span class="o">.</span><span class="n">title</span><span class="p">(),</span> <span class="bp">self</span><span class="p">),</span>
+                    <span class="s2">"</span><span class="si">{}</span><span class="s2"> scattering matrix in </span><span class="si">{}</span><span class="s2"> is not defined. Generating total scattering matrix"</span>
+                    <span class="s2">" without this data"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sType</span><span class="o">.</span><span class="n">title</span><span class="p">(),</span> <span class="bp">self</span><span class="p">),</span>
                     <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="p">)</span>
         <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">scatters</span><span class="p">)</span></div>
@@ -348,7 +348,7 @@
 <div class="viewcode-block" id="XSCollection.clear">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.XSCollection.clear">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Zero out all the cross sections; this is useful for creating dummy cross sections.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Zero out all the cross sections; this is useful for creating dummy cross sections."""</span>
         <span class="k">for</span> <span class="n">xsAttr</span> <span class="ow">in</span> <span class="n">ALL_XS</span><span class="p">:</span>
             <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xsAttr</span><span class="p">)</span>
             <span class="c1"># it should either be a list, a numpy array, or a sparse matrix</span>
@@ -370,7 +370,7 @@
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.XSCollection.collapseCrossSection">[docs]</a>
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">collapseCrossSection</span><span class="p">(</span><span class="n">crossSection</span><span class="p">,</span> <span class="n">weights</span><span class="p">):</span>
-<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">        Collapse a cross section into 1-group.</span>
 
 <span class="sd">        This is extremely useful for many analyses such as doing a shielding efficacy survey</span>
@@ -391,16 +391,16 @@
 <span class="sd">        -------</span>
 <span class="sd">        oneGroupXS : float</span>
 <span class="sd">            The one group cross section in the same units as the input cross section.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">mult</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">crossSection</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">mult</span><span class="p">)</span> <span class="o">/</span> <span class="nb">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="XSCollection.compare">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.XSCollection.compare">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">compare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">relativeTolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">nucName</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compare the cross sections between two XSCollections objects.&quot;&quot;&quot;</span>
-        <span class="n">nuclideIDMsg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Nuclide </span><span class="si">{</span><span class="n">nucName</span><span class="si">}</span><span class="s2"> &quot;</span> <span class="k">if</span> <span class="n">nucName</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">relativeTolerance</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">nucName</span><span class="o">=</span><span class="s2">""</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Compare the cross sections between two XSCollections objects."""</span>
+        <span class="n">nuclideIDMsg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Nuclide </span><span class="si">{</span><span class="n">nucName</span><span class="si">}</span><span class="s2"> "</span> <span class="k">if</span> <span class="n">nucName</span> <span class="k">else</span> <span class="s2">""</span>
         <span class="n">equal</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">for</span> <span class="n">xsName</span> <span class="ow">in</span> <span class="n">ALL_COLLECTION_DATA</span><span class="p">:</span>
             <span class="n">myXsData</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">xsName</span><span class="p">]</span>
@@ -411,7 +411,7 @@
                     <span class="k">if</span> <span class="n">actualList</span> <span class="o">!=</span> <span class="n">expectedList</span><span class="p">:</span>
                         <span class="n">equal</span> <span class="o">=</span> <span class="kc">False</span>
                         <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-                            <span class="s2">&quot;  </span><span class="si">{}{}</span><span class="s2"> </span><span class="si">{:&lt;30}</span><span class="s2"> cross section is different.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="s2">"  </span><span class="si">{}{}</span><span class="s2"> </span><span class="si">{:&lt;30}</span><span class="s2"> cross section is different."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                                 <span class="n">nuclideIDMsg</span><span class="p">,</span>
                                 <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
                                 <span class="n">xsName</span><span class="p">,</span>
@@ -425,20 +425,20 @@
                     <span class="n">rtol</span><span class="o">=</span><span class="n">relativeTolerance</span><span class="p">,</span>
                     <span class="n">atol</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
                 <span class="p">):</span>
-                    <span class="n">verboseData</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">verbose</span> <span class="k">else</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="si">{}</span><span class="s2">,</span><span class="se">\n\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">myXsData</span><span class="p">,</span> <span class="n">theirXsData</span><span class="p">)</span>
+                    <span class="n">verboseData</span> <span class="o">=</span> <span class="s2">""</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">verbose</span> <span class="k">else</span> <span class="s2">"</span><span class="se">\n</span><span class="si">{}</span><span class="s2">,</span><span class="se">\n\n</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">myXsData</span><span class="p">,</span> <span class="n">theirXsData</span><span class="p">)</span>
                     <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-                        <span class="s2">&quot;  </span><span class="si">{}{}</span><span class="s2"> </span><span class="si">{:&lt;30}</span><span class="s2"> cross section is different.</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="s2">"  </span><span class="si">{}{}</span><span class="s2"> </span><span class="si">{:&lt;30}</span><span class="s2"> cross section is different.</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
                             <span class="n">nuclideIDMsg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">xsName</span><span class="p">,</span> <span class="n">verboseData</span>
                         <span class="p">)</span>
                     <span class="p">)</span>
                     <span class="n">equal</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">myXsData</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="n">myXsData</span> <span class="o">!=</span> <span class="n">theirXsData</span><span class="p">:</span>
                 <span class="c1"># there are no dicts currently so code is untested</span>
-                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;there are no dicts&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"there are no dicts"</span><span class="p">)</span>
             <span class="k">elif</span> <span class="ow">not</span> <span class="n">properties</span><span class="o">.</span><span class="n">areEqual</span><span class="p">(</span><span class="n">myXsData</span><span class="p">,</span> <span class="n">theirXsData</span><span class="p">,</span> <span class="n">relativeTolerance</span><span class="p">):</span>
-                <span class="n">verboseData</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">verbose</span> <span class="k">else</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="si">{}</span><span class="s2">,</span><span class="se">\n\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">myXsData</span><span class="p">,</span> <span class="n">theirXsData</span><span class="p">)</span>
+                <span class="n">verboseData</span> <span class="o">=</span> <span class="s2">""</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">verbose</span> <span class="k">else</span> <span class="s2">"</span><span class="se">\n</span><span class="si">{}</span><span class="s2">,</span><span class="se">\n\n</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">myXsData</span><span class="p">,</span> <span class="n">theirXsData</span><span class="p">)</span>
                 <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span>
-                    <span class="s2">&quot;  </span><span class="si">{}{}</span><span class="s2"> </span><span class="si">{:&lt;30}</span><span class="s2"> cross section is different.</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nuclideIDMsg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">xsName</span><span class="p">,</span> <span class="n">verboseData</span><span class="p">)</span>
+                    <span class="s2">"  </span><span class="si">{}{}</span><span class="s2"> </span><span class="si">{:&lt;30}</span><span class="s2"> cross section is different.</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nuclideIDMsg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">xsName</span><span class="p">,</span> <span class="n">verboseData</span><span class="p">)</span>
                 <span class="p">)</span>
                 <span class="n">equal</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="n">equal</span></div>
@@ -447,28 +447,28 @@
 <div class="viewcode-block" id="XSCollection.merge">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.XSCollection.merge">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">merge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Merge the cross sections of two collections.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
-<span class="sd">        1. This can only merge if one hasn&#39;t been assigned at all, because it doesn&#39;t try to figure out how to</span>
+<span class="sd">        1. This can only merge if one hasn't been assigned at all, because it doesn't try to figure out how to</span>
 <span class="sd">           account for overlapping cross sections.</span>
 <span class="sd">        2. Update the current library (self) with values from the other library if all attributes in the library except</span>
 <span class="sd">           ones in `attributesToIgnore` are None.</span>
 <span class="sd">        3. Libraries are already merged if all attributes in the other library are None (This is nothing to merge!).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">attributesToIgnore</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="n">HIGHORDER_SCATTER</span><span class="p">]</span>
+<span class="sd">        """</span>
+        <span class="n">attributesToIgnore</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"source"</span><span class="p">,</span> <span class="n">HIGHORDER_SCATTER</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">attributesToIgnore</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>  <span class="c1"># See note 2</span>
         <span class="k">elif</span> <span class="nb">all</span><span class="p">(</span><span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">other</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">attributesToIgnore</span><span class="p">):</span>
             <span class="k">pass</span>  <span class="c1"># See note 3</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">overlappingAttrs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;source&quot;</span><span class="p">)</span>
-            <span class="n">overlappingAttrs</span> <span class="o">&amp;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">other</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;source&quot;</span><span class="p">)</span>
+            <span class="n">overlappingAttrs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">"source"</span><span class="p">)</span>
+            <span class="n">overlappingAttrs</span> <span class="o">&amp;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">other</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">"source"</span><span class="p">)</span>
             <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
-                <span class="s2">&quot;Cannot merge </span><span class="si">{}</span><span class="s2"> and </span><span class="si">{}</span><span class="s2">.</span><span class="se">\n</span><span class="s2"> Cross sections overlap in attributes: </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">overlappingAttrs</span><span class="p">)</span>
+                <span class="s2">"Cannot merge </span><span class="si">{}</span><span class="s2"> and </span><span class="si">{}</span><span class="s2">.</span><span class="se">\n</span><span class="s2"> Cross sections overlap in attributes: </span><span class="si">{}</span><span class="s2">."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">overlappingAttrs</span><span class="p">)</span>
                 <span class="p">)</span>
             <span class="p">)</span></div>
 </div>
@@ -478,12 +478,12 @@
 <div class="viewcode-block" id="MacroscopicCrossSectionCreator">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.MacroscopicCrossSectionCreator">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MacroscopicCrossSectionCreator</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Create macroscopic cross sections from micros and number density.</span>
 
 <span class="sd">    Object encapsulating all high-level methods related to the creation of macroscopic cross</span>
 <span class="sd">    sections.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buildScatterMatrix</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">minimumNuclideDensity</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">densities</span> <span class="o">=</span> <span class="kc">None</span>
@@ -495,8 +495,8 @@
 
 <div class="viewcode-block" id="MacroscopicCrossSectionCreator.createMacrosOnBlocklist">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.MacroscopicCrossSectionCreator.createMacrosOnBlocklist">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">createMacrosOnBlocklist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">microLibrary</span><span class="p">,</span> <span class="n">blockList</span><span class="p">,</span> <span class="n">nucNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="s2">&quot;micros&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create macroscopic cross sections for a list of blocks.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">createMacrosOnBlocklist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">microLibrary</span><span class="p">,</span> <span class="n">blockList</span><span class="p">,</span> <span class="n">nucNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="s2">"micros"</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Create macroscopic cross sections for a list of blocks."""</span>
         <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">blockList</span><span class="p">:</span>
             <span class="n">block</span><span class="o">.</span><span class="n">macros</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">createMacrosFromMicros</span><span class="p">(</span><span class="n">microLibrary</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="n">nucNames</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="n">libType</span><span class="p">)</span>
 
@@ -505,8 +505,8 @@
 
 <div class="viewcode-block" id="MacroscopicCrossSectionCreator.createMacrosFromMicros">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.MacroscopicCrossSectionCreator.createMacrosFromMicros">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">createMacrosFromMicros</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">microLibrary</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="n">nucNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="s2">&quot;micros&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">createMacrosFromMicros</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">microLibrary</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="n">nucNames</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="s2">"micros"</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Creates a macroscopic cross section set based on a microscopic XS library using a block object.</span>
 
 <span class="sd">        Micro libraries have lots of nuclides, but macros only have 1.</span>
@@ -524,14 +524,14 @@
 
 <span class="sd">        libType : str, optional</span>
 <span class="sd">            The block attribute containing the desired microscopic XS for this block:</span>
-<span class="sd">            either &quot;micros&quot; for neutron XS or &quot;gammaXS&quot; for gamma XS.</span>
+<span class="sd">            either "micros" for neutron XS or "gammaXS" for gamma XS.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        macros : xsCollection.XSCollection</span>
 <span class="sd">            A new XSCollection full of macroscopic cross sections</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Building macroscopic cross sections for </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">block</span><span class="p">))</span>
+<span class="sd">        """</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Building macroscopic cross sections for </span><span class="si">{0}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">block</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">nucNames</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">nucNames</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">getNuclides</span><span class="p">()</span>
 
@@ -545,7 +545,7 @@
                 <span class="nb">zip</span><span class="p">(</span><span class="n">nucNames</span><span class="p">,</span> <span class="n">block</span><span class="o">.</span><span class="n">getNuclideNumberDensities</span><span class="p">(</span><span class="n">nucNames</span><span class="p">)),</span>
             <span class="p">)</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ng</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">microLibrary</span><span class="p">,</span> <span class="s2">&quot;numGroups&quot;</span> <span class="o">+</span> <span class="n">_getLibTypeSuffix</span><span class="p">(</span><span class="n">libType</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ng</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">microLibrary</span><span class="p">,</span> <span class="s2">"numGroups"</span> <span class="o">+</span> <span class="n">_getLibTypeSuffix</span><span class="p">(</span><span class="n">libType</span><span class="p">))</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_initializeMacros</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_convertBasicXS</span><span class="p">(</span><span class="n">libType</span><span class="o">=</span><span class="n">libType</span><span class="p">)</span>
@@ -569,16 +569,16 @@
             <span class="c1"># use csr for faster math</span>
             <span class="nb">setattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">matrixName</span><span class="p">,</span> <span class="n">sparse</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ng</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ng</span><span class="p">)))</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_convertBasicXS</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="s2">&quot;micros&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_convertBasicXS</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="s2">"micros"</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Converts basic XS such as fission, nGamma, etc.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        libType : str, optional</span>
 <span class="sd">            The block attribute containing the desired microscopic XS for this block:</span>
-<span class="sd">            either &quot;micros&quot; for neutron XS or &quot;gammaXS&quot; for gamma XS.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">            either "micros" for neutron XS or "gammaXS" for gamma XS.</span>
+<span class="sd">        """</span>
         <span class="n">reactions</span> <span class="o">=</span> <span class="n">BASIC_XS</span> <span class="o">+</span> <span class="n">TOTAL_XS</span>
         <span class="k">if</span> <span class="n">NUSIGF</span> <span class="ow">in</span> <span class="n">reactions</span><span class="p">:</span>
             <span class="n">reactions</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">NUSIGF</span><span class="p">)</span>
@@ -600,16 +600,16 @@
                 <span class="n">libType</span><span class="o">=</span><span class="n">libType</span><span class="p">,</span>
             <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_convertScatterMatrices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="s2">&quot;micros&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_convertScatterMatrices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="s2">"micros"</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Build macroscopic scatter matrices.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        libType : str, optional</span>
 <span class="sd">            The block attribute containing the desired microscopic XS for this block:</span>
-<span class="sd">            either &quot;micros&quot; for neutron XS or &quot;gammaXS&quot; for gamma XS.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">            either "micros" for neutron XS or "gammaXS" for gamma XS.</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">buildScatterMatrix</span><span class="p">:</span>
             <span class="k">return</span>
 
@@ -624,11 +624,11 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">macros</span><span class="o">.</span><span class="n">n2nScatter</span> <span class="o">+=</span> <span class="n">microCollection</span><span class="o">.</span><span class="n">n2nScatter</span> <span class="o">*</span> <span class="n">nDens</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_computeAbsorptionXS</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Absorption = sum of all absorption reactions.</span>
 
 <span class="sd">        Must be called after :py:meth:`_convertBasicXS`.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">absXS</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">macros</span><span class="o">.</span><span class="n">getAbsorptionXS</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">macros</span><span class="o">.</span><span class="n">absorption</span> <span class="o">+=</span> <span class="n">absXS</span>
 
@@ -639,16 +639,16 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">macros</span><span class="o">.</span><span class="n">totalScatter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">macros</span><span class="o">.</span><span class="n">getTotalScatterMatrix</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_computeRemovalXS</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Compute removal cross section (things that remove a neutron from this phase space).</span>
 
 <span class="sd">        This includes all absorptions and outscattering.</span>
 <span class="sd">        Outscattering is represented by columns of the total scatter matrix.</span>
-<span class="sd">        Self-scattering (e.g. when g&#39; == g) is not be included. This can be</span>
+<span class="sd">        Self-scattering (e.g. when g' == g) is not be included. This can be</span>
 <span class="sd">        handled by summing the columns and then subtracting the diagonal.</span>
 
 <span class="sd">        within-group n2n is accounted for by simply not including n2n in the removal xs.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">macros</span><span class="o">.</span><span class="n">removal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">macros</span><span class="o">.</span><span class="n">absorption</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">macros</span><span class="o">.</span><span class="n">n2n</span>
         <span class="n">columnSum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">macros</span><span class="o">.</span><span class="n">totalScatter</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">getA1</span><span class="p">()</span>  <span class="c1"># convert to ndarray</span>
         <span class="n">diags</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">macros</span><span class="o">.</span><span class="n">totalScatter</span><span class="o">.</span><span class="n">diagonal</span><span class="p">()</span>
@@ -660,7 +660,7 @@
 <div class="viewcode-block" id="computeBlockAverageChi">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.computeBlockAverageChi">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">computeBlockAverageChi</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">isotxsLib</span><span class="p">):</span>
-<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    Return the block average total chi vector based on isotope chi vectors.</span>
 
 <span class="sd">    This is defined by eq 3.4b in DIF3D manual [DIF3D]_, which corresponds to 1 in A.HMG4C card.</span>
@@ -668,7 +668,7 @@
 <span class="sd">    .. math::</span>
 
 
-<span class="sd">        \chi_g = \frac{\sum_{n} \chi_{g,n} N_n V \sum_{g&#39;}(\nu_{g&#39;}*\sigma_{f,g&#39;})}{\sum_n N_n V \sum_{g&#39;}(\nu_{g&#39;}*\sigma_{f,g&#39;} )}</span>
+<span class="sd">        \chi_g = \frac{\sum_{n} \chi_{g,n} N_n V \sum_{g'}(\nu_{g'}*\sigma_{f,g'})}{\sum_n N_n V \sum_{g'}(\nu_{g'}*\sigma_{f,g'} )}</span>
 
 
 <span class="sd">    To evaluate efficiently, assume that if :math:`\chi_{g,n}=0`, there will be no contributions</span>
@@ -687,7 +687,7 @@
 <span class="sd">    -----</span>
 <span class="sd">    This methodology is based on option 1 in the HMG4C utility (named total</span>
 <span class="sd">    fission source weighting).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">numGroups</span> <span class="o">=</span> <span class="n">isotxsLib</span><span class="o">.</span><span class="n">numGroups</span>
     <span class="n">numerator</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">numGroups</span><span class="p">)</span>
     <span class="n">denominator</span> <span class="o">=</span> <span class="mf">0.0</span>
@@ -706,14 +706,14 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_getLibTypeSuffix</span><span class="p">(</span><span class="n">libType</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">libType</span> <span class="o">==</span> <span class="s2">&quot;micros&quot;</span><span class="p">:</span>
-        <span class="n">libTypeSuffix</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-    <span class="k">elif</span> <span class="n">libType</span> <span class="o">==</span> <span class="s2">&quot;gammaXS&quot;</span><span class="p">:</span>
-        <span class="n">libTypeSuffix</span> <span class="o">=</span> <span class="s2">&quot;Gamma&quot;</span>
+    <span class="k">if</span> <span class="n">libType</span> <span class="o">==</span> <span class="s2">"micros"</span><span class="p">:</span>
+        <span class="n">libTypeSuffix</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="k">elif</span> <span class="n">libType</span> <span class="o">==</span> <span class="s2">"gammaXS"</span><span class="p">:</span>
+        <span class="n">libTypeSuffix</span> <span class="o">=</span> <span class="s2">"Gamma"</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">libTypeSuffix</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s1">&#39;ARMI currently supports only micro XS libraries of types &quot;micros&quot; (neutron) and &quot;gammaXS&quot; (gamma).&#39;</span>
+            <span class="s1">'ARMI currently supports only micro XS libraries of types "micros" (neutron) and "gammaXS" (gamma).'</span>
         <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">libTypeSuffix</span>
@@ -722,7 +722,7 @@
 <div class="viewcode-block" id="computeNeutronEnergyDepositionConstants">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.computeNeutronEnergyDepositionConstants">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">computeNeutronEnergyDepositionConstants</span><span class="p">(</span><span class="n">numberDensities</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">microSuffix</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the macroscopic neutron energy deposition group constants.</span>
 
 <span class="sd">    These group constants can be multiplied by the flux to obtain energy deposition rates.</span>
@@ -737,7 +737,7 @@
 <span class="sd">        Microscopic cross section library.</span>
 
 <span class="sd">    microSuffix : str</span>
-<span class="sd">        Microscopic library suffix (e.g. &#39;AB&#39;) for this composite.</span>
+<span class="sd">        Microscopic library suffix (e.g. 'AB') for this composite.</span>
 <span class="sd">        See composite `getMicroSuffix` method.</span>
 
 <span class="sd">    Returns</span>
@@ -747,19 +747,19 @@
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    PMATRX documentation says units will be eV/s when multiplied by flux but it&#39;s eV/s/cm^3.</span>
+<span class="sd">    PMATRX documentation says units will be eV/s when multiplied by flux but it's eV/s/cm^3.</span>
 <span class="sd">    (eV/s/cm^3 = eV-bn * 1/cm^2/s * 1/bn-cm.)</span>
 
 <span class="sd">    Converted here to obtain J/cm (eV-bn * 1/bn-cm * J / eV)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">computeMacroscopicGroupConstants</span><span class="p">(</span><span class="s2">&quot;neutronHeating&quot;</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">microSuffix</span><span class="p">)</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">JOULES_PER_eV</span></div>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">computeMacroscopicGroupConstants</span><span class="p">(</span><span class="s2">"neutronHeating"</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">microSuffix</span><span class="p">)</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">JOULES_PER_eV</span></div>
 
 
 
 <div class="viewcode-block" id="computeGammaEnergyDepositionConstants">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.computeGammaEnergyDepositionConstants">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">computeGammaEnergyDepositionConstants</span><span class="p">(</span><span class="n">numberDensities</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">microSuffix</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the macroscopic gamma energy deposition group constants.</span>
 
 <span class="sd">    These group constants can be multiplied by the flux to obtain energy deposition rates.</span>
@@ -774,7 +774,7 @@
 <span class="sd">        Microscopic cross section library.</span>
 
 <span class="sd">    microSuffix : str</span>
-<span class="sd">        Microscopic library suffix (e.g. &#39;AB&#39;) for this composite.</span>
+<span class="sd">        Microscopic library suffix (e.g. 'AB') for this composite.</span>
 <span class="sd">        See composite `getMicroSuffix` method.</span>
 
 <span class="sd">    Returns</span>
@@ -784,19 +784,19 @@
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    PMATRX documentation says units will be eV/s when multiplied by flux but it&#39;s eV/s/cm^3.</span>
+<span class="sd">    PMATRX documentation says units will be eV/s when multiplied by flux but it's eV/s/cm^3.</span>
 <span class="sd">    (eV/s/cm^3 = eV-bn * 1/cm^2/s * 1/bn-cm.)</span>
 
 <span class="sd">    Convert here to obtain J/cm (eV-bn * 1/bn-cm * J / eV)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">computeMacroscopicGroupConstants</span><span class="p">(</span><span class="s2">&quot;gammaHeating&quot;</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">microSuffix</span><span class="p">)</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">JOULES_PER_eV</span></div>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">computeMacroscopicGroupConstants</span><span class="p">(</span><span class="s2">"gammaHeating"</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">microSuffix</span><span class="p">)</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">JOULES_PER_eV</span></div>
 
 
 
 <div class="viewcode-block" id="computeFissionEnergyGenerationConstants">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.computeFissionEnergyGenerationConstants">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">computeFissionEnergyGenerationConstants</span><span class="p">(</span><span class="n">numberDensities</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">microSuffix</span><span class="p">):</span>
-<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    Get the fission energy generation group constant of a block.</span>
 
 <span class="sd">    .. math::</span>
@@ -815,20 +815,20 @@
 <span class="sd">        Microscopic cross section library.</span>
 
 <span class="sd">    microSuffix : str</span>
-<span class="sd">        Microscopic library suffix (e.g. &#39;AB&#39;) for this composite.</span>
+<span class="sd">        Microscopic library suffix (e.g. 'AB') for this composite.</span>
 <span class="sd">        See composite `getMicroSuffix` method.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    fissionEnergyFactor: np.ndarray</span>
 <span class="sd">        Fission energy generation group constants (in Joules/cm)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">fissionEnergyFactor</span> <span class="o">=</span> <span class="n">computeMacroscopicGroupConstants</span><span class="p">(</span>
         <span class="n">FISSION_XS</span><span class="p">,</span>
         <span class="n">numberDensities</span><span class="p">,</span>
         <span class="n">lib</span><span class="p">,</span>
         <span class="n">microSuffix</span><span class="p">,</span>
-        <span class="n">libType</span><span class="o">=</span><span class="s2">&quot;micros&quot;</span><span class="p">,</span>
+        <span class="n">libType</span><span class="o">=</span><span class="s2">"micros"</span><span class="p">,</span>
         <span class="n">multConstant</span><span class="o">=</span><span class="n">E_FISSION</span><span class="p">,</span>
     <span class="p">)</span>
 
@@ -839,7 +839,7 @@
 <div class="viewcode-block" id="computeCaptureEnergyGenerationConstants">
 <a class="viewcode-back" href="../../../.apidocs/armi.nuclearDataIO.xsCollections.html#armi.nuclearDataIO.xsCollections.computeCaptureEnergyGenerationConstants">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">computeCaptureEnergyGenerationConstants</span><span class="p">(</span><span class="n">numberDensities</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">microSuffix</span><span class="p">):</span>
-<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    Get the energy generation group constant of a block.</span>
 
 <span class="sd">    .. math::</span>
@@ -862,19 +862,19 @@
 <span class="sd">        Microscopic cross section library.</span>
 
 <span class="sd">    microSuffix : str</span>
-<span class="sd">        Microscopic library suffix (e.g. &#39;AB&#39;) for this composite.</span>
+<span class="sd">        Microscopic library suffix (e.g. 'AB') for this composite.</span>
 <span class="sd">        See composite `getMicroSuffix` method.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    captureEnergyFactor: np.ndarray</span>
 <span class="sd">        Capture energy generation group constants (in Joules/cm)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">captureEnergyFactor</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">for</span> <span class="n">xs</span> <span class="ow">in</span> <span class="n">CAPTURE_XS</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">captureEnergyFactor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">captureEnergyFactor</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">computeMacroscopicGroupConstants</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">microSuffix</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="s2">&quot;micros&quot;</span><span class="p">))</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">computeMacroscopicGroupConstants</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">numberDensities</span><span class="p">,</span> <span class="n">lib</span><span class="p">,</span> <span class="n">microSuffix</span><span class="p">,</span> <span class="n">libType</span><span class="o">=</span><span class="s2">"micros"</span><span class="p">))</span>
             <span class="p">)</span>
 
         <span class="n">captureEnergyFactor</span> <span class="o">+=</span> <span class="n">computeMacroscopicGroupConstants</span><span class="p">(</span>
@@ -882,7 +882,7 @@
             <span class="n">numberDensities</span><span class="p">,</span>
             <span class="n">lib</span><span class="p">,</span>
             <span class="n">microSuffix</span><span class="p">,</span>
-            <span class="n">libType</span><span class="o">=</span><span class="s2">&quot;micros&quot;</span><span class="p">,</span>
+            <span class="n">libType</span><span class="o">=</span><span class="s2">"micros"</span><span class="p">,</span>
             <span class="n">multConstant</span><span class="o">=</span><span class="n">E_CAPTURE</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -901,7 +901,7 @@
     <span class="n">multConstant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">multLib</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 <span class="sd">    Compute any macroscopic group constants given number densities and a microscopic library.</span>
 
 <span class="sd">    .. impl:: Compute macroscopic cross sections from microscopic cross sections and number densities.</span>
@@ -950,11 +950,11 @@
 <span class="sd">    lib : library object</span>
 <span class="sd">        Microscopic cross section library.</span>
 <span class="sd">    microSuffix : str</span>
-<span class="sd">        Microscopic library suffix (e.g. &#39;AB&#39;) for this composite.</span>
+<span class="sd">        Microscopic library suffix (e.g. 'AB') for this composite.</span>
 <span class="sd">        See composite `getMicroSuffix` method.</span>
 <span class="sd">    libType : str, optional</span>
 <span class="sd">        The block attribute containing the desired microscopic XS for this block:</span>
-<span class="sd">        either &quot;micros&quot; for neutron XS or &quot;gammaXS&quot; for gamma XS.</span>
+<span class="sd">        either "micros" for neutron XS or "gammaXS" for gamma XS.</span>
 <span class="sd">    multConstant : str, optional</span>
 <span class="sd">        Name of constant by which the group constants will be multiplied. This name should match a</span>
 <span class="sd">        cross section name or an attribute in the collection.</span>
@@ -966,7 +966,7 @@
 <span class="sd">    -------</span>
 <span class="sd">    macroGroupConstant : np.ndarray</span>
 <span class="sd">        Macroscopic group constants for the requested reaction.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">skippedNuclides</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">skippedMultNuclides</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">macroGroupConstants</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1003,13 +1003,13 @@
         <span class="n">macroGroupConstants</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">numberDensity</span><span class="p">)</span> <span class="o">*</span> <span class="n">microGroupConstants</span> <span class="o">*</span> <span class="n">multiplierVal</span>
 
     <span class="k">if</span> <span class="n">skippedNuclides</span><span class="p">:</span>
-        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;The following nuclides are not in microscopic library </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">lib</span><span class="p">,</span> <span class="n">skippedNuclides</span><span class="p">)</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">"The following nuclides are not in microscopic library </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">lib</span><span class="p">,</span> <span class="n">skippedNuclides</span><span class="p">)</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">skippedMultNuclides</span><span class="p">:</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="s2">&quot;The following nuclides are not in multiplier library </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">multLib</span><span class="p">,</span> <span class="n">skippedMultNuclides</span><span class="p">),</span>
+            <span class="s2">"The following nuclides are not in multiplier library </span><span class="si">{}</span><span class="s2">: </span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">multLib</span><span class="p">,</span> <span class="n">skippedMultNuclides</span><span class="p">),</span>
             <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -1040,7 +1040,7 @@
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">microGroupConstants</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="s2">&quot;Nuclide </span><span class="si">{}</span><span class="s2"> does not have </span><span class="si">{}</span><span class="s2"> microscopic group constants.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nuclideName</span><span class="p">,</span> <span class="n">constantName</span><span class="p">),</span>
+            <span class="s2">"Nuclide </span><span class="si">{}</span><span class="s2"> does not have </span><span class="si">{}</span><span class="s2"> microscopic group constants."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nuclideName</span><span class="p">,</span> <span class="n">constantName</span><span class="p">),</span>
             <span class="n">single</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
 
@@ -1055,7 +1055,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2026, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2026-08-13.
+      <span class="lastupdated">Last updated on 2026-08-17.
       </span></p>
   </div>
 
