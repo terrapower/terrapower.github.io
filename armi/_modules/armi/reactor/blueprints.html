@@ -217,6 +217,13 @@
 <span class="n">context</span><span class="o">.</span><span class="n">BLUEPRINTS_IMPORTED</span> <span class="o">=</span> <span class="kc">True</span>
 <span class="n">context</span><span class="o">.</span><span class="n">BLUEPRINTS_IMPORT_CONTEXT</span> <span class="o">=</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_stack</span><span class="p">())</span>
 
+<span class="c1"># ruamel.yaml 0.19.1 started reading ``max_depth`` off the loader during ``get_single_node()``, but</span>
+<span class="c1"># yamlize 0.7.1 builds its loaders in a way that never sets it, so every yamlize load raises</span>
+<span class="c1"># ``AttributeError: 'RoundTripLoader' object has no attribute 'max_depth'``. Supplying the default</span>
+<span class="c1"># here covers every yamlize class in ARMI, not just ``Blueprints``. Remove once yamlize catches up.</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">RoundTripLoader</span><span class="p">,</span> <span class="s2">"max_depth"</span><span class="p">):</span>
+    <span class="n">RoundTripLoader</span><span class="o">.</span><span class="n">max_depth</span> <span class="o">=</span> <span class="kc">None</span>
+
 
 <div class="viewcode-block" id="loadFromCs">
 <a class="viewcode-back" href="../../../.apidocs/armi.reactor.blueprints.html#armi.reactor.blueprints.loadFromCs">[docs]</a>
@@ -696,12 +703,10 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">roundTrip</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""A wrapper around the `yamlize.Object.load()` method.</span>
 
-<span class="sd">        With the release of ruamel.yaml 0.19.1, we began getting the following error:</span>
-<span class="sd">        AttributeError: 'RoundTripLoader' object has no attribute 'max_depth'</span>
-<span class="sd">        Setting that attribute to `None` solved the issue. However, it would be prudent to rework blueprints loading to</span>
-<span class="sd">        side step the issue entirely. This occurs because of the way `yamlize` calls `get_single_node`.</span>
+<span class="sd">        This pins the loader to ``RoundTripLoader`` so that anchors, aliases and the like survive a</span>
+<span class="sd">        load/dump cycle. See the ``max_depth`` shim at the top of this module for why that loader</span>
+<span class="sd">        needs a nudge before yamlize will accept it.</span>
 <span class="sd">        """</span>
-        <span class="n">RoundTripLoader</span><span class="o">.</span><span class="n">max_depth</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">Loader</span><span class="o">=</span><span class="n">RoundTripLoader</span><span class="p">)</span></div>
 
 
@@ -754,7 +759,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2026, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2026-09-21.
+      <span class="lastupdated">Last updated on 2026-09-22.
       </span></p>
   </div>
 
