@@ -119,23 +119,46 @@
 <span class="sd">"""Tests of the output cache tools."""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">directoryChangers</span><span class="p">,</span> <span class="n">outputCache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">outputCache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils.directoryChangers</span><span class="w"> </span><span class="kn">import</span> <span class="n">TemporaryDirectoryChanger</span>
 
 
 <div class="viewcode-block" id="TestOutputCache">
 <a class="viewcode-back" href="../../../../.apidocs/armi.utils.tests.test_outputCache.html#armi.utils.tests.test_outputCache.TestOutputCache">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TestOutputCache</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_buildOutputCache</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arbitraryString</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">td</span> <span class="o">=</span> <span class="n">TemporaryDirectoryChanger</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">td</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">tearDown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">td</span><span class="o">.</span><span class="fm">__exit__</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_buildDirWithFiles</span><span class="p">(</span><span class="n">arbitraryString</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Helper method, to create a directory with a single file in it."""</span>
+        <span class="c1"># create an output location</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">arbitraryString</span><span class="p">)</span>
+
+        <span class="c1"># create some temp file</span>
+        <span class="n">outFile</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">arbitraryString</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"something_</span><span class="si">{</span><span class="n">arbitraryString</span><span class="si">}</span><span class="s2">.txt"</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">outFile</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"test"</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">outFile</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_buildOutputCache</span><span class="p">(</span><span class="n">arbitraryString</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Helper method, to set up a semi-stupid output cache directory</span>
-<span class="sd">        It will have one file and a manifest.</span>
-<span class="sd">        It is expected this will be run from within a self-cleaning temp dir.</span>
+<span class="sd">        Helper method, to set up a semi-stupid output cache directory.</span>
+
+<span class="sd">        It will have one file and a manifest. It is expected this will be run from within a self-cleaning temp dir.</span>
 <span class="sd">        """</span>
         <span class="c1"># create some temp file</span>
-        <span class="n">outFile</span> <span class="o">=</span> <span class="s2">"something_</span><span class="si">{0}</span><span class="s2">.txt"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">arbitraryString</span><span class="p">)</span>
+        <span class="n">outFile</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"something_</span><span class="si">{</span><span class="n">arbitraryString</span><span class="si">}</span><span class="s2">.txt"</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">outFile</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"test"</span><span class="p">)</span>
 
@@ -148,104 +171,169 @@
 <div class="viewcode-block" id="TestOutputCache.test_hashFiles">
 <a class="viewcode-back" href="../../../../.apidocs/armi.utils.tests.test_outputCache.html#armi.utils.tests.test_outputCache.TestOutputCache.test_hashFiles">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">test_hashFiles</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">_</span><span class="p">:</span>
-            <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"test_hashFiles1.txt"</span><span class="p">,</span> <span class="s2">"test_hashFiles2.txt"</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">fileName</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
-                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fileName</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">)</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"test_hashFiles1.txt"</span><span class="p">,</span> <span class="s2">"test_hashFiles2.txt"</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">fileName</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fileName</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">)</span>
 
-            <span class="n">hashed</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_hashFiles</span><span class="p">(</span><span class="n">files</span><span class="p">)</span>
+        <span class="n">hashed</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_hashFiles</span><span class="p">(</span><span class="n">files</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">hashed</span><span class="p">,</span> <span class="s2">"e9f5713dec55d727bb35392cec6190ce"</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">hashed</span><span class="p">,</span> <span class="s2">"e9f5713dec55d727bb35392cec6190ce"</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="TestOutputCache.test_deleteCache">
 <a class="viewcode-back" href="../../../../.apidocs/armi.utils.tests.test_outputCache.html#armi.utils.tests.test_outputCache.TestOutputCache.test_deleteCache">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">test_deleteCache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">_</span><span class="p">:</span>
-            <span class="n">outDir</span> <span class="o">=</span> <span class="s2">"snapshotOutput_Cache"</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outDir</span><span class="p">))</span>
+        <span class="n">outDir</span> <span class="o">=</span> <span class="s2">"snapshotOutput_Cache"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outDir</span><span class="p">))</span>
 
-            <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">outDir</span><span class="p">)</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outDir</span><span class="p">,</span> <span class="s2">"test_deleteCache2.txt"</span><span class="p">),</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hi there"</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">outDir</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">outDir</span><span class="p">,</span> <span class="s2">"test_deleteCache2.txt"</span><span class="p">),</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hi there"</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outDir</span><span class="p">))</span>
-            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-            <span class="n">outputCache</span><span class="o">.</span><span class="n">deleteCache</span><span class="p">(</span><span class="n">outDir</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outDir</span><span class="p">))</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outDir</span><span class="p">))</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">outputCache</span><span class="o">.</span><span class="n">deleteCache</span><span class="p">(</span><span class="n">outDir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outDir</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="TestOutputCache.test_getCachedFolder">
 <a class="viewcode-back" href="../../../../.apidocs/armi.utils.tests.test_outputCache.html#armi.utils.tests.test_outputCache.TestOutputCache.test_getCachedFolder">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">test_getCachedFolder</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">_</span><span class="p">:</span>
-            <span class="n">exePath</span> <span class="o">=</span> <span class="s2">"/path/to/what.exe"</span>
-            <span class="n">inputPaths</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"/path/to/something.txt"</span><span class="p">,</span> <span class="s2">"/path/what/some.ini"</span><span class="p">]</span>
-            <span class="n">cacheDir</span> <span class="o">=</span> <span class="s2">"/tmp/thing/what/"</span>
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">):</span>
-                <span class="n">_</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">exePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">)</span>
+        <span class="n">exePath</span> <span class="o">=</span> <span class="s2">"/path/to/what.exe"</span>
+        <span class="n">inputPaths</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"/path/to/something.txt"</span><span class="p">,</span> <span class="s2">"/path/what/some.ini"</span><span class="p">]</span>
+        <span class="n">cacheDir</span> <span class="o">=</span> <span class="s2">"/tmp/thing/what/"</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">):</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">exePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">)</span>
 
-            <span class="n">fakeExe</span> <span class="o">=</span> <span class="s2">"what_getCachedFolder.exe"</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">)</span>
+        <span class="n">fakeExe</span> <span class="o">=</span> <span class="s2">"what_getCachedFolder.exe"</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">)</span>
 
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">):</span>
-                <span class="n">_</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">FileNotFoundError</span><span class="p">):</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">)</span>
 
-            <span class="n">fakeIni</span> <span class="o">=</span> <span class="s2">"fake_getCachedFolder.ini"</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fakeIni</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hey"</span><span class="p">)</span>
+        <span class="n">fakeIni</span> <span class="o">=</span> <span class="s2">"fake_getCachedFolder.ini"</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fakeIni</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hey"</span><span class="p">)</span>
 
-            <span class="n">folder</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="p">[</span><span class="n">fakeIni</span><span class="p">],</span> <span class="n">cacheDir</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">folder</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"/tmp/thing/what/what_getCachedFolder"</span><span class="p">))</span></div>
+        <span class="n">folder</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="p">[</span><span class="n">fakeIni</span><span class="p">],</span> <span class="n">cacheDir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">folder</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"/tmp/thing/what/what_getCachedFolder"</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="TestOutputCache.test_makeOutputManifest">
 <a class="viewcode-back" href="../../../../.apidocs/armi.utils.tests.test_outputCache.html#armi.utils.tests.test_outputCache.TestOutputCache.test_makeOutputManifest">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">test_makeOutputManifest</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">_</span><span class="p">:</span>
-            <span class="c1"># validate manifest doesn't exist yet</span>
-            <span class="n">manifest</span> <span class="o">=</span> <span class="s2">"test_makeOutputManifest/CRC-manifest.json"</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">manifest</span><span class="p">))</span>
+        <span class="c1"># validate manifest does not exist yet</span>
+        <span class="n">manifest</span> <span class="o">=</span> <span class="s2">"test_makeOutputManifest/CRC-manifest.json"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">manifest</span><span class="p">))</span>
 
-            <span class="c1"># create outputCache dir and manifest</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_buildOutputCache</span><span class="p">(</span><span class="s2">"test_makeOutputManifest"</span><span class="p">)</span>
+        <span class="c1"># create outputCache dir and manifest</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buildOutputCache</span><span class="p">(</span><span class="s2">"test_makeOutputManifest"</span><span class="p">)</span>
 
-            <span class="c1"># validate manifest was created</span>
-            <span class="n">manifest</span> <span class="o">=</span> <span class="s2">"test_makeOutputManifest/CRC-manifest.json"</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">manifest</span><span class="p">))</span></div>
+        <span class="c1"># validate manifest was created</span>
+        <span class="n">manifest</span> <span class="o">=</span> <span class="s2">"test_makeOutputManifest/CRC-manifest.json"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">manifest</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="TestOutputCache.test_retrieveOutput">
 <a class="viewcode-back" href="../../../../.apidocs/armi.utils.tests.test_outputCache.html#armi.utils.tests.test_outputCache.TestOutputCache.test_retrieveOutput">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">test_retrieveOutput</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span> <span class="k">as</span> <span class="n">_</span><span class="p">:</span>
-            <span class="c1"># create outputCache dir and manifest</span>
-            <span class="n">cacheDir</span> <span class="o">=</span> <span class="s2">"test_retrieveOutput_Output_Cache"</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_buildOutputCache</span><span class="p">(</span><span class="n">cacheDir</span><span class="p">)</span>
+        <span class="c1"># create outputCache dir and manifest</span>
+        <span class="n">cacheDir</span> <span class="o">=</span> <span class="s2">"test_retrieveOutput_Output_Cache"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buildOutputCache</span><span class="p">(</span><span class="n">cacheDir</span><span class="p">)</span>
 
-            <span class="c1"># validate manifest was created</span>
-            <span class="n">manifest</span> <span class="o">=</span> <span class="s2">"</span><span class="si">{0}</span><span class="s2">/CRC-manifest.json"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cacheDir</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">manifest</span><span class="p">))</span>
+        <span class="c1"># validate manifest was created</span>
+        <span class="n">manifest</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">cacheDir</span><span class="si">}</span><span class="s2">/CRC-manifest.json"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">manifest</span><span class="p">))</span>
 
-            <span class="c1"># create a dummy file (not executable), to stand in for the executable</span>
-            <span class="n">fakeExe</span> <span class="o">=</span> <span class="s2">"what_</span><span class="si">{0}</span><span class="s2">.exe"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cacheDir</span><span class="p">)</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">)</span>
+        <span class="c1"># create a dummy file (not executable), to stand in for the executable</span>
+        <span class="n">fakeExe</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"what_</span><span class="si">{</span><span class="n">cacheDir</span><span class="si">}</span><span class="s2">.exe"</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">)</span>
 
-            <span class="c1"># create folder to retrieve to</span>
-            <span class="n">inputPaths</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"something_</span><span class="si">{0}</span><span class="s2">.txt"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cacheDir</span><span class="p">)]</span>
-            <span class="n">newFolder</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">)</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">newFolder</span><span class="p">)</span>
+        <span class="c1"># create folder to retrieve to</span>
+        <span class="n">inputPaths</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"something_</span><span class="si">{</span><span class="n">cacheDir</span><span class="si">}</span><span class="s2">.txt"</span><span class="p">]</span>
+        <span class="n">newFolder</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">newFolder</span><span class="p">)</span>
 
-            <span class="c1"># throw a new manifest into the new out cache</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newFolder</span><span class="p">,</span> <span class="s2">"CRC-manifest.json"</span><span class="p">),</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+        <span class="c1"># throw a new manifest into the new out cache</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">newFolder</span><span class="p">,</span> <span class="s2">"CRC-manifest.json"</span><span class="p">),</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
 
-            <span class="c1"># attempt to retrieve some output from dummy caches</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">retrieveOutput</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">,</span> <span class="n">newFolder</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="c1"># attempt to retrieve some output from dummy caches</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">retrieveOutput</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">,</span> <span class="n">newFolder</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestOutputCache.test_store">
+<a class="viewcode-back" href="../../../../.apidocs/armi.utils.tests.test_outputCache.html#armi.utils.tests.test_outputCache.TestOutputCache.test_store">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_store</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># create a dummy file (not executable), to stand in for the executable</span>
+        <span class="n">cacheDir</span> <span class="o">=</span> <span class="s2">"test_store"</span>
+        <span class="n">fakeExe</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"what_</span><span class="si">{</span><span class="n">cacheDir</span><span class="si">}</span><span class="s2">.exe"</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">)</span>
+
+        <span class="c1"># create some output files and directories</span>
+        <span class="n">inputPath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buildDirWithFiles</span><span class="p">(</span><span class="s2">"inFile1"</span><span class="p">)</span>
+        <span class="n">outputFile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buildDirWithFiles</span><span class="p">(</span><span class="s2">"outFile1"</span><span class="p">)</span>
+
+        <span class="c1"># run the code and test that it worked</span>
+        <span class="n">folderLoc</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="p">[</span><span class="n">inputPath</span><span class="p">],</span> <span class="n">cacheDir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">))</span>
+
+        <span class="n">outputCache</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">fakeExe</span><span class="p">,</span> <span class="p">[</span><span class="n">inputPath</span><span class="p">],</span> <span class="p">[</span><span class="n">outputFile</span><span class="p">],</span> <span class="n">cacheDir</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">,</span> <span class="s2">"CRC-manifest.json"</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">,</span> <span class="s2">"something_outFile1.txt"</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="TestOutputCache.test_cacheCall">
+<a class="viewcode-back" href="../../../../.apidocs/armi.utils.tests.test_outputCache.html#armi.utils.tests.test_outputCache.TestOutputCache.test_cacheCall">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_cacheCall</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Mock up a simple test for cacheCall() where we call a (non-existant) MC2-3 executable, but bypass it because</span>
+<span class="sd">        there are existing outputs already.</span>
+<span class="sd">        """</span>
+        <span class="c1"># create various inputs for the tests below</span>
+        <span class="n">cacheDir</span> <span class="o">=</span> <span class="s2">"mc2CacheDir"</span>
+
+        <span class="n">inputPaths</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_buildDirWithFiles</span><span class="p">(</span><span class="s2">"mc2-input123"</span><span class="p">)]</span>
+        <span class="n">outputFileNames</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_buildDirWithFiles</span><span class="p">(</span><span class="s2">"mc2-output123"</span><span class="p">)]</span>
+
+        <span class="n">executablePath</span> <span class="o">=</span> <span class="s2">"mc2-3.py"</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">executablePath</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"print('This is an empty executable.')"</span><span class="p">)</span>
+
+        <span class="n">exeOutputPath</span> <span class="o">=</span> <span class="s2">"mc2_ran.txt"</span>
+        <span class="n">execute</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="nb">open</span><span class="p">(</span><span class="n">exeOutputPath</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"Sum."</span><span class="p">)</span>
+
+        <span class="c1"># Test Case 0: No cache dir is given, so we MUST run MC2-3.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">exeOutputPath</span><span class="p">))</span>
+
+        <span class="n">outputCache</span><span class="o">.</span><span class="n">cacheCall</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">executablePath</span><span class="p">,</span> <span class="p">[],</span> <span class="p">[],</span> <span class="n">execute</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">exeOutputPath</span><span class="p">))</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">exeOutputPath</span><span class="p">)</span>
+
+        <span class="c1"># Test Case 1: A cache dir is given, but the outputs we want are not in it, so we MUST run MC2-3.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">exeOutputPath</span><span class="p">))</span>
+
+        <span class="n">outputCache</span><span class="o">.</span><span class="n">cacheCall</span><span class="p">(</span><span class="n">cacheDir</span><span class="p">,</span> <span class="n">executablePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="p">[</span><span class="s2">"output_that_does_not_exist.txt"</span><span class="p">],</span> <span class="n">execute</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">exeOutputPath</span><span class="p">))</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">exeOutputPath</span><span class="p">)</span>
+
+        <span class="c1"># Test Case 2: The outputs we want are already in the cache, do not run MC2-3.</span>
+        <span class="n">folderLoc</span> <span class="o">=</span> <span class="n">outputCache</span><span class="o">.</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">executablePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">)</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">))</span>
+
+        <span class="n">outputCache</span><span class="o">.</span><span class="n">cacheCall</span><span class="p">(</span><span class="n">cacheDir</span><span class="p">,</span> <span class="n">executablePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">outputFileNames</span><span class="p">,</span> <span class="n">execute</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">,</span> <span class="s2">"CRC-manifest.json"</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">,</span> <span class="s2">"something_mc2-output123.txt"</span><span class="p">)))</span></div>
 </div>
 
 </pre></div>

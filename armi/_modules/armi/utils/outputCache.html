@@ -121,13 +121,15 @@
 <span class="sd">TerraPower Calculation Results Cache (CRC).</span>
 
 <span class="sd">This helps avoid duplicated time/energy in running cases.</span>
-<span class="sd">In test systems and analysis, it's possible that the same calc will be done</span>
-<span class="sd">over and over, always giving the same result. This system allows the results</span>
-<span class="sd">to be cached and returned instantly instead of re-running, for example, MC2.</span>
+
+<span class="sd">In test systems and analysis, it is possible that the same calc will be done over and over, always giving the same</span>
+<span class="sd">result. This system allows the results to be cached and returned instantly instead of re-running, for example, MC2.</span>
 
 <span class="sd">API usage</span>
 <span class="sd">---------</span>
 <span class="sd">Getting a cached file::</span>
+
+<span class="sd">.. code-block:: python</span>
 
 <span class="sd">    exe = "MC2-2018-blah.exe"</span>
 <span class="sd">    inpFiles = ["mccAA.inp", "rmzflx"]</span>
@@ -137,28 +139,38 @@
 
 <span class="sd">Storing a file to the cache::</span>
 
+<span class="sd">.. code-block:: python</span>
+
 <span class="sd">    crc.store(exe, inp, outFiles)</span>
 
-<span class="sd">Notes</span>
-<span class="sd">-----</span>
-<span class="sd">Could probably be, like, a decorate on subprocess but we call subprocess a bunch of different ways.</span>
 <span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">runLog</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">safeCopy</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils.pathTools</span><span class="w"> </span><span class="kn">import</span> <span class="n">cleanPath</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
+
+    <span class="n">PathLike</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span>
 
 <span class="n">MANIFEST_NAME</span> <span class="o">=</span> <span class="s2">"CRC-manifest.json"</span>
 
 
 <div class="viewcode-block" id="retrieveOutput">
 <a class="viewcode-back" href="../../../.apidocs/armi.utils.outputCache.html#armi.utils.outputCache.retrieveOutput">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">retrieveOutput</span><span class="p">(</span><span class="n">exePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">,</span> <span class="n">locToRetrieveTo</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">retrieveOutput</span><span class="p">(</span>
+    <span class="n">exePath</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PathLike</span><span class="p">],</span> <span class="n">cacheDir</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">locToRetrieveTo</span><span class="p">:</span> <span class="n">PathLike</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Check the cache for a valid file and copy it if it exists.</span>
 
@@ -174,13 +186,11 @@
         <span class="n">successful</span> <span class="o">=</span> <span class="n">_copyOutputs</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">,</span> <span class="n">locToRetrieveTo</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">successful</span><span class="p">:</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Retrieved cached outputs for </span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exePath</span><span class="p">))</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Retrieved cached outputs for </span><span class="si">{</span><span class="n">exePath</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># outputs didn't match manifest. Just delete to save checking next time.</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">"Outputs in </span><span class="si">{}</span><span class="s2"> were inconsistent with manifest. Deleting and reproducing"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">)</span>
-            <span class="p">)</span>
+            <span class="c1"># Outputs did not match manifest. Just delete to save checking next time.</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Outputs in </span><span class="si">{</span><span class="n">cachedFolder</span><span class="si">}</span><span class="s2"> were inconsistent with manifest. Deleting and reproducing"</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">deleteCache</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -190,7 +200,7 @@
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_copyOutputs</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">,</span> <span class="n">locToRetrieveTo</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_copyOutputs</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">locToRetrieveTo</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Check that the outputs have the expectect hashes and copy them if they do."""</span>
     <span class="n">manifest</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">,</span> <span class="n">MANIFEST_NAME</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">manifest</span><span class="p">):</span>
@@ -217,7 +227,7 @@
     <span class="k">return</span> <span class="kc">True</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_getCachedFolder</span><span class="p">(</span><span class="n">exePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_getCachedFolder</span><span class="p">(</span><span class="n">exePath</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PathLike</span><span class="p">],</span> <span class="n">cacheDir</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Return the the folder name expected for this executable and set of inputs."""</span>
     <span class="n">exeName</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">exePath</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">exeHash</span> <span class="o">=</span> <span class="n">_hashFiles</span><span class="p">([</span><span class="n">exePath</span><span class="p">])</span>
@@ -228,7 +238,7 @@
     <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cacheDir</span><span class="p">,</span> <span class="n">exeName</span><span class="p">,</span> <span class="n">exeHash</span><span class="p">,</span> <span class="n">first2</span><span class="p">,</span> <span class="n">remainder</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_hashFiles</span><span class="p">(</span><span class="n">paths</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_hashFiles</span><span class="p">(</span><span class="n">paths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PathLike</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">"""Return a MD5 hash of a file's contents."""</span>
     <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">binaryF</span><span class="p">:</span>
         <span class="n">md5Hash</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">md5</span><span class="p">(</span><span class="n">binaryF</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
@@ -240,7 +250,7 @@
     <span class="k">return</span> <span class="n">md5Hash</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_makeOutputManifest</span><span class="p">(</span><span class="n">outputFiles</span><span class="p">,</span> <span class="n">folderLocation</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_makeOutputManifest</span><span class="p">(</span><span class="n">outputFiles</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">folderLocation</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Make a json file with the output names and expected hash."""</span>
     <span class="n">manifest</span> <span class="o">=</span> <span class="p">{</span><span class="n">outputFile</span><span class="p">:</span> <span class="n">_hashFiles</span><span class="p">([</span><span class="n">outputFile</span><span class="p">])</span> <span class="k">for</span> <span class="n">outputFile</span> <span class="ow">in</span> <span class="n">outputFiles</span><span class="p">}</span>
     <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folderLocation</span><span class="p">,</span> <span class="n">MANIFEST_NAME</span><span class="p">),</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">manifestJSON</span><span class="p">:</span>
@@ -249,16 +259,15 @@
 
 <div class="viewcode-block" id="store">
 <a class="viewcode-back" href="../../../.apidocs/armi.utils.outputCache.html#armi.utils.outputCache.store">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">store</span><span class="p">(</span><span class="n">exePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">outputFiles</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">store</span><span class="p">(</span><span class="n">exePath</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PathLike</span><span class="p">],</span> <span class="n">outputFiles</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PathLike</span><span class="p">],</span> <span class="n">cacheDir</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Store an output file in the cache.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    Input paths need to be in the same order each time if the same cached folder is expected to be found.</span>
-<span class="sd">    It is difficult to know what outputs will exist from a specific run, so only</span>
-<span class="sd">    outputs that do exist will attempt to be copied.</span>
-<span class="sd">    This function should be supplied with a greedy list of outputs.</span>
+<span class="sd">    Input paths need to be in the same order each time if the same cached folder is expected to be found. It is</span>
+<span class="sd">    difficult to know what outputs will exist from a specific run, so only outputs that do exist will attempt to be</span>
+<span class="sd">    copied. This function should be supplied with a greedy list of outputs.</span>
 <span class="sd">    """</span>
     <span class="c1"># outputFilePaths is a greedy list and they might not all be produced</span>
     <span class="n">outputsThatExist</span> <span class="o">=</span> <span class="p">[</span><span class="n">outputFile</span> <span class="k">for</span> <span class="n">outputFile</span> <span class="ow">in</span> <span class="n">outputFiles</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outputFile</span><span class="p">)]</span>
@@ -274,13 +283,13 @@
         <span class="n">cachedLoc</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folderLoc</span><span class="p">,</span> <span class="n">baseName</span><span class="p">)</span>
         <span class="n">safeCopy</span><span class="p">(</span><span class="n">outputFile</span><span class="p">,</span> <span class="n">cachedLoc</span><span class="p">)</span>
 
-    <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Added outputs for </span><span class="si">{}</span><span class="s2"> to the cache."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exePath</span><span class="p">))</span></div>
+    <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Added outputs for </span><span class="si">{</span><span class="n">exePath</span><span class="si">}</span><span class="s2"> to the cache."</span><span class="p">)</span></div>
 
 
 
 <div class="viewcode-block" id="deleteCache">
 <a class="viewcode-back" href="../../../.apidocs/armi.utils.outputCache.html#armi.utils.outputCache.deleteCache">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">deleteCache</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">deleteCache</span><span class="p">(</span><span class="n">cachedFolder</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Remove this folder.</span>
 
@@ -296,23 +305,28 @@
 
 <div class="viewcode-block" id="cacheCall">
 <a class="viewcode-back" href="../../../.apidocs/armi.utils.outputCache.html#armi.utils.outputCache.cacheCall">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">cacheCall</span><span class="p">(</span><span class="n">cacheDir</span><span class="p">,</span> <span class="n">executablePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">outputFileNames</span><span class="p">,</span> <span class="n">execute</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tearDown</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">cacheCall</span><span class="p">(</span>
+    <span class="n">cacheDir</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+    <span class="n">executablePath</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+    <span class="n">inputPaths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PathLike</span><span class="p">],</span>
+    <span class="n">outputFileNames</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PathLike</span><span class="p">],</span>
+    <span class="n">execute</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">tearDown</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Checks the cache to see if there are outputs for the run and returns them, otherwise calls the execute command.</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
-<span class="sd">    It is non-trivial to determine the exact set of outputs an executable will produce</span>
-<span class="sd">    without running the executable. Therefore, ``outputFileNames`` is expected to be a</span>
-<span class="sd">    greedy list and cache will attempt to copy all the files, but not fail if the</span>
-<span class="sd">    file is not present. When copying outputs back, all files copied previously will</span>
-<span class="sd">    be targeted.</span>
+<span class="sd">    It is non-trivial to determine the exact set of outputs an executable will produce without running the executable.</span>
+<span class="sd">    Therefore, ``outputFileNames`` is expected to be a greedy list and cache will attempt to copy all the files, but not</span>
+<span class="sd">    fail if the file is not present. When copying outputs back, all files copied previously will be targeted.</span>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="n">execute</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">execute</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">([</span><span class="n">executablePath</span><span class="p">]</span> <span class="o">+</span> <span class="n">inputPaths</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">cacheDir</span><span class="p">:</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Executing </span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">executablePath</span><span class="p">))</span>
+        <span class="n">runLog</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Executing </span><span class="si">{</span><span class="n">executablePath</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="n">execute</span><span class="p">()</span>
         <span class="k">return</span>
 
@@ -326,7 +340,7 @@
             <span class="p">)</span>
         <span class="p">)</span>
 
-    <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"Cached outputs were not found, executing </span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">executablePath</span><span class="p">))</span>
+    <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Cached outputs were not found, executing </span><span class="si">{</span><span class="n">executablePath</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="n">execute</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">tearDown</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">tearDown</span><span class="p">()</span>
@@ -334,12 +348,10 @@
     <span class="k">try</span><span class="p">:</span>
         <span class="n">store</span><span class="p">(</span><span class="n">executablePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">outputFileNames</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="c1"># something went wrong in storage.</span>
+        <span class="c1"># Something went wrong in storage.</span>
         <span class="c1"># This is okay as the manifest will be inconsistent with the outputs and not used in the future.</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="s2">"Failed to store outputs in: </span><span class="si">{}</span><span class="se">\n</span><span class="s2">error: </span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                <span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">executablePath</span><span class="p">,</span> <span class="n">inputPaths</span><span class="p">,</span> <span class="n">cacheDir</span><span class="p">),</span> <span class="n">e</span>
-            <span class="p">)</span>
+            <span class="sa">f</span><span class="s2">"Failed to store outputs in: </span><span class="si">{</span><span class="n">_getCachedFolder</span><span class="p">(</span><span class="n">executablePath</span><span class="p">,</span><span class="w"> </span><span class="n">inputPaths</span><span class="p">,</span><span class="w"> </span><span class="n">cacheDir</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span></div>
 
 </pre></div>
