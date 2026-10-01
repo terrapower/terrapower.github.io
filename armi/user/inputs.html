@@ -90,7 +90,13 @@
 <li class="toctree-l5"><a class="reference internal" href="#cycle-history">1.2.2.1. Cycle history</a></li>
 <li class="toctree-l5"><a class="reference internal" href="#detail-assemblies">1.2.2.2. Detail assemblies</a></li>
 <li class="toctree-l5"><a class="reference internal" href="#kinetics-settings">1.2.2.3. Kinetics settings</a></li>
-<li class="toctree-l5"><a class="reference internal" href="#material-namespace-order">1.2.2.4. Material Namespace Order</a></li>
+<li class="toctree-l5"><a class="reference internal" href="#material-namespace-order">1.2.2.4. Material Namespace Order</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#custom-yaml-materials">1.2.2.4.1. Custom YAML Materials</a></li>
+<li class="toctree-l6"><a class="reference internal" href="#custom-python-materials">1.2.2.4.2. Custom Python Materials</a></li>
+<li class="toctree-l6"><a class="reference internal" href="#armi-application-materials">1.2.2.4.3. ARMI Application Materials</a></li>
+<li class="toctree-l6"><a class="reference internal" href="#combining-multiple-custom-materials-sources">1.2.2.4.4. Combining Multiple Custom Materials Sources</a></li>
+</ul>
+</li>
 <li class="toctree-l5"><a class="reference internal" href="#restart-cases">1.2.2.5. Restart cases</a></li>
 <li class="toctree-l5"><a class="reference internal" href="#shuffling">1.2.2.6. Shuffling</a></li>
 <li class="toctree-l5"><a class="reference internal" href="#zones">1.2.2.7. Zones</a></li>
@@ -459,21 +465,98 @@ this is <code class="docutils literal notranslate"><span class="pre">materialNam
 </div>
 <blockquote>
 <div><dl class="simple">
-<dt>materialNamespaceOrder:</dt><dd><p>armi.materials</p>
+<dt>materialNamespaceOrder:</dt><dd><ul class="simple">
+<li><p>armi.materials</p></li>
+</ul>
 </dd>
 </dl>
 </div></blockquote>
 <p>In the example above, the only materials considered for the run are the ARMI default materials. For various technical
 and legal reasons, ARMI does not come with enough material data to fully model a real world nuclear reactor. But the
 example above is common for unit tests.</p>
-<p>Of course, if you want to ignore the ARMI materials, in favor of a set of only materials your team has created, you
-could do something like this:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Separate data from code. We recommend that, if possible, you define your materials in the matProps YAML format. We have found this improves data quality. See <a class="reference internal" href="#mat-input-file"><span class="std std-ref">The Materials Input File</span></a>.</p>
+</div>
+<section id="custom-yaml-materials">
+<h5><span class="section-number">1.2.2.4.1. </span>Custom YAML Materials<a class="headerlink" href="#custom-yaml-materials" title="Link to this heading"></a></h5>
+<p>Perhaps your team has a directory of YAML material files:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">code</span><span class="o">-</span><span class="n">block</span><span class="p">::</span> <span class="n">yaml</span>
 </pre></div>
 </div>
 <blockquote>
 <div><dl class="simple">
-<dt>materialNamespaceOrder:</dt><dd><p>myArmiApp.materials</p>
+<dt>materialNamespaceOrder:</dt><dd><ul class="simple">
+<li><p>dir:/mnt/materials/production/</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p>Here we use the <code class="docutils literal notranslate"><span class="pre">dir:</span></code> syntax to identify a directory containing ARMI-formatted material YAML files. This feature
+works, but take some care that whatever location you pick is going to exist when you need it next. This might mean using
+a well-known location on your cluster, or using file system symbolic links to enforce that a location will always exist.
+ARMI cannot guarantee that a file on your laptop will never move.</p>
+<p>Another way to include a directory of YAML material files is to store them right in your Python venv. This is
+a good way to enforce that if, as long as your simulation runs from a correct Python venv, you have the correct
+materials. For this we use a custom <code class="docutils literal notranslate"><span class="pre">venv</span></code> syntax:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">code</span><span class="o">-</span><span class="n">block</span><span class="p">::</span> <span class="n">yaml</span>
+</pre></div>
+</div>
+<blockquote>
+<div><dl class="simple">
+<dt>materialNamespaceOrder:</dt><dd><ul class="simple">
+<li><p>venv:materials_data/</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</section>
+<section id="custom-python-materials">
+<h5><span class="section-number">1.2.2.4.2. </span>Custom Python Materials<a class="headerlink" href="#custom-python-materials" title="Link to this heading"></a></h5>
+<p>Perhaps there is just one material a user would like to amend for their simulation. For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">code</span><span class="o">-</span><span class="n">block</span><span class="p">::</span> <span class="n">python</span>
+</pre></div>
+</div>
+<blockquote>
+<div><p>from armi.materials import uZr</p>
+<dl>
+<dt>class MyFuel(uZr.UZr):</dt><dd><p>“””Edits to UZr fuel, which is an ARMI Material.”””
+DATA_SOURCE = “Not ARMI”</p>
+<dl class="simple">
+<dt>def someNewProperty(self):</dt><dd><p>return 1.0</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</div></blockquote>
+<p>To use this material in a simulation:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Create a material that inherits from <code class="docutils literal notranslate"><span class="pre">armi.materials.Material</span></code>.</p></li>
+<li><p>Save it to a file, e.g., <code class="docutils literal notranslate"><span class="pre">myFuel.py</span></code>.</p></li>
+<li><p>Move the file to the case run directory.</p></li>
+<li><p>Use it in the case blueprints as <code class="docutils literal notranslate"><span class="pre">material:</span> <span class="pre">myFuel:MyFuel</span></code>.</p></li>
+<li><p>Include it in the <code class="docutils literal notranslate"><span class="pre">materialNamespaceOrder</span></code> setting, as below.</p></li>
+</ul>
+</div></blockquote>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">materialNamespaceOrder</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myFuel</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">armi.materials</span>
+</pre></div>
+</div>
+</section>
+<section id="armi-application-materials">
+<h5><span class="section-number">1.2.2.4.3. </span>ARMI Application Materials<a class="headerlink" href="#armi-application-materials" title="Link to this heading"></a></h5>
+<p>If you want to ignore the ARMI materials, in favor of a set of only materials your team has created for an ARMI
+Application, you could do something like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">code</span><span class="o">-</span><span class="n">block</span><span class="p">::</span> <span class="n">yaml</span>
+</pre></div>
+</div>
+<blockquote>
+<div><dl class="simple">
+<dt>materialNamespaceOrder:</dt><dd><ul class="simple">
+<li><p>myArmiApp.materials</p></li>
+</ul>
 </dd>
 </dl>
 </div></blockquote>
@@ -503,34 +586,11 @@ all of that (and worse, having to maintain all of that):</p>
 from armi.materials import importMaterialsIntoModuleNamespace</p>
 <p>importMaterialsIntoModuleNamespace(__path__, __name__, globals())</p>
 </div></blockquote>
-<p>And that, vaguely magical, line of code saves you from having to do all of the imports yourself, and maintain them as
-they change over time.</p>
-<p>Or perhaps your team is really on the ball and you just want to import a directory of YAML files:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">code</span><span class="o">-</span><span class="n">block</span><span class="p">::</span> <span class="n">yaml</span>
-</pre></div>
-</div>
-<blockquote>
-<div><dl class="simple">
-<dt>materialNamespaceOrder:</dt><dd><p>dir:/mnt/materials/production/</p>
-</dd>
-</dl>
-</div></blockquote>
-<p>Here we use the <code class="docutils literal notranslate"><span class="pre">dir:</span></code> syntax to identify a directory containing ARMI-formatted material YAML files. This feature
-works, but take some care that whatever location you pick is going to exist when you need it next. This might mean using
-a well-known location on your cluster, or using file system symbolic links to enforce that a location will always exist.
-ARMI cannot guarantee that a file on your laptop will never move.</p>
-<p>Another way to include a directory of YAML material files is to store them right in your Python venv. This is
-a good way to enforce that if, as long as your simulation runs from a correct Python venv, you have the correct
-materials. For this we use a custom <code class="docutils literal notranslate"><span class="pre">venv</span></code> syntax:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">code</span><span class="o">-</span><span class="n">block</span><span class="p">::</span> <span class="n">yaml</span>
-</pre></div>
-</div>
-<blockquote>
-<div><dl class="simple">
-<dt>materialNamespaceOrder:</dt><dd><p>venv:materials_data/</p>
-</dd>
-</dl>
-</div></blockquote>
+<p>This allows the materials to be specified without a module in the blueprints, e.g.: <code class="docutils literal notranslate"><span class="pre">material:</span> <span class="pre">AcmeSteel</span></code> instead of
+above, where <code class="docutils literal notranslate"><span class="pre">material:</span> <span class="pre">myArmiApp.materials:AcmeSteel</span></code> would be required.</p>
+</section>
+<section id="combining-multiple-custom-materials-sources">
+<h5><span class="section-number">1.2.2.4.4. </span>Combining Multiple Custom Materials Sources<a class="headerlink" href="#combining-multiple-custom-materials-sources" title="Link to this heading"></a></h5>
 <p>Of course, you can mix and match the above options. In the wild, we have seen people create complicated lists for their
 simulations that something like this:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">code</span><span class="o">-</span><span class="n">block</span><span class="p">::</span> <span class="n">yaml</span>
@@ -538,10 +598,12 @@ simulations that something like this:</p>
 </div>
 <blockquote>
 <div><dl class="simple">
-<dt>materialNamespaceOrder:</dt><dd><p>myArmiApp.materials.prod
-dir:/mnt/materials/prod/v2/
-venv:materials/data
-armi.materials</p>
+<dt>materialNamespaceOrder:</dt><dd><ul class="simple">
+<li><p>myArmiApp.materials.prod</p></li>
+<li><p>dir:/mnt/materials/prod/v2/</p></li>
+<li><p>venv:materials/data</p></li>
+<li><p>armi.materials</p></li>
+</ul>
 </dd>
 </dl>
 </div></blockquote>
@@ -573,10 +635,7 @@ setMaterialNamespaceOrder([</p>
 </div></blockquote>
 <p>])</p>
 </div></blockquote>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Separate data from code. We recommend that, if possible, you define your materials in the matProps YAML format. We have found this improves data quality. See <a class="reference internal" href="#mat-input-file"><span class="std std-ref">The Materials Input File</span></a>.</p>
-</div>
+</section>
 </section>
 <section id="restart-cases">
 <span id="id3"></span><h4><span class="section-number">1.2.2.5. </span>Restart cases<a class="headerlink" href="#restart-cases" title="Link to this heading"></a></h4>
@@ -3100,7 +3159,7 @@ chosen.</p>
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2026, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2026-09-29.
+      <span class="lastupdated">Last updated on 2026-10-01.
       </span></p>
   </div>
 
