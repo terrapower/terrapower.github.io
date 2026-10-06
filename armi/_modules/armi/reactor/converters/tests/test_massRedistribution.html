@@ -122,13 +122,19 @@
 <span class="sd">These are limited in scope. More extensive testing is done in test_axialExpansionChanger_MultiPin.py</span>
 <span class="sd">"""</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">unittest</span><span class="w"> </span><span class="kn">import</span> <span class="n">TestCase</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pytest</span><span class="w"> </span><span class="kn">import</span> <span class="n">MonkeyPatch</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">materials</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.materials.mostlyYaml</span><span class="w"> </span><span class="kn">import</span> <span class="n">_RESOURCES_DIR</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.components</span><span class="w"> </span><span class="kn">import</span> <span class="n">Circle</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.converters.axialExpansionChanger.redistributeMass</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedistributeMass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">mockRunLogs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">directoryChangers</span>
 
 
 <div class="viewcode-block" id="BlockLike">
@@ -282,6 +288,46 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">stat</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="n">case</span><span class="p">)</span>
             <span class="n">stdout</span> <span class="o">=</span> <span class="n">logs</span><span class="o">.</span><span class="n">getStdout</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">assertIn</span><span class="p">(</span><span class="s2">"Inconsistent detailedNDens"</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="n">case</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TestMassRedistribution.test_compatabilityCheck">
+<a class="viewcode-back" href="../../../../../.apidocs/armi.reactor.converters.tests.test_massRedistribution.html#armi.reactor.converters.tests.test_massRedistribution.TestMassRedistribution.test_compatabilityCheck">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_compatabilityCheck</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Test that only compatible materials can have mass redistributed."""</span>
+        <span class="c1"># These use the same material</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">distributor</span><span class="o">.</span><span class="n">compatabilityCheck</span><span class="p">())</span>
+
+        <span class="n">monkeypatch</span> <span class="o">=</span> <span class="n">MonkeyPatch</span><span class="p">()</span>
+        <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setattr</span><span class="p">(</span><span class="n">materials</span><span class="p">,</span> <span class="s2">"_MATERIAL_NAMESPACE_ORDER"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">td</span> <span class="o">=</span> <span class="n">directoryChangers</span><span class="o">.</span><span class="n">TemporaryDirectoryChanger</span><span class="p">()</span>
+        <span class="n">td</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Using YAML materials since these will have the same class just different names.</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_RESOURCES_DIR</span><span class="p">,</span><span class="w"> </span><span class="s1">'HT9.yaml'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">td</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_RESOURCES_DIR</span><span class="p">,</span><span class="w"> </span><span class="s1">'Inconel.yaml'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">td</span><span class="o">.</span><span class="n">destination</span><span class="p">)</span>
+            <span class="n">namespaceOrder</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"dir:</span><span class="si">{</span><span class="n">td</span><span class="o">.</span><span class="n">destination</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"armi.materials"</span><span class="p">]</span>
+            <span class="n">materials</span><span class="o">.</span><span class="n">setMaterialNamespaceOrder</span><span class="p">(</span><span class="n">namespaceOrder</span><span class="p">)</span>
+
+            <span class="c1"># Now check incompatible materials</span>
+            <span class="n">fromComp</span> <span class="o">=</span> <span class="n">Circle</span><span class="p">(</span><span class="s2">"fuel"</span><span class="p">,</span> <span class="s2">"HT9"</span><span class="p">,</span> <span class="n">Tinput</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">Thot</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">od</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">mult</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+            <span class="n">fromComp</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">BlockLike</span><span class="p">(</span><span class="mf">7.3</span><span class="p">)</span>
+            <span class="n">toComp</span> <span class="o">=</span> <span class="n">Circle</span><span class="p">(</span><span class="s2">"fuel"</span><span class="p">,</span> <span class="s2">"Inconel"</span><span class="p">,</span> <span class="n">Tinput</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">Thot</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">od</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">mult</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+            <span class="c1"># Arbitrary post-expansion height of the component prior to the truncation / extension</span>
+            <span class="n">toComp</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">BlockLike</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">toComp</span><span class="o">.</span><span class="n">height</span><span class="p">)</span>
+
+            <span class="c1"># Height of fromComp to be shifted to toComp</span>
+            <span class="n">distributor</span> <span class="o">=</span> <span class="n">RedistributeMass</span><span class="p">(</span>
+                <span class="n">fromComp</span><span class="o">=</span><span class="n">fromComp</span><span class="p">,</span>
+                <span class="n">toComp</span><span class="o">=</span><span class="n">toComp</span><span class="p">,</span>
+                <span class="n">deltaZTop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dz</span><span class="p">,</span>
+                <span class="n">assemName</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_testMethodName</span><span class="p">,</span>
+                <span class="n">initOnly</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertFalse</span><span class="p">(</span><span class="n">distributor</span><span class="o">.</span><span class="n">compatabilityCheck</span><span class="p">())</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">monkeypatch</span><span class="o">.</span><span class="n">undo</span><span class="p">()</span>
+            <span class="n">td</span><span class="o">.</span><span class="fm">__exit__</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
 </div>
 
 </pre></div>
