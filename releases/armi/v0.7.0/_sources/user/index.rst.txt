@@ -1,0 +1,24 @@
+#########
+User Docs
+#########
+
+Here you will learn how to use :term:`ARMI`. It will cover getting and installing ARMI and its prerequisites, making
+ARMI input files, running various kinds of ARMI runs, analyzing ARMI output files, etc.
+
+--------------
+
+.. toctree::
+   :maxdepth: 5
+   :numbered:
+
+   guide
+   inputs
+   outputs
+   manual_data_access
+   settings_report
+   params_report
+   spatial_block_data
+   physics_coupling
+   radial_and_axial_expansion
+   symmetry_handling
+   history
