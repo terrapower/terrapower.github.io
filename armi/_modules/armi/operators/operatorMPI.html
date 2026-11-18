@@ -141,12 +141,45 @@
 <span class="sd">"""</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">gc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi</span><span class="w"> </span><span class="kn">import</span> <span class="n">context</span><span class="p">,</span> <span class="n">getPluginManager</span><span class="p">,</span> <span class="n">mpiActions</span><span class="p">,</span> <span class="n">runLog</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.operators.operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Operator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">reactors</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_concatMpiLogs</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""Close logs and concatenate them on the primary rank."""</span>
+    <span class="c1"># Check if there is any already propagating exception.</span>
+    <span class="n">prevException</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># Every rank must close its own handlers before rank 0 reads and concatenates the per-rank log files.</span>
+    <span class="n">runLog</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="c1"># First barrier to wait for all logs to be written and closed.</span>
+    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
+
+    <span class="c1"># Attempt to concat logs now that all logs are closed.</span>
+    <span class="n">concatErr</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">concatenateLogs</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">ee</span><span class="p">:</span>
+            <span class="c1"># Save the error for printing. Do not do any error handling until the worker ranks are collected.</span>
+            <span class="n">concatErr</span> <span class="o">=</span> <span class="n">ee</span>
+
+    <span class="c1"># Add another synchronization point so the worker ranks/logs wait on the primary rank to finish concatenation.</span>
+    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
+
+    <span class="c1"># If needed: handle either the concatenation error or the already propagating exception</span>
+    <span class="k">if</span> <span class="n">concatErr</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">prevException</span><span class="p">:</span>
+            <span class="n">prevException</span><span class="o">.</span><span class="n">add_note</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Additionally, failed to concatenate MPI logs: </span><span class="si">{</span><span class="n">concatErr</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Failed to concatenate MPI logs."</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">concatErr</span>
 
 
 <div class="viewcode-block" id="OperatorMPI">
@@ -174,39 +207,39 @@
 <span class="sd">        handles errors.</span>
 <span class="sd">        """</span>
         <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"OperatorMPI.operate"</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="c1"># this is the primary</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="c1"># run the regular old operate method</span>
-                <span class="n">Operator</span><span class="o">.</span><span class="n">operate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">ctime</span><span class="p">())</span>
-            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ee</span><span class="p">:</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error in Primary Node. Check STDERR for a traceback.</span><span class="se">\n</span><span class="si">{</span><span class="n">ee</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-            <span class="k">finally</span><span class="p">:</span>
-                <span class="c1"># If there are other processes, tell them to stop</span>
-                <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">"Stopping all MPI worker nodes and cleaning temps."</span><span class="p">)</span>
-                    <span class="c1"># send the quit command to the workers.</span>
-                    <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">"quit"</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Waiting for all nodes to close down"</span><span class="p">)</span>
-                    <span class="c1"># wait until they're done cleaning up.</span>
-                    <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">"finished"</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">"All worker nodes stopped."</span><span class="p">)</span>
-                <span class="c1"># even though we waited, still need more time to close stdout.</span>
-                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Main operate finished"</span><span class="p">)</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>  <span class="c1"># concatenate all logs.</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">workerOperate</span><span class="p">()</span>
-            <span class="k">except</span><span class="p">:</span>
-                <span class="c1"># grab the final command</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"An error has occurred in one of the worker nodes. See STDERR for traceback."</span><span class="p">)</span>
-                <span class="c1"># bcasting quit won't work if the main is sitting around waiting for a different bcast or gather.</span>
-                <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Worker failed"</span><span class="p">)</span>
-                <span class="n">runLog</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-                <span class="k">raise</span></div>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># This is the primary MPI process.</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># run the regular old operate method</span>
+                    <span class="n">Operator</span><span class="o">.</span><span class="n">operate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">ctime</span><span class="p">())</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ee</span><span class="p">:</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error in Primary Node. Check STDERR for a traceback.</span><span class="se">\n</span><span class="si">{</span><span class="n">ee</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="c1"># If there are other processes, tell them to stop</span>
+                    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">"Stopping all MPI worker nodes and cleaning temps."</span><span class="p">)</span>
+                        <span class="c1"># send the quit command to the workers.</span>
+                        <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">"quit"</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Waiting for all nodes to close down"</span><span class="p">)</span>
+                        <span class="c1"># wait until they're done cleaning up.</span>
+                        <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="s2">"finished"</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">important</span><span class="p">(</span><span class="s2">"All worker nodes stopped."</span><span class="p">)</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Main operate finished"</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># This is a worker MPI process.</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">workerOperate</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="c1"># grab the final command</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"An error has occurred in one of the worker nodes. See STDERR for traceback."</span><span class="p">)</span>
+                    <span class="c1"># bcasting quit won't work if the main is sitting around waiting for a different bcast or gather.</span>
+                    <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Worker failed"</span><span class="p">)</span>
+                    <span class="k">raise</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">_concatMpiLogs</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="OperatorMPI.workerOperate">
