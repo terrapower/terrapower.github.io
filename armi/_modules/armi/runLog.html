@@ -511,6 +511,41 @@
 
 
 
+<div class="viewcode-block" id="closeAndConcatenateMpiLogs">
+<a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.closeAndConcatenateMpiLogs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">closeAndConcatenateMpiLogs</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""Close logs and concatenate them on the primary rank."""</span>
+    <span class="c1"># Check if there is any already propagating exception.</span>
+    <span class="n">prevException</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># Every rank must close its own handlers before rank 0 reads and concatenates the per-rank log files.</span>
+    <span class="n">close</span><span class="p">()</span>
+    <span class="c1"># First barrier to wait for all logs to be written and closed.</span>
+    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
+
+    <span class="c1"># Attempt to concat logs now that all logs are closed.</span>
+    <span class="n">concatErr</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">concatenateLogs</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">ee</span><span class="p">:</span>
+            <span class="c1"># Save the error for printing. Do not do any error handling until the worker ranks are collected.</span>
+            <span class="n">concatErr</span> <span class="o">=</span> <span class="n">ee</span>
+
+    <span class="c1"># Add another synchronization point so the worker ranks/logs wait on the primary rank to finish concatenation.</span>
+    <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_SIZE</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">MPI_COMM</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
+
+    <span class="c1"># If needed: handle either the concatenation error or the already propagating exception</span>
+    <span class="k">if</span> <span class="n">concatErr</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">prevException</span><span class="p">:</span>
+            <span class="n">prevException</span><span class="o">.</span><span class="n">add_note</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Additionally, failed to concatenate MPI logs: </span><span class="si">{</span><span class="n">concatErr</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Failed to concatenate MPI logs."</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">concatErr</span></div>
+
+
+
 <span class="c1"># Here are all the module-level functions that should be used as the API. They use the Log object behind the scenes.</span>
 <div class="viewcode-block" id="raw">
 <a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.raw">[docs]</a>
