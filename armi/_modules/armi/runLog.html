@@ -163,6 +163,7 @@
 <span class="s2">    if self.isEnabledFor(</span><span class="si">{1}</span><span class="s2">):</span>
 <span class="s2">        self._log(</span><span class="si">{1}</span><span class="s2">, message, args, **kws)</span>
 <span class="s2">logging.Logger.</span><span class="si">{0}</span><span class="s2"> = </span><span class="si">{0}</span><span class="s2">"""</span>
+<span class="n">LOG_LEVEL_HEADER</span> <span class="o">=</span> <span class="mi">100</span>
 <span class="n">OS_SECONDS_TIMEOUT</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">60</span>
 <span class="n">SEP</span> <span class="o">=</span> <span class="s2">"|"</span>
 <span class="n">STDERR_LOGGER_NAME</span> <span class="o">=</span> <span class="s2">"ARMI_ERROR"</span>
@@ -228,7 +229,7 @@
                 <span class="p">(</span><span class="s2">"prompt"</span><span class="p">,</span> <span class="p">(</span><span class="mi">27</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"[prmt</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">] "</span><span class="p">)),</span>
                 <span class="p">(</span><span class="s2">"warning"</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"[warn</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">] "</span><span class="p">)),</span>
                 <span class="p">(</span><span class="s2">"error"</span><span class="p">,</span> <span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"[err </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">] "</span><span class="p">)),</span>
-                <span class="p">(</span><span class="s2">"header"</span><span class="p">,</span> <span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">"</span><span class="p">)),</span>
+                <span class="p">(</span><span class="s2">"header"</span><span class="p">,</span> <span class="p">(</span><span class="n">LOG_LEVEL_HEADER</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">"</span><span class="p">)),</span>
             <span class="p">]</span>
         <span class="p">)</span>
 
@@ -653,8 +654,8 @@
         <span class="n">label</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
         <span class="n">label</span> <span class="o">=</span> <span class="n">msg</span> <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">label</span>
 
-        <span class="c1"># Track all warnings, and everything logged higher than warning</span>
-        <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">levelno</span> <span class="o">&gt;=</span> <span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">:</span>
+        <span class="c1"># Track all warnings (and everything logged higher than warning) but not headers.</span>
+        <span class="k">if</span> <span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span> <span class="o">&lt;=</span> <span class="n">record</span><span class="o">.</span><span class="n">levelno</span> <span class="o">&lt;</span> <span class="n">LOG_LEVEL_HEADER</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">warningCounts</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">warningCounts</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
             <span class="k">else</span><span class="p">:</span>
@@ -698,7 +699,7 @@
 
 <span class="sd">        .. code-block:: python</span>
 
-<span class="sd">            runLog.error("This sort of error might usually terminate the run.")</span>
+<span class="sd">            runLog.error("Something is invalidating or killing a run, log and raise an Exception.")</span>
 <span class="sd">            runLog.warning("Users probably want to know.")</span>
 <span class="sd">            runLog.info("This is the usual verbosity.")</span>
 <span class="sd">            runLog.debug("This is only logged during a debug run.")</span>
@@ -848,26 +849,27 @@
 <a class="viewcode-back" href="../../.apidocs/armi.runLog.html#armi.runLog.RunLogger.warningReport">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">warningReport</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Summarize all warnings for the run."""</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"----- Final Warning Count --------"</span><span class="p">)</span>
+        <span class="n">bar</span> <span class="o">=</span> <span class="s2">"-----------------------------------------"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"---------- Final Warning Count ----------"</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"  </span><span class="si">{0:^10s}</span><span class="s2">   </span><span class="si">{1:^25s}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">"COUNT"</span><span class="p">,</span> <span class="s2">"LABEL"</span><span class="p">))</span>
 
         <span class="c1"># grab the no-duplicates filter, and exit early if it doesn't exist</span>
         <span class="n">dupsFilter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getDuplicatesFilter</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">dupsFilter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"  </span><span class="si">{0:^10s}</span><span class="s2">   </span><span class="si">{1:^25s}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="s2">"None Found"</span><span class="p">)))</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"------------------------------------"</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"  </span><span class="si">{0:^10s}</span><span class="s2">   </span><span class="si">{1:^25s}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">"0"</span><span class="p">,</span> <span class="s2">"None Found"</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">bar</span><span class="p">)</span>
             <span class="k">return</span>
 
-        <span class="c1"># sort by labcollections.defaultdict(lambda: 1)</span>
+        <span class="c1"># sort warnings by number of occurrences</span>
         <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">dupsFilter</span><span class="o">.</span><span class="n">warningCounts</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">count</span><span class="p">)</span><span class="si">:</span><span class="s2">^10s</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">label</span><span class="p">)</span><span class="si">:</span><span class="s2">^25s</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
             <span class="n">total</span> <span class="o">+=</span> <span class="n">count</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"------------------------------------"</span><span class="p">)</span>
 
         <span class="c1"># add a totals line</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">bar</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">total</span><span class="p">)</span><span class="si">:</span><span class="s2">^10s</span><span class="si">}</span><span class="s2">   Total Number of Warnings"</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"------------------------------------"</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">bar</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="RunLogger.setVerbosity">
