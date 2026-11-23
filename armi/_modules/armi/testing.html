@@ -126,6 +126,7 @@
 <span class="sd">This will not be a catch-all for random unit test functions. Be very sparing here.</span>
 <span class="sd">"""</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
@@ -409,6 +410,127 @@
 
 
 
+<div class="viewcode-block" id="ArmiTestHelper">
+<a class="viewcode-back" href="../../.apidocs/armi.testing.html#armi.testing.ArmiTestHelper">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ArmiTestHelper</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Class containing common testing methods shared by many tests."""</span>
+
+<div class="viewcode-block" id="ArmiTestHelper.compareFilesLineByLine">
+<a class="viewcode-back" href="../../.apidocs/armi.testing.html#armi.testing.ArmiTestHelper.compareFilesLineByLine">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compareFilesLineByLine</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expectedFilePath</span><span class="p">,</span> <span class="n">actualFilePath</span><span class="p">,</span> <span class="n">falseNegList</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Compare the contents of two files line by line.</span>
+
+<span class="sd">        .. warning:: The file located at actualFilePath will be deleted if they do match.</span>
+
+<span class="sd">        Some tests write text files that should be compared line-by-line with reference files. This method performs the</span>
+<span class="sd">        comparison.</span>
+
+<span class="sd">        This class of test is not ideal but does cover a lot of functionality quickly. To assist in the maintenance</span>
+<span class="sd">        burden, the following standards are expected and enforced:</span>
+
+<span class="sd">        * The reference file compared against will be called either ``[name]-ref.[ext]`` or ``[name].expected``.</span>
+<span class="sd">        * The file that the test creates will be called ``[name]-test.[ext]`` or ``[name]``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        expectedFilePath: str</span>
+<span class="sd">            Path to the reference or expected file</span>
+<span class="sd">        actualFilePath: str</span>
+<span class="sd">            Path to the file that will be compared to ``expectedFilePath``</span>
+<span class="sd">        falseNegList: None or Iterable</span>
+<span class="sd">            Optional argument. If two lines are not equal, then check if any values from ``falseNegList`` are in this</span>
+<span class="sd">            line. If so, do not fail the test.</span>
+<span class="sd">        eps: float, optional</span>
+<span class="sd">            If provided, try to determine if the only difference between compared lines is in the value of something</span>
+<span class="sd">            that can be parsed into a float, and the relative difference between the two floats is below the passed eps.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">falseNegList</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">falseNegList</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">falseNegList</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">falseNegList</span> <span class="o">=</span> <span class="p">[</span><span class="n">falseNegList</span><span class="p">]</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">expectedFilePath</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">expected</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">actualFilePath</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">actual</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">lineIndex</span><span class="p">,</span> <span class="p">(</span><span class="n">expectedLine</span><span class="p">,</span> <span class="n">actualLine</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">zip_longest</span><span class="p">(</span><span class="n">expected</span><span class="p">,</span> <span class="n">actual</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">expectedLine</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">"The test-generated file is longer than expected file"</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">actualLine</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">"The test-generated file is shorter than expected file"</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">compareLines</span><span class="p">(</span><span class="n">actualLine</span><span class="p">,</span> <span class="n">expectedLine</span><span class="p">,</span> <span class="n">eps</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">falseNeg</span> <span class="ow">in</span> <span class="n">line</span> <span class="k">for</span> <span class="n">falseNeg</span> <span class="ow">in</span> <span class="n">falseNegList</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="p">(</span><span class="n">actualLine</span><span class="p">,</span> <span class="n">expectedLine</span><span class="p">)):</span>
+                        <span class="k">pass</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span>
+                            <span class="s2">"Error on line </span><span class="si">{}</span><span class="s2">:</span><span class="se">\n</span><span class="s2">E&gt;</span><span class="si">{}</span><span class="se">\n</span><span class="s2">A&lt;</span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                                <span class="n">lineIndex</span><span class="p">,</span> <span class="n">expectedLine</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(),</span> <span class="n">actualLine</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">actualFilePath</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ArmiTestHelper.compareLines">
+<a class="viewcode-back" href="../../.apidocs/armi.testing.html#armi.testing.ArmiTestHelper.compareLines">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compareLines</span><span class="p">(</span><span class="n">actual</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">expected</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">eps</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Impl of line comparison for compareFilesLineByLine.</span>
+
+<span class="sd">        If rstripped lines are equal -&gt; Good. Otherwise, split on whitespace and try to parse element pairs as floats.</span>
+<span class="sd">        If they are both parsable, compare with relative eps, if provided. A side effect of the epsilon comparison is</span>
+<span class="sd">        that differing whitespace between words is treated as irrelevant.</span>
+<span class="sd">        """</span>
+        <span class="n">actual</span> <span class="o">=</span> <span class="n">actual</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="n">expected</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">actual</span> <span class="o">==</span> <span class="n">expected</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="k">if</span> <span class="n">eps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># no more in-depth comparison is allowed</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="n">actualWords</span> <span class="o">=</span> <span class="n">actual</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="n">expectedWords</span> <span class="o">=</span> <span class="n">expected</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">actualWords</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">expectedWords</span><span class="p">):</span>
+            <span class="c1"># different number of words can't possibly be the same enough</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">for</span> <span class="n">actualWord</span><span class="p">,</span> <span class="n">expectedWord</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">actualWords</span><span class="p">,</span> <span class="n">expectedWords</span><span class="p">):</span>
+            <span class="n">actualVal</span> <span class="o">=</span> <span class="n">ArmiTestHelper</span><span class="o">.</span><span class="n">_tryFloat</span><span class="p">(</span><span class="n">actualWord</span><span class="p">)</span>
+            <span class="n">expectedVal</span> <span class="o">=</span> <span class="n">ArmiTestHelper</span><span class="o">.</span><span class="n">_tryFloat</span><span class="p">(</span><span class="n">expectedWord</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">actualVal</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="o">^</span> <span class="p">(</span><span class="n">expectedVal</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+                <span class="c1"># could not coerce both words into a float, so they cannot possibly match</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+            <span class="k">if</span> <span class="n">actualVal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># we have two floats and can compare them</span>
+                <span class="k">if</span> <span class="n">actualVal</span> <span class="o">==</span> <span class="n">expectedVal</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">actualVal</span> <span class="o">-</span> <span class="n">expectedVal</span><span class="p">)</span> <span class="o">/</span> <span class="n">expectedVal</span> <span class="o">&gt;</span> <span class="n">eps</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># strings, compare directly</span>
+                <span class="k">if</span> <span class="n">actualWord</span> <span class="o">!=</span> <span class="n">expectedWord</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># The lines should match.</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_tryFloat</span><span class="p">(</span><span class="n">val</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+
+
 <div class="viewcode-block" id="TestPlugin">
 <a class="viewcode-back" href="../../.apidocs/armi.testing.html#armi.testing.TestPlugin">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TestPlugin</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -476,7 +598,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2026, TerraPower, LLC.
-      <span class="lastupdated">Last updated on 2026-11-20.
+      <span class="lastupdated">Last updated on 2026-11-23.
       </span></p>
   </div>
 
