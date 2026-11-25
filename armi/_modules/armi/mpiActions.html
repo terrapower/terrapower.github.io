@@ -159,6 +159,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">collections</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">gc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">timeit</span>
@@ -167,6 +168,8 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor</span><span class="w"> </span><span class="kn">import</span> <span class="n">reactors</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.reactor.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">parameterDefinitions</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">armi.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">iterables</span><span class="p">,</span> <span class="n">tabulate</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="MpiAction">
@@ -738,7 +741,8 @@
         <span class="n">beforeCollection</span> <span class="o">=</span> <span class="n">timeit</span><span class="o">.</span><span class="n">default_timer</span><span class="p">()</span>
 
         <span class="c1"># force collection; we've just created a bunch of objects that don't need to be used again.</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Forcing garbage collection."</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Forcing garbage collection."</span><span class="p">)</span>
         <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
 
         <span class="n">stop</span> <span class="o">=</span> <span class="n">timeit</span><span class="o">.</span><span class="n">default_timer</span><span class="p">()</span>
@@ -750,12 +754,14 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_distributeSettings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Sending the settings object"</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">cs</span> <span class="o">=</span> <span class="n">cs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">Settings</span><span class="p">):</span>
             <span class="n">runLog</span><span class="o">.</span><span class="n">setVerbosity</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="s2">"verbosity"</span><span class="p">]</span> <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">cs</span><span class="p">[</span><span class="s2">"branchVerbosity"</span><span class="p">])</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Received settings object"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Received settings object"</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Failed to transmit settings, received: </span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cs</span><span class="p">))</span>
 
@@ -764,13 +770,15 @@
         <span class="k">return</span> <span class="n">cs</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_distributeReactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cs</span><span class="p">):</span>
-        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Sending the Reactor object"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Sending the Reactor object"</span><span class="p">)</span>
         <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">reactors</span><span class="o">.</span><span class="n">Reactor</span><span class="p">):</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Received reactor"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Received reactor"</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Failed to transmit reactor, received: </span><span class="si">{}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to transmit reactor, received: </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">MPI_RANK</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="c1"># on the primary node this unfortunately created a __deepcopy__ of the reactor, delete it</span>
@@ -782,7 +790,8 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span>
 
-        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The reactor has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">)</span><span class="si">}</span><span class="s2"> assemblies"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"The reactor has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="o">.</span><span class="n">core</span><span class="p">)</span><span class="si">}</span><span class="s2"> assemblies"</span><span class="p">)</span>
         <span class="c1"># attach here so any interface actions use a properly-setup reactor.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">reattach</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span>  <span class="c1"># sets r and cs</span>
 
@@ -829,19 +838,22 @@
             <span class="n">toRestore</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterfaces</span><span class="p">():</span>
                 <span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">distributable</span><span class="p">()</span> <span class="o">==</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="n">Distribute</span><span class="o">.</span><span class="n">DUPLICATE</span><span class="p">:</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"detaching interface </span><span class="si">{0}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"detaching interface </span><span class="si">{</span><span class="n">i</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                     <span class="n">i</span><span class="o">.</span><span class="n">detachReactor</span><span class="p">()</span>
                     <span class="n">toRestore</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">preDistributeState</span><span class="p">()</span>
 
             <span class="c1"># Verify that the interface stacks are identical.</span>
-            <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Sending the interface names and flags"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Sending the interface names and flags"</span><span class="p">)</span>
             <span class="n">_dumIList</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">broadcast</span><span class="p">([(</span><span class="n">i</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">i</span><span class="o">.</span><span class="n">distributable</span><span class="p">())</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterfaces</span><span class="p">()])</span>
 
             <span class="c1"># transmit interfaces</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterfaces</span><span class="p">():</span>
                 <span class="c1"># avoid sending things that don't pickle, like the database.</span>
                 <span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">distributable</span><span class="p">()</span> <span class="o">==</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="n">Distribute</span><span class="o">.</span><span class="n">DUPLICATE</span><span class="p">:</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Sending the interface </span><span class="si">{0}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Sending the interface </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                     <span class="n">_idum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>  <span class="c1"># don't send the reactor or operator</span>
                     <span class="n">i</span><span class="o">.</span><span class="n">postDistributeState</span><span class="p">(</span><span class="n">toRestore</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
                     <span class="n">i</span><span class="o">.</span><span class="n">attachReactor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">)</span>
@@ -854,16 +866,19 @@
                 <span class="n">iOld</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">getInterface</span><span class="p">(</span><span class="n">iName</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">distributable</span> <span class="o">==</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="n">Distribute</span><span class="o">.</span><span class="n">DUPLICATE</span><span class="p">:</span>
                     <span class="c1"># expect a transmission of the interface as a whole.</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Receiving new </span><span class="si">{0}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">iName</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Receiving new </span><span class="si">{</span><span class="n">iName</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                     <span class="n">iNew</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Received </span><span class="si">{0}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">iNew</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Received </span><span class="si">{</span><span class="n">iNew</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">iNew</span> <span class="o">==</span> <span class="s2">"quit"</span><span class="p">:</span>
                         <span class="k">return</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">removeInterface</span><span class="p">(</span><span class="n">iOld</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">addInterface</span><span class="p">(</span><span class="n">iNew</span><span class="p">)</span>
                     <span class="n">iNew</span><span class="o">.</span><span class="n">interactDistributeState</span><span class="p">()</span>
                 <span class="k">elif</span> <span class="n">distributable</span> <span class="o">==</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">Interface</span><span class="o">.</span><span class="n">Distribute</span><span class="o">.</span><span class="n">NEW</span><span class="p">:</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Initializing new interface </span><span class="si">{0}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">iName</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Initializing new interface </span><span class="si">{</span><span class="n">iName</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                     <span class="c1"># make a fresh instance of the non-transmittable interface.</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">o</span><span class="o">.</span><span class="n">removeInterface</span><span class="p">(</span><span class="n">iOld</span><span class="p">)</span>
                     <span class="n">iNew</span> <span class="o">=</span> <span class="n">iOld</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cs</span><span class="p">)</span>
@@ -878,7 +893,8 @@
                     <span class="n">iNew</span><span class="o">.</span><span class="n">interactInit</span><span class="p">()</span>
                     <span class="n">iNew</span><span class="o">.</span><span class="n">interactBOL</span><span class="p">()</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Skipping broadcast of interface </span><span class="si">{0}</span><span class="s2">"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">iName</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                        <span class="n">runLog</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Skipping broadcast of interface </span><span class="si">{</span><span class="n">iName</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
                     <span class="k">if</span> <span class="n">iOld</span><span class="p">:</span>
                         <span class="n">iOld</span><span class="o">.</span><span class="n">interactDistributeState</span><span class="p">()</span></div>
 
